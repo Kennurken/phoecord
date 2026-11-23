@@ -101,6 +101,10 @@ plugin-desc-commands = Слэш-команда /phoecord: plugins, toggle
 plugin-desc-i_love_spam = Не скрывает сообщения «вероятных спамеров»
 plugin-desc-no_blocked_messages = Полностью скрывает сообщения заблокированных и игнорируемых пользователей
 plugin-desc-no_reply_mention = По умолчанию отключает уведомление автору при ответе
+plugin-desc-text_replace = Заменяет текст в отправляемых сообщениях по вашим правилам
+plugin-desc-send_timestamps = Превращает `12:34` в сообщениях в метку времени Discord
+plugin-desc-anonymise_file_names = Заменяет имена загружаемых файлов на случайные, расширение сохраняется
+plugin-desc-silent_message_toggle = Отправляет сообщения без уведомлений
 
 # CLI: log
 cli-log-empty = пока ничего не записано ({ $path })

@@ -7,6 +7,7 @@
 
 use phoecord_core::Plugin;
 
+pub mod anonymise_file_names;
 pub mod clear_urls;
 pub mod commands;
 pub mod fake_nitro;
@@ -17,10 +18,18 @@ pub mod no_blocked_messages;
 pub mod no_reply_mention;
 pub mod no_track;
 pub mod relationship_notifier;
+pub mod send_timestamps;
+pub mod silent_message_toggle;
 pub mod silent_typing;
+pub mod text_replace;
+
+#[cfg(test)]
+mod testutil;
 
 /// Every built-in plugin, in default run order.
 pub fn builtin() -> Vec<Box<dyn Plugin>> {
+    let silent = silent_message_toggle::SilentMessageToggle::new();
+    let silent_command = silent.command();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(silent_typing::SilentTyping::new()),
@@ -32,6 +41,10 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(i_love_spam::ILoveSpam::new()),
         Box::new(no_blocked_messages::NoBlockedMessages::new()),
         Box::new(no_reply_mention::NoReplyMention::new()),
+        Box::new(text_replace::TextReplace::new()),
+        Box::new(send_timestamps::SendTimestamps::new()),
+        Box::new(anonymise_file_names::AnonymiseFileNames::new()),
+        Box::new(silent),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
@@ -41,7 +54,9 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         .map(|p| commands::PluginInfo::of(p.as_ref()))
         .collect();
     infos.push(commands::PluginInfo::of(&commands));
-    plugins.push(Box::new(commands::Commands::new(infos)));
+    plugins.push(Box::new(
+        commands::Commands::new(infos).with(silent_command),
+    ));
     plugins
 }
 
