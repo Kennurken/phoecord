@@ -11,7 +11,10 @@ pub mod clear_urls;
 pub mod commands;
 pub mod fake_nitro;
 pub mod game_activity_toggle;
+pub mod i_love_spam;
 pub mod message_logger;
+pub mod no_blocked_messages;
+pub mod no_reply_mention;
 pub mod no_track;
 pub mod relationship_notifier;
 pub mod silent_typing;
@@ -26,6 +29,9 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(relationship_notifier::RelationshipNotifier::new()),
         Box::new(fake_nitro::FakeNitro::new()),
         Box::new(message_logger::MessageLogger::new()),
+        Box::new(i_love_spam::ILoveSpam::new()),
+        Box::new(no_blocked_messages::NoBlockedMessages::new()),
+        Box::new(no_reply_mention::NoReplyMention::new()),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
