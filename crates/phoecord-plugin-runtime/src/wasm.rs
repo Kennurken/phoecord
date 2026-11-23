@@ -11,6 +11,7 @@ use phoecord_core::{
     Event, EventKind, Host, HostResponse, Layer, Manifest, Plugin, Val, Verdict,
     plugin::API_VERSION,
 };
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
@@ -237,6 +238,10 @@ enum HostCall {
     ChannelGuild(u64),
     Fetch(String, String, Option<Val>),
     Rest(String, String, Option<Val>),
+    EmitDispatch(Val),
+    PluginEnabled(String),
+    SetPluginEnabled(String, bool),
+    AppendData(String, String),
 }
 
 enum HostReply {
@@ -245,6 +250,8 @@ enum HostReply {
     Id(Option<u64>),
     Ids(Vec<u64>),
     Response(Result<HostResponse, String>),
+    Flag(Option<bool>),
+    Done(Result<(), String>),
 }
 
 /// Caller to worker.
@@ -256,7 +263,8 @@ enum Down {
 /// Worker to caller.
 enum Up {
     Host(HostCall),
-    Done(Result<wit::Outcome, String>),
+    /// The outcome and how long the guest itself ran (host calls excluded).
+    Done(Result<wit::Outcome, String>, Duration),
 }
 
 struct Job {
@@ -272,7 +280,8 @@ struct State {
     /// When the current job started, and how long it has spent waiting for the host since.
     started: Instant,
     host_wait: Duration,
-    timeout: Duration,
+    /// The hard ceiling: past this the guest is interrupted.
+    hard_timeout: Duration,
     rights: Vec<Right>,
     /// Rights a call was refused for, so each is logged once.
     refused: Vec<Right>,
@@ -318,6 +327,14 @@ impl State {
 
     fn call_unit(&mut self, call: HostCall) -> Result<(), String> {
         self.call(call).map(|_| ())
+    }
+
+    /// A call whose answer is the host's own `Result`.
+    fn call_done(&mut self, call: HostCall) -> Result<(), String> {
+        match self.call(call)? {
+            HostReply::Done(r) => r,
+            _ => Err("unexpected host reply".into()),
+        }
     }
 
     fn call_response(&mut self, call: HostCall) -> Result<wit::HostResponse, String> {
@@ -401,6 +418,25 @@ impl wit_host::Host for State {
         let body = body.as_ref().map(tree_to_val).transpose()?;
         self.call_response(HostCall::Rest(method, route, body))
     }
+    fn emit_dispatch(&mut self, payload: wit::Tree) -> Result<(), String> {
+        self.allow(Right::EmitDispatch)?;
+        self.call_done(HostCall::EmitDispatch(tree_to_val(&payload)?))
+    }
+    fn plugin_enabled(&mut self, id: String) -> Result<Option<bool>, String> {
+        self.allow(Right::Plugins)?;
+        match self.call(HostCall::PluginEnabled(id))? {
+            HostReply::Flag(on) => Ok(on),
+            _ => Err("unexpected host reply".into()),
+        }
+    }
+    fn set_plugin_enabled(&mut self, id: String, on: bool) -> Result<(), String> {
+        self.allow(Right::Plugins)?;
+        self.call_done(HostCall::SetPluginEnabled(id, on))
+    }
+    fn append_data(&mut self, file: String, line: String) -> Result<(), String> {
+        self.allow(Right::Data)?;
+        self.call_done(HostCall::AppendData(file, line))
+    }
 }
 
 /// Start the clock for one guest call.
@@ -437,6 +473,13 @@ fn serve(host: &mut dyn Host, call: HostCall) -> HostReply {
         HostCall::ChannelGuild(c) => HostReply::Id(host.channel_guild(c)),
         HostCall::Fetch(m, u, b) => HostReply::Response(host.fetch(&m, &u, b.as_ref())),
         HostCall::Rest(m, r, b) => HostReply::Response(host.rest(&m, &r, b.as_ref())),
+        HostCall::EmitDispatch(p) => {
+            host.emit_dispatch(p);
+            HostReply::Done(Ok(()))
+        }
+        HostCall::PluginEnabled(id) => HostReply::Flag(host.plugin_enabled(&id)),
+        HostCall::SetPluginEnabled(id, on) => HostReply::Done(host.set_plugin_enabled(&id, on)),
+        HostCall::AppendData(f, l) => HostReply::Done(host.append_data(&f, &l)),
     }
 }
 
@@ -447,9 +490,18 @@ fn serve(host: &mut dyn Host, call: HostCall) -> HostReply {
 /// Limits applied to every WASM plugin.
 #[derive(Clone, Copy, Debug)]
 pub struct WasmLimits {
-    /// CPU time one event may take in the guest (time spent in host calls does not count).
-    /// Enforced with epoch interruption, so it is accurate to about a millisecond.
+    /// Soft limit: time one event may take in the guest (time spent in host calls does not count).
+    /// An event that takes longer is an *overrun*: it is logged with the measured time and counts
+    /// as a strike (see `max_overruns`), but the event is still answered. Measured as wall time,
+    /// so a loaded machine can inflate it; that is why one overrun is not fatal.
     pub event_timeout: Duration,
+    /// Hard ceiling: a guest still running after this long is interrupted and disabled at once
+    /// (an endless loop). Enforced with epoch interruption, accurate to about a millisecond.
+    pub hard_timeout: Duration,
+    /// Overruns within `overrun_window` that disable the plugin.
+    pub max_overruns: usize,
+    /// How far back overruns count.
+    pub overrun_window: Duration,
     /// Most linear memory a guest may grow to, in bytes.
     pub memory: usize,
 }
@@ -457,7 +509,10 @@ pub struct WasmLimits {
 impl Default for WasmLimits {
     fn default() -> Self {
         WasmLimits {
-            event_timeout: Duration::from_millis(5),
+            event_timeout: Duration::from_millis(50),
+            hard_timeout: Duration::from_secs(1),
+            max_overruns: 3,
+            overrun_window: Duration::from_secs(60),
             memory: 32 << 20,
         }
     }
@@ -554,16 +609,25 @@ pub enum Right {
     Fetch,
     /// `rest`.
     Rest,
+    /// `emit_dispatch`.
+    EmitDispatch,
+    /// `plugin_enabled`, `set_plugin_enabled`: reading and toggling other plugins.
+    Plugins,
+    /// `append_data`.
+    Data,
 }
 
 impl Right {
-    pub const ALL: [Right; 6] = [
+    pub const ALL: [Right; 9] = [
         Right::Kv,
         Right::Notify,
         Right::EmitSend,
         Right::Guilds,
         Right::Fetch,
         Right::Rest,
+        Right::EmitDispatch,
+        Right::Plugins,
+        Right::Data,
     ];
 
     /// The name used in `plugin.toml`.
@@ -575,6 +639,9 @@ impl Right {
             Right::Guilds => "guilds",
             Right::Fetch => "fetch",
             Right::Rest => "rest",
+            Right::EmitDispatch => "emit_dispatch",
+            Right::Plugins => "plugins",
+            Right::Data => "data",
         }
     }
 
@@ -633,6 +700,9 @@ pub struct WasmPlugin {
     events: EventFilter,
     worker: Mutex<Worker>,
     disabled: AtomicBool,
+    limits: WasmLimits,
+    /// When recent overruns happened.
+    overruns: Mutex<VecDeque<Instant>>,
 }
 
 impl WasmPlugin {
@@ -672,17 +742,17 @@ impl WasmPlugin {
                             .build(),
                         started: Instant::now(),
                         host_wait: Duration::ZERO,
-                        timeout: limits.event_timeout,
+                        hard_timeout: limits.hard_timeout,
                         rights,
                         refused: Vec::new(),
                     },
                 );
                 store.limiter(|s| &mut s.limits);
                 // Runs on every epoch tick the guest is executing through: trap once the guest
-                // itself has used up its time.
+                // itself has used up its hard ceiling.
                 store.epoch_deadline_callback(|ctx| {
                     let s = ctx.data();
-                    if s.started.elapsed().saturating_sub(s.host_wait) > s.timeout {
+                    if s.started.elapsed().saturating_sub(s.host_wait) > s.hard_timeout {
                         Err(Trap::Interrupt.into())
                     } else {
                         Ok(UpdateDeadline::Continue(1))
@@ -723,7 +793,9 @@ impl WasmPlugin {
                         })
                         .map_err(|e| format!("{e:#}"));
                     let failed = result.is_err();
-                    if store.data().up.send(Up::Done(result)).is_err() || failed {
+                    let s = store.data();
+                    let guest_time = s.started.elapsed().saturating_sub(s.host_wait);
+                    if s.up.send(Up::Done(result, guest_time)).is_err() || failed {
                         break;
                     }
                 }
@@ -750,6 +822,8 @@ impl WasmPlugin {
                 thread: Some(thread),
             }),
             disabled: AtomicBool::new(false),
+            limits,
+            overruns: Mutex::new(VecDeque::new()),
         })
     }
 
@@ -760,6 +834,40 @@ impl WasmPlugin {
 
     /// Send one job to the worker and serve its host calls until it answers.
     fn run_job(&self, host: &mut dyn Host, job: Job) -> Result<wit::Outcome, String> {
+        let (outcome, guest_time) = self.run_timed(host, job)?;
+        if guest_time > self.limits.event_timeout {
+            self.overrun(host, guest_time)?;
+        }
+        Ok(outcome)
+    }
+
+    /// Count an overrun; `Err` once there are too many in the window.
+    fn overrun(&self, host: &mut dyn Host, took: Duration) -> Result<(), String> {
+        let now = Instant::now();
+        let mut recent = self.overruns.lock().unwrap();
+        while recent
+            .front()
+            .is_some_and(|t| now.duration_since(*t) > self.limits.overrun_window)
+        {
+            recent.pop_front();
+        }
+        recent.push_back(now);
+        let (n, max) = (recent.len(), self.limits.max_overruns);
+        host.log(&format!(
+            "plugin {} took {:.1?} for one event (limit {:.1?}), overrun {n} of {max}",
+            self.manifest.id, took, self.limits.event_timeout
+        ));
+        if n >= max {
+            Err(format!(
+                "{n} overruns within {:.0?} (limit {:.1?} per event)",
+                self.limits.overrun_window, self.limits.event_timeout
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn run_timed(&self, host: &mut dyn Host, job: Job) -> Result<(wit::Outcome, Duration), String> {
         let worker = self
             .worker
             .lock()
@@ -768,7 +876,7 @@ impl WasmPlugin {
         loop {
             match worker.up.recv() {
                 Ok(Up::Host(call)) => worker.send(Down::Reply(serve(host, call)))?,
-                Ok(Up::Done(result)) => return result,
+                Ok(Up::Done(result, took)) => return result.map(|o| (o, took)),
                 Err(_) => return Err("the plugin worker is gone".into()),
             }
         }
