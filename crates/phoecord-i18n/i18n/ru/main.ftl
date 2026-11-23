@@ -147,3 +147,17 @@ cli-selftest-err-expected-hello = ожидался HELLO, получен op { $o
 terms-prompt = Введите `да` (или `yes`), чтобы принять условия и установить; всё остальное отменяет:
 terms-declined = Условия не приняты; ничего не установлено.
 cli-arg-accept-terms = Не спрашивать про условия: вы прочитали TERMS.ru.md и принимаете их
+
+# Исправления 1.4.8
+cli-uninstall-stopped = остановлен прокси PhoeCord (процесс { $pid })
+cli-uninstall-stop-failed = не удалось остановить работающий прокси PhoeCord: { $why }
+cli-arg-channel = Какой Discord запустить: stable, ptb или canary (нужно, если установлено несколько)
+cli-err-channel-not-installed = Discord { $channel } не установлен
+cli-err-several-clients = установлено несколько клиентов Discord, поэтому ни один не выбран за вас. Укажите --channel:
+    { $list }
+cli-proxy-reused = Прокси PhoeCord (версия { $version }) уже работает на { $listen }; запускаю Discord через него.
+cli-err-port-taken = Адрес { $listen } занят другой программой, не PhoeCord. Закройте её или измените `listen` в config.toml.
+cli-arg-setup-channel = Добавить ярлык в меню «Пуск», который запускает этот Discord через PhoeCord: stable, ptb или canary (по умолчанию: единственный установленный)
+cli-shortcut-created = ярлык «{ $name }» добавлен: { $path }
+cli-shortcut-unsupported = В этой системе ярлык не создаётся; запускайте Discord командой `phoecord launch --channel { $channel }`.
+cli-shortcut-skipped = Ярлык не добавлен: { $why }

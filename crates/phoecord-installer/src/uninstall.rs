@@ -6,7 +6,7 @@
 use crate::log::{Entry, InstallLog, Step};
 use crate::system::{Env, System};
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default)]
 pub struct UninstallReport {
@@ -17,6 +17,10 @@ pub struct UninstallReport {
     /// `(step, why)` for steps that could not be undone; they remain in the log. `why` is the
     /// system's own error text.
     pub failed: Vec<(Step, String)>,
+    /// Process ids of running PhoeCord proxies that were stopped first.
+    pub stopped: Vec<u32>,
+    /// Why the running proxies could not be stopped (the files are removed anyway).
+    pub stop_failed: Option<String>,
 }
 
 /// Why a step was not undone but is not an error.
@@ -41,7 +45,7 @@ impl Kept {
 
 impl UninstallReport {
     pub fn is_clean(&self) -> bool {
-        self.failed.is_empty()
+        self.failed.is_empty() && self.stop_failed.is_none()
     }
 }
 
@@ -92,7 +96,14 @@ pub fn uninstall_all(env: &Env, sys: &dyn System) -> Result<UninstallReport> {
     let log = InstallLog::in_dir(&env.data_dir);
     let entries = log.read()?;
     let mut report = UninstallReport::default();
+    // A proxy that keeps running holds the port and the CA in memory: stop it before undoing anything.
+    match sys.stop_proxies(&proxy_exes(env, &entries)) {
+        Ok(pids) => report.stopped = pids,
+        Err(e) => report.stop_failed = Some(format!("{e:#}")),
+    }
     let mut failed: Vec<Entry> = Vec::new(); // newest first
+    remove_own_ca_files(env, &entries, &mut report);
+    let had_log = log.path().exists();
     for (i, entry) in entries.iter().enumerate().rev() {
         // The log lives in the data folder: once nothing but folders and the log are left to undo,
         // it goes too, or the folder could never be removed.
@@ -101,8 +112,11 @@ pub fn uninstall_all(env: &Env, sys: &dyn System) -> Result<UninstallReport> {
             && entries[..i]
                 .iter()
                 .all(|e| matches!(e.step, Step::Dir { .. }))
+            && std::fs::remove_file(log.path()).is_ok()
         {
-            let _ = std::fs::remove_file(log.path());
+            report.removed.push(Step::File {
+                path: log.path().to_path_buf(),
+            });
         }
         let is_data_dir = matches!(&entry.step, Step::Dir { path } if *path == env.data_dir);
         let outcome = if is_data_dir && !failed.is_empty() {
@@ -132,7 +146,86 @@ pub fn uninstall_all(env: &Env, sys: &dyn System) -> Result<UninstallReport> {
             let _ = log.rewrite(&rest);
         }
     }
+    if failed.is_empty() {
+        remove_leftovers(env, &log, had_log, &mut report);
+    }
     Ok(report)
+}
+
+/// The binaries that may be running as the proxy: the one recorded in the autostart entry, and the
+/// current one.
+fn proxy_exes(env: &Env, entries: &[Entry]) -> Vec<PathBuf> {
+    let mut out = vec![env.proxy_exe.clone()];
+    let mut add = |p: Option<PathBuf>| {
+        if let Some(p) = p.filter(|p| !out.contains(p)) {
+            out.push(p);
+        }
+    };
+    for e in entries {
+        match &e.step {
+            Step::RunKey { value, .. } => {
+                // `"<exe>" run`
+                add(value
+                    .strip_prefix('"')
+                    .and_then(|v| v.split_once('"'))
+                    .map(|(exe, _)| PathBuf::from(exe)));
+            }
+            Step::LaunchAgent { plist, .. } => {
+                let text = std::fs::read_to_string(plist).unwrap_or_default();
+                let after = text.split("<array>").nth(1).unwrap_or("");
+                add(after
+                    .split_once("<string>")
+                    .and_then(|(_, r)| r.split_once("</string>"))
+                    .map(|(exe, _)| PathBuf::from(exe)));
+            }
+            Step::File { path } if path.extension().is_some_and(|x| x == "service") => {
+                let text = std::fs::read_to_string(path).unwrap_or_default();
+                add(text
+                    .lines()
+                    .find_map(|l| l.strip_prefix("ExecStart=\""))
+                    .and_then(|l| l.split_once('"'))
+                    .map(|(exe, _)| PathBuf::from(exe)));
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// `ca.pem` and `ca.key` in the data folder are PhoeCord's by definition, whichever command made them
+/// (`launch`, `run` and `paths` create the CA too, and only `setup` logs). Files the log lists are
+/// undone by their own step.
+fn remove_own_ca_files(env: &Env, entries: &[Entry], report: &mut UninstallReport) {
+    for name in ["ca.pem", "ca.key"] {
+        let path = env.data_dir.join(name);
+        let logged = entries
+            .iter()
+            .any(|e| matches!(&e.step, Step::File { path: p } if *p == path));
+        if !logged && std::fs::remove_file(&path).is_ok() {
+            report.removed.push(Step::File { path });
+        }
+    }
+}
+
+/// With every step undone: drop `install.log` if still there and the data folder if it is empty
+/// (it may predate PhoeCord's log). `config.toml` and anything else the user put there stays.
+fn remove_leftovers(env: &Env, log: &InstallLog, had_log: bool, report: &mut UninstallReport) {
+    // The loop deletes the log itself once nothing is left to write to it; report it all the same.
+    let _ = std::fs::remove_file(log.path());
+    let already = report
+        .removed
+        .iter()
+        .any(|s| matches!(s, Step::File { path } if path == log.path()));
+    if had_log && !already {
+        report.removed.push(Step::File {
+            path: log.path().to_path_buf(),
+        });
+    }
+    if std::fs::remove_dir(&env.data_dir).is_ok() {
+        report.removed.push(Step::Dir {
+            path: env.data_dir.clone(),
+        });
+    }
 }
 
 #[cfg(test)]
@@ -242,12 +335,113 @@ mod tests {
     }
 
     #[test]
+    fn removes_ca_files_made_by_launch_and_keeps_the_users_config() {
+        let t = tempfile::tempdir().unwrap();
+        let e = env(Os::Linux, t.path());
+        // `launch` made the CA before `setup` ran, so the log never claimed it.
+        phoecord_proxy::ca::Authority::load_or_create(&e.data_dir).unwrap();
+        std::fs::write(e.data_dir.join("config.toml"), b"x").unwrap();
+        let sys = FakeSystem::default();
+        install(&e, &sys).unwrap();
+        let r = uninstall_all(&e, &sys).unwrap();
+        assert!(r.is_clean(), "{:?}", r.failed);
+        for gone in ["ca.pem", "ca.key", "install.log"] {
+            assert!(!e.data_dir.join(gone).exists(), "{gone} left");
+            assert!(
+                r.removed
+                    .iter()
+                    .any(|s| matches!(s, Step::File { path } if path.ends_with(gone))),
+                "{gone} not reported: {:?}",
+                r.removed
+            );
+        }
+        assert!(e.data_dir.join("config.toml").is_file());
+        assert!(e.data_dir.exists());
+    }
+
+    #[test]
+    fn removes_unlogged_ca_and_the_empty_folder_without_any_log() {
+        let t = tempfile::tempdir().unwrap();
+        let e = env(Os::Linux, t.path());
+        phoecord_proxy::ca::Authority::load_or_create(&e.data_dir).unwrap();
+        let r = uninstall_all(&e, &FakeSystem::default()).unwrap();
+        assert!(r.is_clean());
+        assert!(!e.data_dir.exists());
+        assert!(
+            r.removed
+                .iter()
+                .any(|s| matches!(s, Step::Dir { path } if *path == e.data_dir))
+        );
+    }
+
+    #[test]
+    fn stops_running_proxies_first_and_reports_them() {
+        let t = tempfile::tempdir().unwrap();
+        let e = env(Os::Windows, t.path());
+        let sys = FakeSystem::default();
+        install(&e, &sys).unwrap();
+        // The Run key may name another binary than the one running uninstall.
+        let log = InstallLog::in_dir(&e.data_dir);
+        let mut entries = log.read().unwrap();
+        for en in &mut entries {
+            if let Step::RunKey { value, .. } = &mut en.step {
+                *value = "\"D:/old/phoecord.exe\" run".into();
+            }
+        }
+        log.rewrite(&entries).unwrap();
+        *sys.running.borrow_mut() = vec![4242];
+        let r = uninstall_all(&e, &sys).unwrap();
+        assert_eq!(r.stopped, vec![4242]);
+        assert!(r.is_clean());
+        let calls = sys.calls();
+        let stop = calls
+            .iter()
+            .position(|c| c.starts_with("stop_proxies"))
+            .unwrap();
+        assert_eq!(
+            stop,
+            calls.len()
+                - calls
+                    .iter()
+                    .rev()
+                    .position(|c| c.starts_with("stop_proxies"))
+                    .unwrap()
+                - 1
+        );
+        assert!(stop < calls.iter().position(|c| c == "untrust_ca").unwrap());
+        assert!(
+            calls[stop].contains("D:/old/phoecord.exe"),
+            "{}",
+            calls[stop]
+        );
+        assert!(calls[stop].contains(&e.proxy_exe.display().to_string()));
+    }
+
+    #[test]
+    fn a_proxy_that_cannot_be_stopped_is_reported_and_the_rest_still_runs() {
+        let t = tempfile::tempdir().unwrap();
+        let e = env(Os::Linux, t.path());
+        let sys = FakeSystem::default();
+        install(&e, &sys).unwrap();
+        *sys.fail_on.borrow_mut() = Some("stop_proxies".into());
+        let r = uninstall_all(&e, &sys).unwrap();
+        assert!(r.stop_failed.is_some() && !r.is_clean());
+        assert!(!e.data_dir.join("ca.key").exists());
+        assert!(sys.calls().contains(&"untrust_ca".to_string()));
+    }
+
+    #[test]
     fn nothing_logged_means_nothing_to_do() {
         let t = tempfile::tempdir().unwrap();
         let e = env(Os::Linux, t.path());
         let sys = FakeSystem::default();
         let r = uninstall_all(&e, &sys).unwrap();
         assert!(r.removed.is_empty() && r.kept.is_empty() && r.is_clean());
-        assert!(sys.calls().is_empty());
+        assert!(r.stopped.is_empty());
+        // Only the look for a running proxy; nothing else touched.
+        assert_eq!(
+            sys.calls(),
+            vec![format!("stop_proxies {}", e.proxy_exe.display())]
+        );
     }
 }

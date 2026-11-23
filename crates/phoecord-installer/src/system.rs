@@ -38,6 +38,10 @@ pub struct Env {
     pub config_home: PathBuf,
     /// The `phoecord` binary that autostart runs as `phoecord run`.
     pub proxy_exe: PathBuf,
+    /// Windows: the user's Start Menu `Programs` folder.
+    pub start_menu: PathBuf,
+    /// Linux: the user's `applications` folder (`$XDG_DATA_HOME/applications`).
+    pub applications_dir: PathBuf,
 }
 
 impl Env {
@@ -47,8 +51,14 @@ impl Env {
             os: Os::current(),
             data_dir: phoecord_proxy::config::Paths::resolve().data,
             config_home: dirs::config_dir().unwrap_or_else(|| home.join(".config")),
-            home,
             proxy_exe: std::env::current_exe().context("cannot find the phoecord binary")?,
+            start_menu: dirs::data_dir()
+                .unwrap_or_else(|| home.join("AppData/Roaming"))
+                .join("Microsoft/Windows/Start Menu/Programs"),
+            applications_dir: dirs::data_dir()
+                .unwrap_or_else(|| home.join(".local/share"))
+                .join("applications"),
+            home,
         })
     }
 }
@@ -67,6 +77,70 @@ pub trait System {
     /// Linux: `systemctl --user enable --now <unit>`.
     fn systemd_enable(&self, unit: &str) -> Result<()>;
     fn systemd_disable(&self, unit: &str) -> Result<()>;
+    /// Stop the PhoeCord proxy processes (`<exe> run` or `<exe> launch ...`) of the binaries in
+    /// `exes`, except the calling process. Returns the process ids stopped; none running is `Ok([])`.
+    fn stop_proxies(&self, exes: &[PathBuf]) -> Result<Vec<u32>>;
+    /// Windows: create (or overwrite) the shortcut `lnk` that runs `target` with `args`.
+    fn shortcut_create(
+        &self,
+        lnk: &Path,
+        target: &Path,
+        args: &str,
+        description: &str,
+    ) -> Result<()>;
+}
+
+/// The process ids in `listing` (lines of pid, a tab or space, command line) that run one of `exes` as a proxy:
+/// the command is `<exe> run` or `<exe> launch ...`, possibly after global options. `own` is skipped.
+pub fn select_proxy_pids(listing: &str, exes: &[PathBuf], os: Os, own: u32) -> Vec<u32> {
+    let norm = |s: &str| {
+        let s = s.trim().trim_matches('"').to_string();
+        if os == Os::Windows {
+            s.to_lowercase().replace('/', "\\")
+        } else {
+            s
+        }
+    };
+    let exes: Vec<String> = exes
+        .iter()
+        .map(|e| norm(&e.display().to_string()))
+        .collect();
+    let mut pids = Vec::new();
+    for line in listing.lines() {
+        let Some((pid, cmd)) = line.trim().split_once(|c: char| c.is_whitespace()) else {
+            continue;
+        };
+        let Ok(pid) = pid.parse::<u32>() else {
+            continue;
+        };
+        let cmd = cmd.trim_start();
+        // The command line starts with the exe, quoted or not; paths may hold spaces.
+        let (prog, rest) = if let Some(q) = cmd.strip_prefix('"') {
+            match q.split_once('"') {
+                Some((p, r)) => (norm(p), r.to_string()),
+                None => continue,
+            }
+        } else {
+            let n = norm(cmd);
+            match exes.iter().find(|e| n.starts_with(e.as_str())) {
+                Some(e) => (e.clone(), n[e.len()..].to_string()),
+                None => continue,
+            }
+        };
+        if pid == own || !exes.contains(&prog) {
+            continue;
+        }
+        let mut words = rest.split_whitespace();
+        let mut first = words.next();
+        while first.is_some_and(|w| w == "--lang") {
+            words.next();
+            first = words.next();
+        }
+        if matches!(first, Some("run" | "launch")) {
+            pids.push(pid);
+        }
+    }
+    pids
 }
 
 const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
@@ -121,6 +195,46 @@ impl System for RealSystem {
     fn systemd_disable(&self, unit: &str) -> Result<()> {
         run(Command::new("systemctl").args(["--user", "disable", "--now", unit]))
     }
+
+    fn shortcut_create(
+        &self,
+        lnk: &Path,
+        target: &Path,
+        args: &str,
+        description: &str,
+    ) -> Result<()> {
+        run(Command::new("powershell").args([
+            "-NoProfile",
+            "-Command",
+            &crate::shortcut::lnk_script(lnk, target, args, description),
+        ]))
+    }
+
+    fn stop_proxies(&self, exes: &[PathBuf]) -> Result<Vec<u32>> {
+        let os = Os::current();
+        let out = if os == Os::Windows {
+            Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-Command",
+                    "Get-CimInstance Win32_Process -Filter \"Name='phoecord.exe'\" |                      ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }",
+                ])
+                .output()
+        } else {
+            Command::new("ps").args(["-eo", "pid=,args="]).output()
+        }
+        .context("listing processes")?;
+        let listing = String::from_utf8_lossy(&out.stdout);
+        let pids = select_proxy_pids(&listing, exes, os, std::process::id());
+        for pid in &pids {
+            if os == Os::Windows {
+                run(Command::new("taskkill").args(["/PID", &pid.to_string(), "/F"]))?;
+            } else {
+                run(Command::new("kill").arg(pid.to_string()))?;
+            }
+        }
+        Ok(pids)
+    }
 }
 
 #[cfg(test)]
@@ -133,6 +247,8 @@ pub mod fake {
     pub struct FakeSystem {
         pub calls: RefCell<Vec<String>>,
         pub fail_on: RefCell<Option<String>>,
+        /// Process ids `stop_proxies` finds running (and stops).
+        pub running: RefCell<Vec<u32>>,
     }
 
     impl FakeSystem {
@@ -174,6 +290,27 @@ pub mod fake {
         fn systemd_disable(&self, unit: &str) -> Result<()> {
             self.hit(format!("systemd_disable {unit}"))
         }
+        fn shortcut_create(
+            &self,
+            lnk: &Path,
+            target: &Path,
+            args: &str,
+            _description: &str,
+        ) -> Result<()> {
+            self.hit(format!(
+                "shortcut_create {} {} {args}",
+                lnk.display(),
+                target.display()
+            ))?;
+            // Stand-in for the .lnk the real system makes, so that uninstall has a file to remove.
+            std::fs::write(lnk, b"lnk")?;
+            Ok(())
+        }
+        fn stop_proxies(&self, exes: &[PathBuf]) -> Result<Vec<u32>> {
+            let list: Vec<_> = exes.iter().map(|e| e.display().to_string()).collect();
+            self.hit(format!("stop_proxies {}", list.join(",")))?;
+            Ok(std::mem::take(&mut *self.running.borrow_mut()))
+        }
     }
 
     /// An `Env` rooted in a temporary folder.
@@ -184,6 +321,35 @@ pub mod fake {
             home: root.join("home"),
             config_home: root.join("home/.config"),
             proxy_exe: root.join("bin/phoecord"),
+            start_menu: root.join("appdata/Start Menu/Programs"),
+            applications_dir: root.join("home/.local/share/applications"),
         }
+    }
+
+    #[test]
+    fn selects_only_proxy_processes_of_our_binaries() {
+        let exes = [
+            PathBuf::from("C:/Users/a b/phoecord.exe"),
+            PathBuf::from("D:/x/phoecord.exe"),
+        ];
+        let listing = [
+            r#"10	"C:\Users\a b\phoecord.exe" run"#,
+            r"11	C:\Users\a b\phoecord.exe launch --channel canary",
+            r#"12	"c:\users\a b\PHOECORD.EXE" --lang ru run"#,
+            r#"13	"C:\Users\a b\phoecord.exe" uninstall"#,
+            r#"14	"E:\other\phoecord.exe" run"#,
+            r#"15	"D:\x\phoecord.exe" run"#,
+            r#"99	"D:\x\phoecord.exe" run"#,
+        ]
+        .join("\n");
+        assert_eq!(
+            select_proxy_pids(&listing, &exes, Os::Windows, 99),
+            vec![10, 11, 12, 15]
+        );
+        let ps = " 7 /home/u/bin/phoecord run\n 8 /home/u/bin/phoecord plugins\n 9 /usr/bin/phoecord run\n";
+        assert_eq!(
+            select_proxy_pids(ps, &[PathBuf::from("/home/u/bin/phoecord")], Os::Linux, 1),
+            vec![7]
+        );
     }
 }

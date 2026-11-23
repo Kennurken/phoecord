@@ -9,7 +9,9 @@ mod selftest;
 use anyhow::{Context, Result};
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use phoecord_i18n::{Args, Localizer, Resolved, resolve_language};
+use phoecord_installer::launch::Occupant;
 use phoecord_installer::log::Step;
+use phoecord_installer::shortcut::Outcome;
 use phoecord_installer::uninstall::Kept;
 use phoecord_plugin_runtime::Chain;
 use phoecord_plugin_runtime::package::PackageSet;
@@ -34,16 +36,49 @@ struct Cli {
     cmd: Option<Cmd>,
 }
 
+/// The Discord channels `--channel` accepts.
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum ChannelArg {
+    Stable,
+    Ptb,
+    Canary,
+}
+
+impl From<ChannelArg> for phoecord_installer::Channel {
+    fn from(c: ChannelArg) -> Self {
+        match c {
+            ChannelArg::Stable => Self::Stable,
+            ChannelArg::Ptb => Self::Ptb,
+            ChannelArg::Canary => Self::Canary,
+        }
+    }
+}
+
+/// What `launch` was asked to start: an explicit command, or a channel (none: the only client).
+struct Launch {
+    command: Vec<String>,
+    channel: Option<phoecord_installer::Channel>,
+}
+
 #[derive(Subcommand)]
 enum Cmd {
     Run,
     Launch {
+        #[arg(
+            long,
+            value_enum,
+            conflicts_with = "command",
+            hide_possible_values = true
+        )]
+        channel: Option<ChannelArg>,
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         command: Vec<String>,
     },
     Setup {
         #[arg(long)]
         accept_terms: bool,
+        #[arg(long, value_enum, hide_possible_values = true)]
+        channel: Option<ChannelArg>,
     },
     Uninstall,
     Trust,
@@ -109,6 +144,33 @@ fn main() {
 
 /// The error chain as one line; a few known errors get their localized text.
 fn describe_error(e: &anyhow::Error, l10n: &Localizer) -> String {
+    if let Some(c) = e.downcast_ref::<phoecord_installer::launch::ChooseError>() {
+        use phoecord_installer::launch::ChooseError;
+        return match c {
+            ChooseError::NotInstalled(ch) => tf(
+                l10n,
+                "cli-err-channel-not-installed",
+                &[("channel", ch.name())],
+            ),
+            ChooseError::Several(list) => {
+                let list: Vec<String> = list
+                    .iter()
+                    .map(|(ch, root)| format!("  --channel {:<6} {}", ch.name(), root.display()))
+                    .collect();
+                tf(
+                    l10n,
+                    "cli-err-several-clients",
+                    &[(
+                        "list",
+                        &list.join(
+                            "
+",
+                        ),
+                    )],
+                )
+            }
+        };
+    }
     if e.downcast_ref::<phoecord_installer::launch::NoDiscord>()
         .is_some()
     {
@@ -127,8 +189,23 @@ fn describe_error(e: &anyhow::Error, l10n: &Localizer) -> String {
 fn dispatch(cli: Cli, paths: Paths, resolved: &Resolved, l10n: &Localizer) -> Result<()> {
     match cli.cmd.unwrap_or(Cmd::Run) {
         Cmd::Run => runtime()?.block_on(run(paths, None, l10n)),
-        Cmd::Launch { command } => runtime()?.block_on(run(paths, Some(command), l10n)),
-        Cmd::Setup { accept_terms } => setup(&paths, l10n, &resolved.lang, accept_terms),
+        Cmd::Launch { command, channel } => {
+            let launch = Launch {
+                command,
+                channel: channel.map(Into::into),
+            };
+            runtime()?.block_on(run(paths, Some(launch), l10n))
+        }
+        Cmd::Setup {
+            accept_terms,
+            channel,
+        } => setup(
+            &paths,
+            l10n,
+            &resolved.lang,
+            accept_terms,
+            channel.map(Into::into),
+        ),
         Cmd::Uninstall => uninstall(l10n),
         Cmd::Trust => {
             let ca = ca::Authority::load_or_create(&paths.data)?;
@@ -185,9 +262,30 @@ fn runtime() -> Result<tokio::runtime::Runtime> {
     Ok(tokio::runtime::Runtime::new()?)
 }
 
-async fn run(paths: Paths, launch: Option<Vec<String>>, l10n: &Localizer) -> Result<()> {
+async fn run(paths: Paths, launch: Option<Launch>, l10n: &Localizer) -> Result<()> {
     let cfg = Config::load_or_init(&paths.config)?;
     let listen = cfg.listen.clone();
+    if let Some(l) = &launch {
+        match phoecord_installer::launch::probe_proxy(&listen) {
+            Occupant::PhoeCord(version) => {
+                return reuse_proxy(l, &listen, &version, l10n);
+            }
+            Occupant::Other => {
+                anyhow::bail!(tf(l10n, "cli-err-port-taken", &[("listen", &listen)]))
+            }
+            Occupant::Nobody => {}
+        }
+    }
+    // Pick the client before anything starts: a wrong or missing choice must change nothing.
+    let client_cmd = match &launch {
+        Some(l) => Some(phoecord_installer::launch::command(
+            &l.command,
+            l.channel,
+            &phoecord_installer::discover::discover(),
+            &listen,
+        )?),
+        None => None,
+    };
     let proxy = Proxy::new(paths, cfg, chain(), false)?;
     // WASM plugin packages in `<data>/plugins/<id>/`: loaded now, and again on every folder scan.
     match WasmRuntime::new() {
@@ -211,8 +309,7 @@ async fn run(paths: Paths, launch: Option<Vec<String>>, l10n: &Localizer) -> Res
     );
     let server = tokio::spawn(server::serve(proxy.clone(), listener));
 
-    if let Some(args) = launch {
-        let cmd = phoecord_installer::launch::command(&args, &listen)?;
+    if let Some(cmd) = client_cmd {
         tracing::info!(
             "{}",
             tf(
@@ -247,6 +344,27 @@ async fn run(paths: Paths, launch: Option<Vec<String>>, l10n: &Localizer) -> Res
     Ok(())
 }
 
+/// A PhoeCord proxy already serves `listen` (autostart, another `launch`): only start the client.
+fn reuse_proxy(launch: &Launch, listen: &str, version: &str, l10n: &Localizer) -> Result<()> {
+    let mut cmd = phoecord_installer::launch::command(
+        &launch.command,
+        launch.channel,
+        &phoecord_installer::discover::discover(),
+        listen,
+    )?;
+    println!(
+        "{}",
+        tf(
+            l10n,
+            "cli-proxy-reused",
+            &[("listen", listen), ("version", version)]
+        )
+    );
+    cmd.spawn()
+        .with_context(|| l10n.t("cli-err-start-discord"))?;
+    Ok(())
+}
+
 fn config_line(l10n: &Localizer, paths: &Paths) -> String {
     tf(
         l10n,
@@ -276,14 +394,42 @@ fn ask_terms(l10n: &Localizer, lang: &str, flag: bool) -> Result<()> {
     terms::accept(&env, terms::TERMS_VERSION)
 }
 
-fn setup(paths: &Paths, l10n: &Localizer, lang: &str, accept_terms: bool) -> Result<()> {
+fn setup(
+    paths: &Paths,
+    l10n: &Localizer,
+    lang: &str,
+    accept_terms: bool,
+    want: Option<phoecord_installer::Channel>,
+) -> Result<()> {
+    // Same rules as `launch`: `--channel` must be installed (checked before anything changes); with
+    // no flag the only installed client gets the shortcut, and with none or several setup goes on
+    // without one and says so, instead of refusing to install the proxy.
+    let clients = phoecord_installer::discover::discover();
+    let channel = match phoecord_installer::launch::choose(&clients, want) {
+        Ok(c) => Some(c.channel),
+        Err(e) if want.is_some() => return Err(e),
+        Err(e) => {
+            println!(
+                "{}",
+                tf(
+                    l10n,
+                    "cli-shortcut-skipped",
+                    &[("why", &describe_error(&e, l10n))]
+                )
+            );
+            None
+        }
+    };
     ask_terms(l10n, lang, accept_terms)?;
     Config::load_or_init(&paths.config)?;
     println!("{}", config_line(l10n, paths));
     // CA, trust and autostart, each step recorded in `install.log` so `uninstall` can undo it.
     let env = phoecord_installer::system::Env::system()?;
-    let report =
-        phoecord_installer::install::install(&env, &phoecord_installer::system::RealSystem)?;
+    let report = phoecord_installer::install::install_with(
+        &env,
+        &phoecord_installer::system::RealSystem,
+        channel,
+    )?;
     println!(
         "{}",
         tf(
@@ -295,6 +441,25 @@ fn setup(paths: &Paths, l10n: &Localizer, lang: &str, accept_terms: bool) -> Res
             ]
         )
     );
+    match &report.shortcut {
+        Outcome::Created { name, path } => println!(
+            "{}",
+            tf(
+                l10n,
+                "cli-shortcut-created",
+                &[("name", name), ("path", &path.display().to_string())]
+            )
+        ),
+        Outcome::Unsupported(_) => println!(
+            "{}",
+            tf(
+                l10n,
+                "cli-shortcut-unsupported",
+                &[("channel", channel.map_or("", |c| c.name()))]
+            )
+        ),
+        Outcome::NotRequested => {}
+    }
     let mut a = Args::new();
     a.set("count", report.added);
     println!("{}", l10n.t_args("cli-setup-steps", &a));
@@ -340,6 +505,15 @@ fn uninstall(l10n: &Localizer) -> Result<()> {
         &env,
         &phoecord_installer::system::RealSystem,
     )?;
+    for pid in &r.stopped {
+        println!(
+            "{}",
+            tf(l10n, "cli-uninstall-stopped", &[("pid", &pid.to_string())])
+        );
+    }
+    if let Some(why) = &r.stop_failed {
+        eprintln!("{}", tf(l10n, "cli-uninstall-stop-failed", &[("why", why)]));
+    }
     for step in &r.removed {
         let what = describe_step(l10n, step);
         println!("{}", tf(l10n, "cli-uninstall-removed", &[("what", &what)]));
