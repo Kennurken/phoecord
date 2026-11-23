@@ -7,7 +7,10 @@
 
 use phoecord_core::Plugin;
 
+pub mod fake_nitro;
+pub mod game_activity_toggle;
 pub mod no_track;
+pub mod relationship_notifier;
 pub mod silent_typing;
 
 /// Every built-in plugin, in default run order.
@@ -15,6 +18,9 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(silent_typing::SilentTyping::new()),
+        Box::new(game_activity_toggle::GameActivityToggle::new()),
+        Box::new(relationship_notifier::RelationshipNotifier::new()),
+        Box::new(fake_nitro::FakeNitro::new()),
     ]
 }
 
