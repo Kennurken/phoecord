@@ -1,0 +1,25 @@
+[package]
+name = "phoecord-proxy"
+description = "PhoeCord network layer: local MITM proxy, gateway codecs, local CA"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+phoecord-core.workspace = true
+anyhow.workspace = true
+dirs.workspace = true
+flate2.workspace = true
+rcgen.workspace = true
+rustls.workspace = true
+time.workspace = true
+zstd.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

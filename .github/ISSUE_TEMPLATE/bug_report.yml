@@ -1,0 +1,74 @@
+name: Баг
+description: Что-то работает не так, как ожидалось
+title: "fix: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Уязвимость? **Не открывайте issue** — см. [SECURITY.md](https://github.com/nanda070/phoecord/blob/main/SECURITY.md).
+        Не вставляйте токены Discord, `ca.key` и переписку в логи.
+  - type: textarea
+    id: what
+    attributes:
+      label: Что случилось
+      description: Что вы сделали, что ожидали и что получилось.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      placeholder: "1. phoecord launch\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Слой
+      options:
+        - Сеть (прокси, REST, Gateway)
+        - UI (загрузчик, темы, хуки)
+        - Плагин
+        - Инсталлер / CLI
+        - Не знаю
+    validations:
+      required: true
+  - type: input
+    id: plugin
+    attributes:
+      label: Плагин
+      description: id плагина, если баг в нём (`phoecord plugins`).
+      placeholder: message_logger
+  - type: input
+    id: version
+    attributes:
+      label: Версия PhoeCord
+      description: "`phoecord --version` или коммит."
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: Клиент Discord
+      options:
+        - Stable
+        - PTB
+        - Canary
+        - Phoenix Canary
+        - Другой (укажите ниже)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: ОС
+      placeholder: Windows 11 24H2 / Ubuntu 24.04 / macOS 15
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи
+      description: "Запустите с `PHOECORD_LOG=phoecord=debug`. Уберите токены и личные данные."
+      render: text

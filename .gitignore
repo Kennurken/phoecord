@@ -1,0 +1,10 @@
+/target/
+*.pdb
+
+# Never commit: local CA, tokens, traffic dumps, client binaries
+ca.key
+ca.pem
+*.pcap
+*.har
+.env
+dumps/

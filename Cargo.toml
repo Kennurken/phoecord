@@ -1,0 +1,43 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/phoecord-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/nanda070/phoecord"
+authors = ["Cheterin Group"]
+
+[workspace.dependencies]
+# Внутренние крейты
+phoecord-core = { path = "crates/phoecord-core" }
+phoecord-proxy = { path = "crates/phoecord-proxy" }
+phoecord-plugin-runtime = { path = "crates/phoecord-plugin-runtime" }
+phoecord-plugins = { path = "crates/phoecord-plugins" }
+
+# Внешние зависимости (версии как в Ashcord 0.1.0)
+anyhow = "1"
+dirs = "7"
+flate2 = "1"
+rcgen = { version = "0.14", features = ["x509-parser"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+time = "0.3"
+tracing = "0.1"
+zstd = "0.14"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 4

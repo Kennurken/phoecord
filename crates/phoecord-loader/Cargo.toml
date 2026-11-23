@@ -1,0 +1,19 @@
+[package]
+name = "phoecord-loader"
+description = "PhoeCord native loader: proxy DLL (version.dll / winhttp.dll), AOB scanner, GPUI hooks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+
+
+[lints]
+workspace = true

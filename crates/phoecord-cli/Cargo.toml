@@ -1,0 +1,24 @@
+[package]
+name = "phoecord-cli"
+description = "PhoeCord command line: phoecord run / launch / setup / plugins"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+phoecord-core.workspace = true
+phoecord-proxy.workspace = true
+phoecord-plugin-runtime.workspace = true
+phoecord-plugins.workspace = true
+anyhow.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "phoecord"
+path = "src/main.rs"

@@ -1,0 +1,16 @@
+[package]
+name = "phoecord-plugin-runtime"
+description = "PhoeCord plugin runtime: loads and sandboxes third-party plugins (WASM)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+phoecord-core.workspace = true
+
+[lints]
+workspace = true
