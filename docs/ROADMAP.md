@@ -27,12 +27,12 @@ Phase 2 has no dates: it starts when Discord releases Phoenix Canary. Until then
 
 ### 1.1 Core refactor: the proxy on the new API · `0.2`
 
-- [ ] Move `proxy.rs`, `rest.rs`, `gateway.rs` into `phoecord-proxy`, replace `App::on_*` with `Chain`
-- [ ] A proxy `Host`: settings from `config.toml`, KV in the data folder, `self_id` from READY, rate-limited `notify`
-- [ ] `config.toml`: free-form `[plugins.<id>]` sections instead of a field per plugin; keep live reload
-- [ ] Move `state.rs` (account knowledge) behind `Host`, drop the global `Mutex` held for the whole chain
-- [ ] CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths`
-- [ ] `selftest`: REST + Gateway (JSON/zlib, ETF/zstd) against the real Discord without logging in
+- [x] Move `proxy.rs`, `rest.rs`, `gateway.rs` into `phoecord-proxy`, replace `App::on_*` with `Chain`
+- [x] A proxy `Host`: settings from `config.toml`, KV in the data folder, `self_id` from READY, rate-limited `notify`
+- [x] `config.toml`: free-form `[plugins.<id>]` sections instead of a field per plugin; keep live reload
+- [x] Move `state.rs` (account knowledge) behind `Host`, drop the global `Mutex` held for the whole chain
+- [x] CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `toggle`, `paths`
+- [x] `selftest`: REST + Gateway (JSON/zlib, ETF/zstd) against the real Discord without logging in
 - [ ] Recorded Gateway payloads without personal data for tests (`tests/fixtures/`)
 - [ ] Benchmark: Gateway frame latency through the chain ≤ 1 ms p99 on a 5 MB READY
 

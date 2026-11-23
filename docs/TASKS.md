@@ -10,14 +10,14 @@ Tasks: 61, plans with tasks: 1.
 |:--|:--|:--|:--|:--|
 | [phase-1](phase-1/README.md) | 1.0.1 🔴 | Merge the Phase 1 plan, the docs structure and the English-only docs | Nanda | ✅ 23.11, `main` `ea73482` (PR #4) |
 | [phase-1](phase-1/README.md) | 1.0.2 🟡 | Dependabot: close #1, merge #2 and #3 after green CI | Nanda | ✅ 23.11, folded into one PR |
-| [phase-1](phase-1/README.md) | 1.1.1 🔴 | Proxy `Host`: settings, KV, `self_id`, `notify` | Nanda | ⏳ |
-| [phase-1](phase-1/README.md) | 1.1.2 🔴 | `config.toml` with `[plugins.<id>]` sections and live reload | Nanda | ⏳ |
-| [phase-1](phase-1/README.md) | 1.1.3 🔴 | Account state behind `Host` | Nanda | ⏳ |
-| [phase-1](phase-1/README.md) | 1.1.4 🔴 | Proxy: `CONNECT`, loopback only, MITM by `intercept` | Nanda | ⏳ |
-| [phase-1](phase-1/README.md) | 1.1.5 🔴 | REST through `Chain` | Nanda | ⏳ |
-| [phase-1](phase-1/README.md) | 1.1.6 🔴 | Gateway through `Chain` | Nanda | ⏳ |
-| [phase-1](phase-1/README.md) | 1.1.7 🔴 | CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths` | Nanda | ⏳ |
-| [phase-1](phase-1/README.md) | 1.1.8 🟡 | `selftest` against the real Discord | Nanda | ⏳ |
+| [phase-1](phase-1/README.md) | 1.1.1 🔴 | Proxy `Host`: settings, KV, `self_id`, `notify` | Nanda | ✅ |
+| [phase-1](phase-1/README.md) | 1.1.2 🔴 | `config.toml` with `[plugins.<id>]` sections and live reload | Nanda | ✅ |
+| [phase-1](phase-1/README.md) | 1.1.3 🔴 | Account state behind `Host` | Nanda | ✅ |
+| [phase-1](phase-1/README.md) | 1.1.4 🔴 | Proxy: `CONNECT`, loopback only, MITM by `intercept` | Nanda | ✅ |
+| [phase-1](phase-1/README.md) | 1.1.5 🔴 | REST through `Chain` | Nanda | ✅ |
+| [phase-1](phase-1/README.md) | 1.1.6 🔴 | Gateway through `Chain` | Nanda | ✅ |
+| [phase-1](phase-1/README.md) | 1.1.7 🔴 | CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths` | Nanda | ✅ |
+| [phase-1](phase-1/README.md) | 1.1.8 🟡 | `selftest` against the real Discord | Nanda | ✅ |
 | [phase-1](phase-1/README.md) | 1.1.9 🟡 | Gateway fixtures without personal data | anyone | ⏳ |
 | [phase-1](phase-1/README.md) | 1.1.10 🟡 | Chain benchmark: ≤ 1 ms p99 | Nanda | ⏳ |
 | [phase-1](phase-1/README.md) | 1.2.1 🔴 | `silent_typing` | anyone | ⏳ |
@@ -76,14 +76,14 @@ Tasks: 61, plans with tasks: 1.
 |:--|:--|:--|:--|
 | phase-1 | 1.0.1 🔴 | Merge the Phase 1 plan, the docs structure and the English-only docs | ✅ 23.11, `main` `ea73482` (PR #4) |
 | phase-1 | 1.0.2 🟡 | Dependabot: close #1, merge #2 and #3 after green CI | ✅ 23.11, folded into one PR |
-| phase-1 | 1.1.1 🔴 | Proxy `Host`: settings, KV, `self_id`, `notify` | ⏳ |
-| phase-1 | 1.1.2 🔴 | `config.toml` with `[plugins.<id>]` sections and live reload | ⏳ |
-| phase-1 | 1.1.3 🔴 | Account state behind `Host` | ⏳ |
-| phase-1 | 1.1.4 🔴 | Proxy: `CONNECT`, loopback only, MITM by `intercept` | ⏳ |
-| phase-1 | 1.1.5 🔴 | REST through `Chain` | ⏳ |
-| phase-1 | 1.1.6 🔴 | Gateway through `Chain` | ⏳ |
-| phase-1 | 1.1.7 🔴 | CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths` | ⏳ |
-| phase-1 | 1.1.8 🟡 | `selftest` against the real Discord | ⏳ |
+| phase-1 | 1.1.1 🔴 | Proxy `Host`: settings, KV, `self_id`, `notify` | ✅ |
+| phase-1 | 1.1.2 🔴 | `config.toml` with `[plugins.<id>]` sections and live reload | ✅ |
+| phase-1 | 1.1.3 🔴 | Account state behind `Host` | ✅ |
+| phase-1 | 1.1.4 🔴 | Proxy: `CONNECT`, loopback only, MITM by `intercept` | ✅ |
+| phase-1 | 1.1.5 🔴 | REST through `Chain` | ✅ |
+| phase-1 | 1.1.6 🔴 | Gateway through `Chain` | ✅ |
+| phase-1 | 1.1.7 🔴 | CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths` | ✅ |
+| phase-1 | 1.1.8 🟡 | `selftest` against the real Discord | ✅ |
 | phase-1 | 1.1.10 🟡 | Chain benchmark: ≤ 1 ms p99 | ⏳ |
 | phase-1 | 1.2.5 🔴 | `fake_nitro` (emoji) | ⏳ |
 | phase-1 | 1.2.6 🔴 | `message_logger` and `phoecord log` | ⏳ |

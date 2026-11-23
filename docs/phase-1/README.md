@@ -52,14 +52,14 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). This table is coll
 |:--|:--|:--|:--|
 | **1.0.1** 🔴 | Merge the Phase 1 plan, the docs structure and the English-only docs | Nanda | ✅ 23.11, `main` `ea73482` (PR #4) |
 | **1.0.2** 🟡 | Dependabot: close #1, merge #2 and #3 after green CI | Nanda | ✅ 23.11, folded into one PR |
-| **1.1.1** 🔴 | Proxy `Host`: settings, KV, `self_id`, `notify` | Nanda | ⏳ |
-| **1.1.2** 🔴 | `config.toml` with `[plugins.<id>]` sections and live reload | Nanda | ⏳ |
-| **1.1.3** 🔴 | Account state behind `Host` | Nanda | ⏳ |
-| **1.1.4** 🔴 | Proxy: `CONNECT`, loopback only, MITM by `intercept` | Nanda | ⏳ |
-| **1.1.5** 🔴 | REST through `Chain` | Nanda | ⏳ |
-| **1.1.6** 🔴 | Gateway through `Chain` | Nanda | ⏳ |
-| **1.1.7** 🔴 | CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths` | Nanda | ⏳ |
-| **1.1.8** 🟡 | `selftest` against the real Discord | Nanda | ⏳ |
+| **1.1.1** 🔴 | Proxy `Host`: settings, KV, `self_id`, `notify` | Nanda | ✅ |
+| **1.1.2** 🔴 | `config.toml` with `[plugins.<id>]` sections and live reload | Nanda | ✅ |
+| **1.1.3** 🔴 | Account state behind `Host` | Nanda | ✅ |
+| **1.1.4** 🔴 | Proxy: `CONNECT`, loopback only, MITM by `intercept` | Nanda | ✅ |
+| **1.1.5** 🔴 | REST through `Chain` | Nanda | ✅ |
+| **1.1.6** 🔴 | Gateway through `Chain` | Nanda | ✅ |
+| **1.1.7** 🔴 | CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths` | Nanda | ✅ |
+| **1.1.8** 🟡 | `selftest` against the real Discord | Nanda | ✅ |
 | **1.1.9** 🟡 | Gateway fixtures without personal data | anyone | ⏳ |
 | **1.1.10** 🟡 | Chain benchmark: ≤ 1 ms p99 | Nanda | ⏳ |
 | **1.2.1** 🔴 | `silent_typing` | anyone | ⏳ |

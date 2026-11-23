@@ -62,6 +62,9 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PR
 | File | What | Easy to break |
 |:---|:---|:---|
 | `src/lib.rs` | Module list and status | |
+| `src/config.rs`, `src/account.rs` | Live plugin configuration and account state available to plugins | Config reload must re-enable the chain and preserve the last live state |
+| `src/host.rs` | `ProxyHost`: scoped settings, KV, account, rate-limited notifications and REST/fetch hooks | Host state must be bound to the plugin currently running in `Chain` |
+| `src/server.rs`, `src/rest.rs`, `src/gateway.rs` | Proxy loop, REST and Gateway traffic routed through `Chain` | Keep REST decisions and Gateway encode/compress round-trips lossless |
 | `src/codec.rs` | `Codec` from the Gateway query (`encoding`, `compress`), `Inflater` / `Deflater` for zlib-stream and zstd-stream | Compression context is per connection: once a frame changes, everything after must use our context |
 | `src/ca.rs` | `Authority`: local CA load-or-create, name constraint (`CONSTRAINED_TO`), leaf certificates per SNI, rustls `ServerConfig` | `CA_NAME` is what `untrust` looks for; tests check the constraint blocks other domains |
 | `src/trust.rs` | Install/remove the CA: Windows `certutil -user`, macOS keychain, Linux NSS (incl. Flatpak, Snap) | Platform code behind `cfg`; build on all 3 OSes before merging |
@@ -148,3 +151,4 @@ Planned in 1.1; the table is filled as each item lands.
 | `PHOECORD_LOG` | env | `phoecord=info` | logging |
 | `PHOECORD_NO_NOTIFY` | env | unset | `Host::notify` |
 | `ca.pem`, `ca.key` | data folder | created on first run | `phoecord-proxy::ca` |
+| `plugins/<id>/kv.json` | data folder | empty map | `Host::kv_*` |

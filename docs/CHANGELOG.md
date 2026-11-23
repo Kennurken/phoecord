@@ -6,6 +6,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
+- Stage 1.1 core refactor: the proxy, REST and Gateway run through Plugin API v1 and `Chain`; `ProxyHost` provides scoped settings, KV, account state and notifications. The `phoecord` CLI now has `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `toggle`, `paths` and `selftest`.
 - Cargo workspace of 8 crates: `core`, `proxy`, `plugin-runtime`, `plugin-sdk`, `plugins`, `loader`, `installer`, `cli`.
 - Plugin API v1 (`phoecord-core::plugin`): `Manifest`, `Event`, `EventKind`, `Verdict`, `Host`.
 - Plugin chain `phoecord-plugin-runtime::Chain`: the first `Drop`/`Reply` stops the chain.
