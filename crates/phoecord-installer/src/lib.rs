@@ -15,4 +15,22 @@ pub enum Channel {
     Phoenix,
 }
 
+impl Channel {
+    pub fn name(self) -> &'static str {
+        match self {
+            Channel::Stable => "stable",
+            Channel::Ptb => "ptb",
+            Channel::Canary => "canary",
+            Channel::Phoenix => "phoenix",
+        }
+    }
+}
+
+pub mod autostart;
+pub mod ca;
+pub mod discover;
+pub mod install;
 pub mod launch;
+pub mod log;
+pub mod system;
+pub mod uninstall;
