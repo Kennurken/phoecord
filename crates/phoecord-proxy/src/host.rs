@@ -111,6 +111,10 @@ type Notifier = Box<dyn Fn(&str, &str) + Send + Sync>;
 pub struct Shared {
     pub account: Mutex<Account>,
     kv: Mutex<KvStore>,
+    plugins_dir: PathBuf,
+    /// `config.toml`, for `Host::set_plugin_enabled` (empty in tests that never toggle).
+    pub config_path: PathBuf,
+    config_lock: Mutex<()>,
     notify_limit: Mutex<RateLimiter>,
     rest_limit: Mutex<RateLimiter>,
     notifier: Notifier,
@@ -124,7 +128,10 @@ impl Shared {
     pub fn with_notifier(plugins_dir: PathBuf, notifier: Notifier) -> Shared {
         Shared {
             account: Mutex::new(Account::default()),
-            kv: Mutex::new(KvStore::new(plugins_dir)),
+            kv: Mutex::new(KvStore::new(plugins_dir.clone())),
+            plugins_dir,
+            config_path: PathBuf::new(),
+            config_lock: Mutex::new(()),
             // 5 notifications a minute per plugin.
             notify_limit: Mutex::new(RateLimiter::new(5, Duration::from_secs(60))),
             // 1 Discord API call a second per plugin.
@@ -141,6 +148,8 @@ pub struct ProxyHost<'a> {
     plugin: String,
     /// Client → server payloads queued by plugins; the gateway sends them after the current frame.
     pub sends: Vec<(i64, Val)>,
+    /// Server → client payloads queued by plugins with `Host::emit_dispatch`.
+    pub locals: Vec<Val>,
 }
 
 impl<'a> ProxyHost<'a> {
@@ -150,6 +159,7 @@ impl<'a> ProxyHost<'a> {
             config,
             plugin: String::new(),
             sends: Vec::new(),
+            locals: Vec::new(),
         }
     }
 }
@@ -207,6 +217,25 @@ impl Host for ProxyHost<'_> {
         self.sends.push((op, payload));
     }
 
+    fn emit_dispatch(&mut self, payload: Val) {
+        self.locals.push(payload);
+    }
+
+    fn plugin_enabled(&self, id: &str) -> Option<bool> {
+        Some(self.config.is_enabled(id))
+    }
+
+    fn set_plugin_enabled(&mut self, id: &str, on: bool) -> Result<(), String> {
+        let path = &self.shared.config_path;
+        if path.as_os_str().is_empty() {
+            return Err("no config file".into());
+        }
+        let _guard = self.shared.config_lock.lock().unwrap();
+        let mut cfg = Config::load(path).map_err(|e| format!("{e:#}"))?;
+        cfg.set_enabled(id, on).map_err(|e| format!("{e:#}"))?;
+        cfg.save(path).map_err(|e| format!("{e:#}"))
+    }
+
     fn guild_emojis(&self, guild_id: u64) -> Vec<u64> {
         let a = self.shared.account.lock().unwrap();
         let mut v: Vec<u64> = a
@@ -226,6 +255,23 @@ impl Host for ProxyHost<'_> {
             .channel_guild
             .get(&channel_id)
             .copied()
+    }
+
+    fn append_data(&mut self, file: &str, line: &str) -> Result<(), String> {
+        use std::io::Write;
+        if self.plugin.is_empty() || file.is_empty() || file.contains(['/', '\\']) || file == ".." {
+            return Err(format!("invalid data file name {file:?}"));
+        }
+        let path = self.shared.plugins_dir.join(&self.plugin).join(file);
+        let write = || -> std::io::Result<()> {
+            std::fs::create_dir_all(path.parent().unwrap())?;
+            let mut f = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)?;
+            writeln!(f, "{line}")
+        };
+        write().map_err(|e| e.to_string())
     }
 
     fn rest(
@@ -278,6 +324,46 @@ mod tests {
         assert_eq!(h2.kv_get("n"), Some(Val::Int(7)));
         assert!(dir.join("a").join("kv.json").exists());
         assert!(!dir.join("a").join("kv.json.tmp").exists());
+    }
+
+    #[test]
+    fn append_data_adds_lines_inside_the_plugin_dir() {
+        let dir = temp("append");
+        let shared = Shared::new(dir.clone());
+        let cfg = Config::default();
+        let mut h = ProxyHost::new(&shared, &cfg);
+        h.begin_plugin("p");
+        h.append_data("log.jsonl", "{\"a\":1}").unwrap();
+        h.append_data("log.jsonl", "{\"a\":2}").unwrap();
+        let text = std::fs::read_to_string(dir.join("p").join("log.jsonl")).unwrap();
+        assert_eq!(
+            text.lines().collect::<Vec<_>>(),
+            vec!["{\"a\":1}", "{\"a\":2}"]
+        );
+        assert!(h.append_data("../x", "l").is_err());
+        assert!(h.append_data(r"a\b", "l").is_err());
+    }
+
+    #[test]
+    fn plugins_can_be_switched_through_the_host() {
+        let dir = temp("toggle");
+        let cfg_path = dir.join("config.toml");
+        Config::default().save(&cfg_path).unwrap();
+        let mut shared = Shared::new(dir.clone());
+        shared.config_path = cfg_path.clone();
+        let cfg = Config::default();
+        let mut h = ProxyHost::new(&shared, &cfg);
+        assert_eq!(h.plugin_enabled("no_track"), Some(true));
+        assert_eq!(h.plugin_enabled("message_logger"), Some(false));
+        h.set_plugin_enabled("message_logger", true).unwrap();
+        assert!(
+            Config::load(&cfg_path)
+                .unwrap()
+                .is_enabled("message_logger")
+        );
+        assert!(h.set_plugin_enabled("../x", true).is_err());
+        h.emit_dispatch(Val::map());
+        assert_eq!(h.locals.len(), 1);
     }
 
     #[test]
