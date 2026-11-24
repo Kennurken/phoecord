@@ -10,6 +10,7 @@ pub mod config;
 pub mod egress;
 pub mod gateway;
 pub mod host;
+pub mod hostnet;
 pub mod rest;
 pub mod server;
 pub mod trust;
@@ -383,6 +384,7 @@ mod tests {
                 vencord: None,
                 layers: vec![Layer::Network],
                 api: API_VERSION,
+                fetch: Vec::new(),
             })),
         ]);
         let mut cfg = Config::default();
