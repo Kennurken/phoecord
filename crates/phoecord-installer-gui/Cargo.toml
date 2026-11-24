@@ -71,6 +71,9 @@ installer-icon = "assets/icon/icon.ico"
 header-image = "assets/installer/nsis-header.bmp"
 sidebar-image = "assets/installer/nsis-sidebar.bmp"
 languages = ["English", "Russian"]
+# cargo-packager has no Russian strings for its own pages; without this they stay English.
+# (`nsis.custom_language_files` in its docs; the kebab-case key is singular in 0.11.)
+custom-language-file = { Russian = "assets/installer/nsis/Russian.nsh" }
 display-language-selector = true
 
 [package.metadata.packager.wix]
