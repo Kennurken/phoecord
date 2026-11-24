@@ -478,6 +478,10 @@ impl App {
                 widgets::title(ui, self.tr.t("gui-uninstall-title"));
                 ui.add_space(theme::S2);
                 widgets::muted(ui, self.tr.t("gui-uninstall-body"));
+                if let Some(key) = crate::tabs::install::app_stays_key() {
+                    ui.add_space(theme::S2);
+                    widgets::muted(ui, self.tr.t(key));
+                }
                 ui.add_space(theme::S5);
                 let un = self.tr.t("gui-uninstall");
                 let cancel = self.tr.t("gui-cancel");

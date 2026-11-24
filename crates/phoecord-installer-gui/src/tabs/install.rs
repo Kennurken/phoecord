@@ -823,6 +823,10 @@ impl App {
                         &[("count", &rep.removed.len().to_string())],
                     ),
                 );
+                if let Some(key) = app_stays_key() {
+                    ui.add_space(theme::S1);
+                    widgets::muted(ui, self.tr.t(key));
+                }
                 if !clean {
                     ui.add_space(theme::S4);
                     let mut lines: Vec<String> = rep
@@ -926,5 +930,15 @@ fn looked_in() -> Vec<String> {
             v.extend(roots.snap_roots.iter().map(|p| show(p)));
             v
         }
+    }
+}
+
+/// The note that Uninstall leaves this app itself in place, and where to remove it; `None` where no
+/// installer put it there (Linux).
+pub(crate) fn app_stays_key() -> Option<&'static str> {
+    match Os::current() {
+        Os::Windows => Some("gui-uninstall-app-windows"),
+        Os::MacOs => Some("gui-uninstall-app-macos"),
+        Os::Linux => None,
     }
 }
