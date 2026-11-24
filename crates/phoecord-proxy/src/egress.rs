@@ -229,15 +229,22 @@ mod tests {
 
     #[tokio::test]
     async fn a_dead_upstream_gives_a_clear_error() {
-        let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = l.local_addr().unwrap();
-        drop(l);
+        // A bound socket that never listens: the port stays ours (no parallel test can take it,
+        // which made this test flaky) and every connection to it is refused.
+        let sock = tokio::net::TcpSocket::new_v4().unwrap();
+        sock.bind("127.0.0.1:0".parse().unwrap()).unwrap();
+        let addr = sock.local_addr().unwrap();
         let up = Upstream::parse(&format!("http://{addr}")).unwrap();
         let e = format!(
             "{:#}",
             connect(Some(&up), "discord.com", 443).await.unwrap_err()
         );
-        assert!(e.contains("cannot reach the upstream proxy"), "{e}");
+        // Refused at once on Linux and Windows; macOS lets the connect hang until the timeout.
+        // Either way the message names the upstream proxy and says what went wrong.
+        assert!(
+            e.contains("cannot reach the upstream proxy") || e.contains("did not answer in time"),
+            "{e}"
+        );
     }
 
     #[tokio::test]
