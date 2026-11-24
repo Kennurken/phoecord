@@ -88,6 +88,8 @@ pub enum Dialog {
         name: String,
     },
     Uninstall,
+    /// "Open Discord" failed: what `phoecord launch` said.
+    StartFailed(Box<crate::backend::LaunchFailure>),
 }
 
 pub struct Toast {
@@ -122,6 +124,8 @@ pub struct App {
     pub config: Config,
     pub search: String,
     pub plugin_busy: bool,
+    /// "Open Discord" was clicked and its first seconds are being watched.
+    pub launching: bool,
     /// Rows collapsing before their package is removed.
     pub leaving: HashSet<String>,
     // Settings tab.
@@ -197,6 +201,7 @@ impl App {
             config,
             search: String::new(),
             plugin_busy: false,
+            launching: false,
             leaving: HashSet::new(),
             upstream_msg: None,
             reduce_motion,
@@ -235,6 +240,14 @@ impl App {
     pub fn open_dialog(&mut self, d: Dialog) {
         self.closing = None;
         self.dialog = Some(d);
+    }
+
+    /// Start `c` through PhoeCord, once at a time; the answer comes as [`Msg::Launched`].
+    pub fn open_discord(&mut self, c: Channel) {
+        if !self.launching {
+            self.launching = true;
+            self.backend.launch(c);
+        }
     }
 
     pub fn close_dialog(&mut self) {
@@ -361,16 +374,16 @@ impl App {
                     Err(e) => Flow::RemoveFailed(e),
                 };
             }
-            Msg::Launched(r) => match r {
-                Ok(()) => {
-                    let t = self.tr.t("gui-toast-starting");
-                    self.toast(ctx, t, Tone::Ok)
+            Msg::Launched(r) => {
+                self.launching = false;
+                match r {
+                    Ok(()) => {
+                        let t = self.tr.t("gui-toast-starting");
+                        self.toast(ctx, t, Tone::Ok)
+                    }
+                    Err(e) => self.open_dialog(Dialog::StartFailed(e)),
                 }
-                Err(e) => {
-                    let t = self.tr.f("gui-toast-start-failed", &[("why", &e)]);
-                    self.toast(ctx, t, Tone::Danger)
-                }
-            },
+            }
             Msg::Plugin(p) => {
                 self.plugin_busy = false;
                 match p {

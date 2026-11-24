@@ -121,6 +121,7 @@ impl App {
                 Button::new(&main, Kind::Primary)
                     .icon(main_icon)
                     .big()
+                    .busy(on && self.launching)
                     .enabled(ready),
             ];
             let repair = self.tr.t("gui-repair");
@@ -136,7 +137,7 @@ impl App {
             match button_row(ui, buttons) {
                 Some(0) if on => {
                     if let Some(c) = sel {
-                        self.backend.launch(c);
+                        self.open_discord(c);
                     }
                 }
                 Some(0) => self.start_install(sel, false),
@@ -785,7 +786,7 @@ impl App {
         match button_row(ui, b) {
             Some(0) if has_open => {
                 if let Some(c) = channel {
-                    self.backend.launch(c);
+                    self.open_discord(c);
                 }
                 self.flow = Flow::Idle;
             }

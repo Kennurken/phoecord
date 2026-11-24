@@ -13,7 +13,7 @@ use phoecord_installer::uninstall::UninstallReport;
 use phoecord_proxy::config::{Config, Paths};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// How the window was started.
 #[derive(Clone, Debug, Default)]
@@ -300,7 +300,7 @@ pub enum Msg {
     Install(Phase, PhaseState),
     InstallDone(Result<(), String>),
     UninstallDone(Result<Box<UninstallReport>, String>),
-    Launched(Result<(), String>),
+    Launched(Result<(), Box<LaunchFailure>>),
     Plugin(crate::packages::Msg),
 }
 
@@ -410,15 +410,16 @@ impl Backend {
         });
     }
 
-    /// Start `channel` through PhoeCord: `phoecord launch --channel <c>`, detached.
+    /// Start `channel` through PhoeCord (`phoecord launch --channel <c>`, detached) and watch the
+    /// first seconds: [`Msg::Launched`] carries what `phoecord` said if it stopped.
     pub fn launch(&self, channel: Channel) {
         self.spawn("launch", move |b| {
             let r = if b.mode.is_dry() {
                 Ok(())
             } else {
-                spawn_detached(&proxy_exe(), &["launch", "--channel", channel.name()])
+                start_client(&b.mode.paths(), &proxy_exe(), channel).map_err(Box::new)
             };
-            b.send(Msg::Launched(r.map_err(|e| format!("{e:#}"))));
+            b.send(Msg::Launched(r));
         });
     }
 
@@ -431,22 +432,119 @@ impl Backend {
     }
 }
 
-/// Run `exe args` without a console window and without waiting for it.
-pub fn spawn_detached(exe: &Path, args: &[&str]) -> Result<()> {
-    let mut cmd = std::process::Command::new(exe);
-    cmd.args(args)
+/// Why "Open Discord" failed.
+#[derive(Debug)]
+pub struct LaunchFailure {
+    /// The last lines `phoecord launch` wrote (already localized by it), or why it could not start.
+    /// Empty: it stopped without a word.
+    pub said: String,
+    /// Its whole output, when it got that far.
+    pub log: Option<PathBuf>,
+}
+
+/// How long the window watches `phoecord launch` at most before calling the start a success.
+const LAUNCH_WATCH: Duration = Duration::from_secs(8);
+/// Once the proxy answers, this long alive is enough.
+const LAUNCH_SETTLE: Duration = Duration::from_secs(2);
+/// Lines of `launch.log` shown in the window.
+const LAUNCH_TAIL_LINES: usize = 4;
+
+/// Run `exe launch --channel <c>` with no console window, its output in `<data>/launch.log`, and
+/// watch it until the proxy answers or [`LAUNCH_WATCH`] passes. A `launch` that exits on its own is a
+/// failure, unless it only handed the client to a proxy that already runs (it exits 0 then).
+fn start_client(paths: &Paths, exe: &Path, channel: Channel) -> Result<(), LaunchFailure> {
+    let early = |e: anyhow::Error| LaunchFailure {
+        said: format!("{e:#}"),
+        log: None,
+    };
+    let listen = Config::load_or_init(&paths.config).map_err(early)?.listen;
+    let log = paths.data.join("launch.log");
+    let out = std::fs::create_dir_all(&paths.data)
+        .and_then(|()| std::fs::File::create(&log))
+        .with_context(|| format!("creating {}", log.display()))
+        .map_err(early)?;
+    let err = out
+        .try_clone()
+        .with_context(|| format!("opening {}", log.display()))
+        .map_err(early)?;
+    let mut child = phoecord_proxy::process::command(exe)
+        .args(["launch", "--channel", channel.name()])
+        .env("NO_COLOR", "1")
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
+        .stdout(out)
+        .stderr(err)
+        .spawn()
+        .with_context(|| format!("starting {}", exe.display()))
+        .map_err(early)?;
+    let up = || {
+        matches!(
+            phoecord_installer::launch::probe_proxy(&listen),
+            Occupant::PhoeCord(_)
+        )
+    };
+    let started = Instant::now();
+    loop {
+        std::thread::sleep(Duration::from_millis(200));
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() && up() => return Ok(()),
+            Ok(Some(status)) => {
+                let said = std::fs::read_to_string(&log)
+                    .map(|t| log_tail(&t, LAUNCH_TAIL_LINES))
+                    .unwrap_or_default();
+                let said = if said.is_empty() && !status.success() {
+                    status.to_string()
+                } else {
+                    said
+                };
+                return Err(LaunchFailure {
+                    said,
+                    log: Some(log),
+                });
+            }
+            Ok(None) => {}
+            Err(e) => {
+                return Err(LaunchFailure {
+                    said: e.to_string(),
+                    log: Some(log),
+                });
+            }
+        }
+        let t = started.elapsed();
+        if t >= LAUNCH_WATCH || (t >= LAUNCH_SETTLE && up()) {
+            return Ok(());
+        }
     }
-    cmd.spawn()
-        .with_context(|| format!("starting {}", exe.display()))?;
-    Ok(())
+}
+
+/// The last `n` non-empty lines of `text`, without terminal colour codes.
+fn log_tail(text: &str, n: usize) -> String {
+    let lines: Vec<String> = text
+        .lines()
+        .map(strip_ansi)
+        .map(|l| l.trim_end().to_string())
+        .filter(|l| !l.trim().is_empty())
+        .collect();
+    lines[lines.len().saturating_sub(n)..].join("\n")
+}
+
+/// `s` without ANSI escape sequences (`ESC [ … letter`).
+fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            if chars.next() == Some('[') {
+                for c in chars.by_ref() {
+                    if c.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// Open a folder or file in the system's file manager / default app.
@@ -468,6 +566,84 @@ pub fn open_path(p: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn log_tail_keeps_the_last_lines_without_colours() {
+        let log = "\u{1b}[2m2026-11-25\u{1b}[0m \u{1b}[32m INFO\u{1b}[0m listening on 127.0.0.1:18463\n\n\
+                   starting \"Update.exe\"\n   \nerror: Discord canary is not installed\n";
+        assert_eq!(
+            log_tail(log, 2),
+            "starting \"Update.exe\"\nerror: Discord canary is not installed"
+        );
+        assert_eq!(
+            log_tail(log, 10),
+            "2026-11-25  INFO listening on 127.0.0.1:18463\nstarting \"Update.exe\"\nerror: Discord canary is not installed"
+        );
+        assert_eq!(log_tail("", 3), "");
+        assert_eq!(log_tail("\n  \n", 3), "");
+    }
+
+    #[test]
+    fn strip_ansi_leaves_plain_text_alone() {
+        assert_eq!(strip_ansi("Ошибка: порт занят"), "Ошибка: порт занят");
+        assert_eq!(strip_ansi("\u{1b}[1;31mred\u{1b}[0m!"), "red!");
+    }
+
+    /// A fake `phoecord` (a shell script) that runs `body`, with the proxy address on a port nobody
+    /// listens on.
+    #[cfg(unix)]
+    fn fake_launch(dir: &Path, body: &str) -> (Paths, PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+        let paths = Paths {
+            config: dir.join("config.toml"),
+            data: dir.join("data"),
+        };
+        std::fs::write(&paths.config, "listen = \"127.0.0.1:1\"\n").unwrap();
+        let exe = dir.join("phoecord");
+        std::fs::write(&exe, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        (paths, exe)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_launch_that_fails_reports_what_it_said() {
+        let t = tempfile::tempdir().unwrap();
+        let (paths, exe) = fake_launch(
+            t.path(),
+            "echo \"listening\"; echo \"phoecord: error: Discord canary is not installed ($*)\" >&2; exit 1",
+        );
+        let f = start_client(&paths, &exe, Channel::Canary).unwrap_err();
+        assert_eq!(
+            f.said,
+            "listening\nphoecord: error: Discord canary is not installed (launch --channel canary)"
+        );
+        assert_eq!(f.log, Some(paths.data.join("launch.log")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_launch_that_quits_without_a_proxy_is_a_failure() {
+        let t = tempfile::tempdir().unwrap();
+        let (paths, exe) = fake_launch(t.path(), "exit 0");
+        let f = start_client(&paths, &exe, Channel::Stable).unwrap_err();
+        assert_eq!(f.said, "");
+        let (paths, exe) = fake_launch(t.path(), "exit 3");
+        let f = start_client(&paths, &exe, Channel::Stable).unwrap_err();
+        assert!(f.said.contains('3'), "{}", f.said);
+    }
+
+    #[test]
+    fn a_launch_that_cannot_start_says_why() {
+        let t = tempfile::tempdir().unwrap();
+        let paths = Paths {
+            config: t.path().join("config.toml"),
+            data: t.path().join("data"),
+        };
+        let f = start_client(&paths, &t.path().join("missing"), Channel::Stable).unwrap_err();
+        assert!(f.said.starts_with("starting "), "{}", f.said);
+        assert_eq!(f.log, None);
+    }
 
     fn dry(dir: &Path) -> Mode {
         Mode {

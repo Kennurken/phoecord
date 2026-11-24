@@ -496,6 +496,52 @@ impl App {
                     _ => true,
                 }
             }
+            Dialog::StartFailed(f) => {
+                widgets::title(ui, self.tr.t("gui-start-failed-title"));
+                ui.add_space(theme::S2);
+                if f.said.is_empty() {
+                    widgets::muted(ui, self.tr.t("gui-start-failed-silent"));
+                } else {
+                    widgets::muted(ui, self.tr.t("gui-start-failed-body"));
+                    ui.add_space(theme::S2);
+                    widgets::text(
+                        ui,
+                        f.said.clone(),
+                        egui::FontId::monospace(theme::T_CAPTION),
+                        color::DANGER,
+                    );
+                }
+                if let Some(log) = &f.log {
+                    ui.add_space(theme::S2);
+                    widgets::caption(
+                        ui,
+                        self.tr.f(
+                            "gui-start-failed-log",
+                            &[("path", &log.display().to_string())],
+                        ),
+                    );
+                }
+                ui.add_space(theme::S5);
+                let open = self.tr.t("gui-open-log");
+                let close = self.tr.t("gui-close");
+                let mut buttons = Vec::new();
+                if f.log.is_some() {
+                    buttons.push(Button::new(&open, Kind::Ghost).icon(icon::FILE_TEXT));
+                }
+                buttons.push(Button::new(&close, Kind::Primary));
+                let hit = button_row(ui, buttons);
+                match (hit, &f.log) {
+                    (Some(0), Some(log)) => {
+                        if let Err(e) = crate::backend::open_path(log) {
+                            let t = self.tr.f("gui-open-failed", &[("why", &format!("{e:#}"))]);
+                            self.toast(ui.ctx(), t, Tone::Danger);
+                        }
+                        true
+                    }
+                    (Some(_), _) => false,
+                    (None, _) => true,
+                }
+            }
         }
     }
 
