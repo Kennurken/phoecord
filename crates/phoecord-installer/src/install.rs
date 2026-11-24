@@ -36,13 +36,75 @@ pub fn install_with(
     sys: &dyn System,
     channel: Option<Channel>,
 ) -> Result<InstallReport> {
+    install_with_progress(env, sys, channel, &mut |_, _| {})
+}
+
+/// One step of [`install_with_progress`], in the order they run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Phase {
+    /// Create the CA (if there is none) and add it to the OS trust stores.
+    Certificate,
+    /// Start the proxy at login.
+    Autostart,
+    /// The menu shortcut for the chosen channel.
+    Shortcut,
+}
+
+impl Phase {
+    pub const ALL: [Phase; 3] = [Phase::Certificate, Phase::Autostart, Phase::Shortcut];
+}
+
+/// Where a [`Phase`] is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PhaseState {
+    Started,
+    Done,
+    /// Nothing to do (no channel chosen, or no shortcut on this OS).
+    Skipped,
+    /// The step failed with this error; the install stops here.
+    Failed(String),
+}
+
+/// [`install_with`], telling `on` when each [`Phase`] starts and ends (for a progress view).
+pub fn install_with_progress(
+    env: &Env,
+    sys: &dyn System,
+    channel: Option<Channel>,
+    on: &mut dyn FnMut(Phase, PhaseState),
+) -> Result<InstallReport> {
+    fn step<T>(
+        on: &mut dyn FnMut(Phase, PhaseState),
+        phase: Phase,
+        f: impl FnOnce() -> Result<T>,
+    ) -> Result<T> {
+        on(phase, PhaseState::Started);
+        match f() {
+            Ok(v) => {
+                on(phase, PhaseState::Done);
+                Ok(v)
+            }
+            Err(e) => {
+                on(phase, PhaseState::Failed(format!("{e:#}")));
+                Err(e)
+            }
+        }
+    }
     let log = InstallLog::in_dir(&env.data_dir);
     let before = log.read()?.len();
-    let ca_pem = ensure_ca(env, sys, &log)?;
-    install_autostart(env, sys, &log)?;
+    let ca_pem = step(on, Phase::Certificate, || ensure_ca(env, sys, &log))?;
+    step(on, Phase::Autostart, || install_autostart(env, sys, &log))?;
     let shortcut = match channel {
-        Some(c) => install_shortcut(env, sys, &log, c)?,
-        None => Outcome::NotRequested,
+        Some(c) => {
+            let o = step(on, Phase::Shortcut, || install_shortcut(env, sys, &log, c))?;
+            if matches!(o, Outcome::Unsupported(_)) {
+                on(Phase::Shortcut, PhaseState::Skipped);
+            }
+            o
+        }
+        None => {
+            on(Phase::Shortcut, PhaseState::Skipped);
+            Outcome::NotRequested
+        }
     };
     let entries = log.read()?;
     Ok(InstallReport {
@@ -135,6 +197,41 @@ mod tests {
         phoecord_proxy::ca::Authority::load_or_create(&e.data_dir).unwrap();
         let r = install(&e, &FakeSystem::default()).unwrap();
         assert!(!r.log.iter().any(|e| matches!(&e.step, Step::File { path } if path.ends_with("ca.pem") || path.ends_with("ca.key"))));
+    }
+
+    #[test]
+    fn progress_reports_every_phase_in_order() {
+        let t = tempfile::tempdir().unwrap();
+        let e = env(Os::Linux, t.path());
+        let mut seen = Vec::new();
+        install_with_progress(&e, &FakeSystem::default(), None, &mut |p, s| {
+            seen.push((p, s))
+        })
+        .unwrap();
+        assert_eq!(
+            seen,
+            vec![
+                (Phase::Certificate, PhaseState::Started),
+                (Phase::Certificate, PhaseState::Done),
+                (Phase::Autostart, PhaseState::Started),
+                (Phase::Autostart, PhaseState::Done),
+                (Phase::Shortcut, PhaseState::Skipped),
+            ]
+        );
+    }
+
+    #[test]
+    fn progress_reports_the_failing_phase() {
+        let t = tempfile::tempdir().unwrap();
+        let e = env(Os::Linux, t.path());
+        let sys = FakeSystem::default();
+        *sys.fail_on.borrow_mut() = Some("trust_ca".into());
+        let mut last = None;
+        assert!(install_with_progress(&e, &sys, None, &mut |p, s| last = Some((p, s))).is_err());
+        assert!(matches!(
+            last,
+            Some((Phase::Certificate, PhaseState::Failed(_)))
+        ));
     }
 
     #[test]
