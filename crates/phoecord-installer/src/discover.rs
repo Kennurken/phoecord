@@ -93,6 +93,88 @@ pub fn discover_in(roots: &Roots) -> Vec<Client> {
     found
 }
 
+/// Every installed client: the default folders plus `extra`, folders the user picked for a client
+/// installed somewhere else (`clients` in `config.toml`).
+pub fn discover_with(extra: &[PathBuf]) -> Vec<Client> {
+    let mut found = discover();
+    for dir in extra {
+        for c in clients_at(dir) {
+            if !found.iter().any(|f| f.root == c.root) {
+                found.push(c);
+            }
+        }
+    }
+    found.sort_by_key(|c| (c.channel.name(), c.source.rank(), c.root.clone()));
+    found
+}
+
+/// The clients in a folder the user picked, empty when it holds none. Accepted on every OS, so a
+/// folder copied from another machine is still recognised:
+/// - Windows: the `Discord` / `DiscordPTB` / `DiscordCanary` folder, one `app-x.y.z` inside it, or a
+///   folder holding them;
+/// - macOS: a `Discord*.app` bundle or a folder holding one;
+/// - Linux: the folder with the `discord` / `Discord` / `DiscordCanary` executable.
+pub fn clients_at(dir: &Path) -> Vec<Client> {
+    let name = dir
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    // One exact Windows build: `<channel folder>/app-x.y.z`.
+    if let Some(version) = name.strip_prefix("app-") {
+        let channel_dir = dir.parent().and_then(Path::file_name);
+        let channel_dir = channel_dir.map(|n| n.to_string_lossy().into_owned());
+        let Some((exe, channel)) = channel_dir.and_then(|d| windows_channel(&d)) else {
+            return Vec::new();
+        };
+        if !dir.join(exe).is_file() {
+            return Vec::new();
+        }
+        return vec![Client {
+            channel,
+            source: Source::Native,
+            root: dir.to_path_buf(),
+            exe: dir.join(exe),
+            version: Some(version.to_string()),
+        }];
+    }
+    // The folder holds the channel folders, the `.app` bundles or the Linux executable.
+    let mut found = discover_in(&Roots {
+        local_app_data: Some(dir.to_path_buf()),
+        applications: vec![dir.to_path_buf()],
+        path_dirs: vec![dir.to_path_buf()],
+        ..Roots::default()
+    });
+    // The folder is a channel folder or a `.app` bundle itself: look from the folder above and
+    // keep only what lives in it.
+    if found.is_empty()
+        && let Some(parent) = dir.parent()
+    {
+        found = discover_in(&Roots {
+            local_app_data: Some(parent.to_path_buf()),
+            applications: vec![parent.to_path_buf()],
+            ..Roots::default()
+        })
+        .into_iter()
+        .filter(|c| c.root.starts_with(dir))
+        .collect();
+    }
+    found
+}
+
+/// The executable and channel of a Windows channel folder name.
+fn windows_channel(dir: &str) -> Option<(&'static str, Channel)> {
+    WINDOWS_CHANNELS
+        .iter()
+        .find(|(d, _, _)| *d == dir)
+        .map(|(_, exe, ch)| (*exe, *ch))
+}
+
+const WINDOWS_CHANNELS: [(&str, &str, Channel); 3] = [
+    ("Discord", "Discord.exe", Channel::Stable),
+    ("DiscordPTB", "DiscordPTB.exe", Channel::Ptb),
+    ("DiscordCanary", "DiscordCanary.exe", Channel::Canary),
+];
+
 /// `1.2.10` > `1.2.9`; anything that is not a number sorts lowest.
 fn version_key(v: &str) -> Vec<u64> {
     v.split('.').map(|p| p.parse().unwrap_or(0)).collect()
@@ -102,11 +184,7 @@ fn windows(roots: &Roots, out: &mut Vec<Client>) {
     let Some(local) = &roots.local_app_data else {
         return;
     };
-    for (dir, exe, channel) in [
-        ("Discord", "Discord.exe", Channel::Stable),
-        ("DiscordPTB", "DiscordPTB.exe", Channel::Ptb),
-        ("DiscordCanary", "DiscordCanary.exe", Channel::Canary),
-    ] {
+    for (dir, exe, channel) in WINDOWS_CHANNELS {
         let Ok(rd) = std::fs::read_dir(local.join(dir)) else {
             continue;
         };
@@ -347,6 +425,39 @@ mod tests {
         assert_eq!(by(Source::Flatpak).version.as_deref(), Some("0.0.70"));
         assert_eq!(by(Source::Snap).version.as_deref(), Some("0.0.65"));
         assert_eq!(got.len(), 3);
+    }
+
+    #[test]
+    fn a_picked_folder_finds_its_client() {
+        let t = tempfile::tempdir().unwrap();
+        // Windows layout in a custom place.
+        let win = t.path().join("Games/DiscordCanary");
+        touch(&win.join("app-1.0.1355/DiscordCanary.exe"));
+        touch(&win.join("app-1.0.1360/DiscordCanary.exe"));
+        let c = clients_at(&win);
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].channel, Channel::Canary);
+        assert_eq!(c[0].version.as_deref(), Some("1.0.1360"));
+        // Its parent folder, and one exact build.
+        assert_eq!(clients_at(&t.path().join("Games")).len(), 1);
+        let one = clients_at(&win.join("app-1.0.1355"));
+        assert_eq!(one.len(), 1);
+        assert_eq!(one[0].version.as_deref(), Some("1.0.1355"));
+        // A macOS bundle, picked directly.
+        let app = t.path().join("Apps/Discord PTB.app");
+        touch(&app.join("Contents/MacOS/Discord PTB"));
+        let c = clients_at(&app);
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].channel, Channel::Ptb);
+        // A Linux folder with the executable.
+        let lin = t.path().join("opt/discord");
+        touch(&lin.join("Discord"));
+        assert_eq!(clients_at(&lin)[0].channel, Channel::Stable);
+        // Anything else holds no client.
+        let empty = t.path().join("Documents");
+        fs::create_dir_all(&empty).unwrap();
+        assert!(clients_at(&empty).is_empty());
+        assert!(clients_at(&t.path().join("missing")).is_empty());
     }
 
     #[test]

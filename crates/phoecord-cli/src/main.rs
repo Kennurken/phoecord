@@ -286,7 +286,7 @@ async fn run(paths: Paths, launch: Option<Launch>, l10n: &Localizer) -> Result<(
     if let Some(l) = &launch {
         match phoecord_installer::launch::probe_proxy(&listen) {
             Occupant::PhoeCord(version) => {
-                return reuse_proxy(l, &listen, &version, l10n);
+                return reuse_proxy(l, &listen, &version, &cfg.clients, l10n);
             }
             Occupant::Other => {
                 anyhow::bail!(tf(l10n, "cli-err-port-taken", &[("listen", &listen)]))
@@ -299,7 +299,7 @@ async fn run(paths: Paths, launch: Option<Launch>, l10n: &Localizer) -> Result<(
         Some(l) => Some(phoecord_installer::launch::command(
             &l.command,
             l.channel,
-            &phoecord_installer::discover::discover(),
+            &phoecord_installer::discover::discover_with(&cfg.clients),
             &listen,
         )?),
         None => None,
@@ -366,11 +366,17 @@ async fn run(paths: Paths, launch: Option<Launch>, l10n: &Localizer) -> Result<(
 }
 
 /// A PhoeCord proxy already serves `listen` (autostart, another `launch`): only start the client.
-fn reuse_proxy(launch: &Launch, listen: &str, version: &str, l10n: &Localizer) -> Result<()> {
+fn reuse_proxy(
+    launch: &Launch,
+    listen: &str,
+    version: &str,
+    extra: &[std::path::PathBuf],
+    l10n: &Localizer,
+) -> Result<()> {
     let mut cmd = phoecord_installer::launch::command(
         &launch.command,
         launch.channel,
-        &phoecord_installer::discover::discover(),
+        &phoecord_installer::discover::discover_with(extra),
         listen,
     )?;
     println!(
@@ -425,7 +431,10 @@ fn setup(
     // Same rules as `launch`: `--channel` must be installed (checked before anything changes); with
     // no flag the only installed client gets the shortcut, and with none or several setup goes on
     // without one and says so, instead of refusing to install the proxy.
-    let clients = phoecord_installer::discover::discover();
+    let extra = Config::load(&paths.config)
+        .map(|c| c.clients)
+        .unwrap_or_default();
+    let clients = phoecord_installer::discover::discover_with(&extra);
     let channel = match phoecord_installer::launch::choose(&clients, want) {
         Ok(c) => Some(c.channel),
         Err(e) if want.is_some() => return Err(e),

@@ -24,6 +24,10 @@ pub struct Config {
     /// UI language (`en`, `ru`); the OS language when unset.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
+    /// Discord clients installed outside the default folders, picked in the installer window.
+    /// `launch`, `setup` and the window look in them next to the default places.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub clients: Vec<PathBuf>,
     /// One table per plugin id; `enabled` is a key inside it, the rest are the plugin's own settings.
     pub plugins: BTreeMap<String, toml::Table>,
     /// Anything else in the file is kept as it is when the config is saved.
@@ -51,6 +55,7 @@ impl Default for Config {
             ],
             language: None,
             upstream: None,
+            clients: Vec::new(),
             plugins,
             extra: toml::Table::new(),
         }
