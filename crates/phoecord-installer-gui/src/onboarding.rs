@@ -1,6 +1,7 @@
 //! First start: four short screens before the main window. What PhoeCord does, the terms (the
 //! same screen as later updates of the terms), which Discord to use, and a last screen that starts
-//! the install. Shown once, while the terms have never been accepted.
+//! the install. Shown on the first start of each installed version (a marker file in the data
+//! folder), whether or not the terms were accepted before: the terms screen is then skipped.
 
 use crate::app::{App, Tab};
 use crate::motion::{self, dur};
@@ -10,12 +11,30 @@ use eframe::egui::{self, Align, Id, Layout, Rect, Sense, pos2, vec2};
 use egui_phosphor::regular as icon;
 use phoecord_installer::install::Phase;
 use phoecord_installer::system::Os;
+use std::path::Path;
 
 pub const STEPS: u8 = 4;
 pub const WELCOME: u8 = 0;
 pub const TERMS: u8 = 1;
 pub const PICK: u8 = 2;
 pub const DONE: u8 = 3;
+
+/// The file in the data folder that records the version whose onboarding was finished.
+const MARKER: &str = "onboarded";
+
+/// The onboarding is due: this version of the app has not finished it on this machine. A fresh
+/// install or an update from setup shows it once; a marker that cannot be read counts as missing.
+pub fn needed(data: &Path) -> bool {
+    std::fs::read_to_string(data.join(MARKER))
+        .map(|v| v.trim() != env!("CARGO_PKG_VERSION"))
+        .unwrap_or(true)
+}
+
+/// Record that this version finished the onboarding.
+pub fn mark_done(data: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(data)?;
+    std::fs::write(data.join(MARKER), env!("CARGO_PKG_VERSION"))
+}
 
 /// The progress strip and its gap above the screen.
 const STRIP_H: f32 = 44.0;
@@ -348,6 +367,8 @@ impl App {
     /// Leave the onboarding for the Install tab, starting the install when asked to.
     pub fn finish_onboarding(&mut self, ctx: &egui::Context, install: bool) {
         self.onboarding = None;
+        // Not fatal: without the marker the onboarding shows again on the next start.
+        let _ = mark_done(&self.backend.mode.paths().data);
         self.go(ctx, Tab::Install);
         motion::forget(ctx, Id::new("tab-enter"));
         if install {
@@ -358,3 +379,19 @@ impl App {
 
 // The steps are in order and DONE is the last one.
 const _: () = assert!(WELCOME < TERMS && TERMS < PICK && PICK < DONE && DONE + 1 == STEPS);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shown_once_per_version() {
+        let t = tempfile::tempdir().unwrap();
+        let data = t.path().join("data/phoecord");
+        assert!(needed(&data), "nothing recorded yet");
+        mark_done(&data).unwrap();
+        assert!(!needed(&data));
+        std::fs::write(data.join(MARKER), "1.4.2\n").unwrap();
+        assert!(needed(&data), "an older version finished it");
+    }
+}
