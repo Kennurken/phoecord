@@ -95,7 +95,10 @@ impl Mode {
         if self.demo {
             return demo_clients();
         }
-        phoecord_installer::discover::discover()
+        let extra = Config::load(&self.paths().config)
+            .map(|c| c.clients)
+            .unwrap_or_default();
+        phoecord_installer::discover::discover_with(&extra)
     }
 }
 

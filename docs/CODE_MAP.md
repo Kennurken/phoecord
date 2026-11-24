@@ -136,7 +136,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | File | What |
 |:---|:---|
 | `src/lib.rs` | `Channel` (Stable, PTB, Canary, Phoenix), module list |
-| `src/discover.rs` | `discover()`: Stable/PTB/Canary on Windows, macOS, Linux (PATH, Flatpak, Snap); `discover_in(&Roots)` for tests |
+| `src/discover.rs` | `discover()`: Stable/PTB/Canary on Windows, macOS, Linux (PATH, Flatpak, Snap); `discover_with(extra)` adds the folders from `clients`; `clients_at(dir)` checks a folder the user picked; `discover_in(&Roots)` for tests |
 | `src/system.rs` | `Os`, `Env`, the `System` trait (trust store, Run key, launchctl, systemd); `RealSystem` is the only code that touches the machine |
 | `src/ca.rs`, `src/autostart.rs` | Install steps: local CA + trust; Run key / LaunchAgent / systemd user unit |
 | `src/ca.rs` (installer) | `ensure_ca`: trusts the CA when the fingerprint stored in `install.log` differs or `System::is_trusted` says no; `is_untrusted` drives the `run`/`launch` warning | A failing check must not re-prompt on every `setup` |
@@ -205,6 +205,7 @@ Planned in 1.1; the table is filled as each item lands.
 | `upstream` | `config.toml` | unset (direct) | proxy (`phoecord-proxy::egress`): `socks5://host:port` or `http://host:port`; applies to new connections without a restart |
 | `intercept` | `config.toml` | Discord API and Gateway hosts | proxy |
 | `language` | `config.toml` | OS language, fallback `en` | all user-facing text; order: `--lang` flag, then this key, then the OS language, then `en` (`phoecord_i18n::resolve_language`); `phoecord paths` shows the result and its source |
+| `clients` | `config.toml` | empty | extra folders with a Discord client installed outside the default places, added by "Choose folder…" in the installer window; `launch`, `setup` and the window look in them too (`discover_with`) |
 | `--lang <code>` | CLI flag | unset | overrides `language` for one command |
 | `[plugins.<id>]` | `config.toml` | per plugin | `Host::setting` |
 | `PHOECORD_CONFIG`, `PHOECORD_DATA` | env | OS config/data dirs | paths |

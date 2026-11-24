@@ -153,6 +153,18 @@ impl App {
                 "gui-open-hint"
             };
             widgets::caption(ui, self.tr.t(hint));
+            ui.add_space(theme::S4);
+            ui.horizontal_wrapped(|ui| {
+                widgets::caption(ui, self.tr.t("gui-elsewhere"));
+                let choose = self.tr.t("gui-choose-folder");
+                if Button::new(&choose, Kind::Ghost)
+                    .icon(icon::FOLDER_OPEN)
+                    .show(ui)
+                    .clicked()
+                {
+                    self.choose_client_folder(ui.ctx());
+                }
+            });
         }
         ui.add_space(theme::S7);
         self.facts(ui);
@@ -205,17 +217,41 @@ impl App {
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.label(
-                    egui::RichText::new(icon::DESKTOP)
+                    egui::RichText::new(icon::MAGNIFYING_GLASS)
                         .font(theme::icon(28.0))
                         .color(color::MUTED),
                 );
                 ui.add_space(theme::S2);
                 widgets::title(ui, self.tr.t("gui-no-clients-title"));
                 widgets::muted(ui, self.tr.t("gui-no-clients"));
+                ui.add_space(theme::S3);
+                widgets::caption(ui, self.tr.t("gui-no-clients-looked"));
+                ui.add_space(theme::S1);
+                for place in looked_in() {
+                    ui.label(
+                        egui::RichText::new(place)
+                            .font(egui::FontId::monospace(theme::T_CAPTION))
+                            .color(color::MUTED),
+                    );
+                }
                 ui.add_space(theme::S4);
+                let choose = self.tr.t("gui-choose-folder");
+                let download = self.tr.t("gui-download-discord");
+                match button_row(
+                    ui,
+                    vec![
+                        Button::new(&choose, Kind::Primary).icon(icon::FOLDER_OPEN),
+                        Button::new(&download, Kind::Secondary).icon(icon::ARROW_SQUARE_OUT),
+                    ],
+                ) {
+                    Some(0) => self.choose_client_folder(ui.ctx()),
+                    Some(1) => ui.ctx().open_url(egui::OpenUrl::new_tab(DISCORD_DOWNLOAD)),
+                    _ => {}
+                }
+                ui.add_space(theme::S2);
                 let again = self.tr.t("gui-check-again");
                 let anyway = self.tr.t("gui-install-anyway");
-                let mut b = vec![Button::new(&again, Kind::Secondary).icon(icon::ARROWS_CLOCKWISE)];
+                let mut b = vec![Button::new(&again, Kind::Ghost).icon(icon::ARROWS_CLOCKWISE)];
                 if !installed {
                     b.push(Button::new(&anyway, Kind::Ghost));
                 }
@@ -225,6 +261,51 @@ impl App {
                     _ => {}
                 }
             });
+    }
+
+    /// "Choose folder…": a Discord installed outside the default folders. The folder is kept in
+    /// `clients` in `config.toml` only when it holds a client, so `launch` finds it too.
+    pub fn choose_client_folder(&mut self, ctx: &egui::Context) {
+        let Some(dir) = rfd::FileDialog::new()
+            .set_title(self.tr.t("gui-choose-folder-title"))
+            .pick_folder()
+        else {
+            return;
+        };
+        let found = phoecord_installer::discover::clients_at(&dir);
+        let shown = dir.display().to_string();
+        if found.is_empty() {
+            let t = self.tr.f("gui-folder-no-discord", &[("path", &shown)]);
+            self.toast(ctx, t, Tone::Danger);
+            return;
+        }
+        let config_path = self.backend.mode.paths().config;
+        let saved = (|| -> anyhow::Result<()> {
+            let mut cfg = phoecord_proxy::config::Config::load_or_init(&config_path)?;
+            if !cfg.clients.contains(&dir) {
+                cfg.clients.push(dir.clone());
+                cfg.save(&config_path)?;
+            }
+            Ok(())
+        })();
+        match saved {
+            Ok(()) => {
+                let names: Vec<String> =
+                    found.iter().map(|c| self.channel_name(c.channel)).collect();
+                self.selected = found.first().map(|c| c.channel);
+                let t = self
+                    .tr
+                    .f("gui-folder-added", &[("name", &names.join(", "))]);
+                self.toast(ctx, t, Tone::Ok);
+                self.backend.refresh();
+            }
+            Err(e) => {
+                let t = self
+                    .tr
+                    .f("gui-folder-save-failed", &[("error", &format!("{e:#}"))]);
+                self.toast(ctx, t, Tone::Danger);
+            }
+        }
     }
 
     fn client_tiles(
@@ -803,5 +884,27 @@ impl App {
     pub(crate) fn confirm_uninstall(&mut self) {
         self.flow = Flow::Uninstalling;
         self.backend.uninstall();
+    }
+}
+
+const DISCORD_DOWNLOAD: &str = "https://discord.com/download";
+
+/// Where discovery looks on this OS, for the "nothing found" screen.
+fn looked_in() -> Vec<String> {
+    let roots = phoecord_installer::discover::Roots::system();
+    let show = |p: &std::path::Path| p.display().to_string();
+    match Os::current() {
+        Os::Windows => roots
+            .local_app_data
+            .iter()
+            .flat_map(|d| ["Discord", "DiscordPTB", "DiscordCanary"].map(|c| show(&d.join(c))))
+            .collect(),
+        Os::MacOs => roots.applications.iter().map(|p| show(p)).collect(),
+        _ => {
+            let mut v = vec!["$PATH".to_string()];
+            v.extend(roots.flatpak_roots.iter().map(|p| show(p)));
+            v.extend(roots.snap_roots.iter().map(|p| show(p)));
+            v
+        }
     }
 }
