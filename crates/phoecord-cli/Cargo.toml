@@ -9,6 +9,9 @@ repository.workspace = true
 authors.workspace = true
 publish = false
 
+[build-dependencies]
+winresource.workspace = true
+
 [dependencies]
 phoecord-core.workspace = true
 phoecord-i18n = { path = "../phoecord-i18n" }

@@ -13,6 +13,9 @@ publish = false
 name = "phoecord-installer"
 path = "src/main.rs"
 
+[build-dependencies]
+winresource.workspace = true
+
 [dependencies]
 phoecord-core.workspace = true
 phoecord-i18n = { path = "../phoecord-i18n" }
