@@ -60,6 +60,13 @@ binaries = [
     { path = "phoecord", main = false },
 ]
 formats = ["nsis", "wix", "app", "dmg"]
+# The licences travel with the app (owner, PR #66 review): next to the exe on Windows (NSIS, WiX),
+# in Contents/Resources of the .app on macOS.
+resources = [
+    { src = "../../LICENSE", target = "LICENSE" },
+    { src = "../../NOTICE", target = "NOTICE" },
+    { src = "../../LICENSES", target = "LICENSES" },
+]
 
 [package.metadata.packager.macos]
 minimum-system-version = "11.0"
