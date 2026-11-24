@@ -349,8 +349,6 @@ gui-about-body = PhoeCord is an open-source mod loader for Discord, written in R
 gui-about-source = Source code
 gui-about-report = Report a problem
 gui-about-terms = Terms of use
-gui-about-license = PhoeCord is free software under the GPL-3.0-or-later license.
-gui-about-security = Found a leak or a vulnerability? Report it privately, as SECURITY.md describes, never in a public issue.
 gui-terms-title = Before you install
 gui-terms-title-view = Terms of use
 gui-terms-sub = Version { $version }. Read to the end, then accept to continue.
@@ -383,11 +381,3 @@ gui-onboard-done-sub = PhoeCord will be set up for { $name }. It takes a few sec
 
 ## Installer window: credits
 gui-credits = Credits
-gui-credits-contributors = Contributors
-gui-credits-vencord = Plugin ideas from Vencord (GPL-3.0-or-later, © Vendicated and contributors). Code adapted from it names the original file.
-gui-credits-gpui = Thanks to Zed Industries for open-sourcing GPUI.
-gui-credits-font = Onest font, SIL Open Font License 1.1.
-gui-credits-icons = Phosphor icons, MIT license.
-gui-credits-egui = Window built with egui and eframe, MIT or Apache-2.0.
-gui-credits-licenses = All licenses
-gui-credits-affiliation = Not affiliated with Discord Inc., Vencord or Zed Industries.

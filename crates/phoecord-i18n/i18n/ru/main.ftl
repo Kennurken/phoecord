@@ -354,8 +354,6 @@ gui-about-body = PhoeCord: загрузчик модов для Discord с от�
 gui-about-source = Исходный код
 gui-about-report = Сообщить о проблеме
 gui-about-terms = Условия использования
-gui-about-license = PhoeCord: свободная программа под лицензией GPL-3.0-or-later.
-gui-about-security = Нашли утечку или уязвимость? Сообщите приватно, как написано в SECURITY.md, а не в публичном issue.
 gui-terms-title = Перед установкой
 gui-terms-title-view = Условия использования
 gui-terms-sub = Версия { $version }. Прочитайте до конца и примите, чтобы продолжить.
@@ -388,11 +386,3 @@ gui-onboard-done-sub = PhoeCord будет настроен для { $name }. Э
 
 ## Installer window: credits
 gui-credits = Благодарности
-gui-credits-contributors = Участники
-gui-credits-vencord = Идеи плагинов из Vencord (GPL-3.0-or-later, © Vendicated и участники). Перенесённый оттуда код указывает исходный файл.
-gui-credits-gpui = Спасибо Zed Industries за открытый GPUI.
-gui-credits-font = Шрифт Onest, SIL Open Font License 1.1.
-gui-credits-icons = Иконки Phosphor, лицензия MIT.
-gui-credits-egui = Окно сделано на egui и eframe, MIT или Apache-2.0.
-gui-credits-licenses = Все лицензии
-gui-credits-affiliation = Не связан с Discord Inc., Vencord или Zed Industries.

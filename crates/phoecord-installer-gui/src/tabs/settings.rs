@@ -204,58 +204,22 @@ impl App {
         ui.add_space(theme::S6);
         let (line, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
         ui.painter().rect_filled(line, 0.0, color::LINE);
-        ui.add_space(theme::S3);
-        widgets::caption(ui, self.tr.t("gui-about-license"));
-        widgets::caption(ui, self.tr.t("gui-about-security"));
-        ui.add_space(theme::S6);
+        ui.add_space(theme::S5);
         self.credits(ui);
     }
 
-    /// Contributors (from the README's contributors block, filled from GitHub's list), Vencord's
-    /// attribution, and the font, icon and library licenses.
+    /// Credits: the repository link alone (owner, PR #66 review). The licences ship as files in
+    /// the installers instead of being listed here.
     fn credits(&mut self, ui: &mut egui::Ui) {
         widgets::title(ui, self.tr.t("gui-credits"));
-        ui.add_space(theme::S3);
-        widgets::caption(ui, self.tr.t("gui-credits-contributors"));
-        ui.add_space(theme::S1);
-        ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing = vec2(theme::S2, theme::S2);
-            for login in contributors() {
-                if Button::new(login, Kind::Secondary)
-                    .icon(icon::GITHUB_LOGO)
-                    .show(ui)
-                    .clicked()
-                {
-                    ui.ctx().open_url(egui::OpenUrl::new_tab(format!(
-                        "https://github.com/{login}"
-                    )));
-                }
-            }
-        });
-        ui.add_space(theme::S4);
-        ui.scope(|ui| {
-            ui.set_max_width(560.0f32.min(ui.available_width()));
-            for key in [
-                "gui-credits-vencord",
-                "gui-credits-gpui",
-                "gui-credits-font",
-                "gui-credits-icons",
-                "gui-credits-egui",
-                "gui-credits-affiliation",
-            ] {
-                widgets::caption(ui, self.tr.t(key));
-                ui.add_space(2.0);
-            }
-        });
-        ui.add_space(theme::S3);
-        let all = self.tr.t("gui-credits-licenses");
-        if Button::new(&all, Kind::Ghost)
-            .icon(icon::SCALES)
+        ui.add_space(theme::S2);
+        let repo = REPO.trim_start_matches("https://");
+        if Button::new(repo, Kind::Ghost)
+            .icon(icon::GITHUB_LOGO)
             .show(ui)
             .clicked()
         {
-            ui.ctx()
-                .open_url(egui::OpenUrl::new_tab(format!("{REPO}/tree/main/LICENSES")));
+            ui.ctx().open_url(egui::OpenUrl::new_tab(REPO));
         }
     }
 
@@ -408,39 +372,5 @@ impl App {
                 }
             });
         });
-    }
-}
-
-/// GitHub logins from the README's `contributors:start` … `contributors:end` block, which
-/// `scripts/update_contributors.py` fills from GitHub's contributors list.
-fn contributors() -> Vec<&'static str> {
-    parse_contributors(include_str!("../../../../README.md"))
-}
-
-fn parse_contributors(readme: &str) -> Vec<&str> {
-    let Some(block) = readme
-        .split("<!-- contributors:start -->")
-        .nth(1)
-        .and_then(|b| b.split("<!-- contributors:end -->").next())
-    else {
-        return Vec::new();
-    };
-    block
-        .split("title=\"")
-        .skip(1)
-        .filter_map(|t| t.split('"').next())
-        .filter(|l| !l.is_empty())
-        .collect()
-}
-
-#[cfg(test)]
-mod credits_tests {
-    use super::*;
-
-    #[test]
-    fn contributors_come_from_the_readme_block() {
-        let md = "x title=\"no\"\n<!-- contributors:start -->\n<a title=\"Nanda070\"><img></a>\n<a title=\"b\"></a>\n<!-- contributors:end -->";
-        assert_eq!(parse_contributors(md), vec!["Nanda070", "b"]);
-        assert!(contributors().contains(&"Nanda070"));
     }
 }
