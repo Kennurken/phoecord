@@ -349,20 +349,32 @@ async fn run(paths: Paths, launch: Option<Launch>, l10n: &Localizer) -> Result<(
                 // Launchers (Update.exe, flatpak) hand off and exit at once: keep serving then.
                 if started.elapsed() < Duration::from_secs(15) {
                     tracing::info!("{}", tf(l10n, "cli-launcher-exited", &[("status", &status)]));
-                    let _ = tokio::signal::ctrl_c().await;
+                    tokio::select! {
+                        r = server => r??,
+                        _ = interrupted() => {}
+                    }
                 } else {
                     tracing::info!("{}", tf(l10n, "cli-client-exited", &[("status", &status)]));
                 }
             }
-            _ = tokio::signal::ctrl_c() => {}
+            _ = interrupted() => {}
         }
         return Ok(());
     }
     tokio::select! {
         r = server => r??,
-        _ = tokio::signal::ctrl_c() => {}
+        _ = interrupted() => {}
     }
     Ok(())
+}
+
+/// Ctrl+C. Without a console (started by the installer window) there is no Ctrl+C to wait for and
+/// `ctrl_c()` may fail at once: then this never resolves, so the proxy keeps serving instead of
+/// exiting the moment it started.
+async fn interrupted() {
+    if tokio::signal::ctrl_c().await.is_err() {
+        std::future::pending::<()>().await;
+    }
 }
 
 /// A PhoeCord proxy already serves `listen` (autostart, another `launch`): only start the client.
