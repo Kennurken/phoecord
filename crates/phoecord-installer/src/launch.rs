@@ -186,6 +186,8 @@ pub fn client_command(client: &Client, addr: &str) -> Command {
         }
     };
     proxy_env(&mut cmd, &url);
+    // Update.exe and the clients are GUI programs; no console must flash when the window starts us.
+    phoecord_proxy::process::hide_console(&mut cmd);
     cmd
 }
 

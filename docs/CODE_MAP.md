@@ -23,6 +23,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `LICENSE`, `NOTICE`, `LICENSES/` | GPL-3.0 text; copyright and exceptions; MIT notices for the v0 code (`MIT-v0.txt`) and the plugin SDK (`MIT-sdk.txt`) |
 | `assets/logo.svg` | Logo used in the README |
 | `.github/workflows/ci.yml` | CI: rustfmt, generated docs freshness, check/clippy/test on Linux, Windows, macOS, MSRV 1.88 |
+| `.github/workflows/package.yml` | Native installers (NSIS `.exe` + WiX `.msi` on Windows, `.app` in a `.dmg` on macOS arm64 and Intel) with `SHA256SUMS`, as workflow artifacts; on PRs touching the installer, `v*` tags and by hand |
 | `.github/ISSUE_TEMPLATE/` | Bug, feature and plugin forms; blank issues disabled |
 | `.github/PULL_REQUEST_TEMPLATE.md` | PR form with the living-docs checklist |
 | `.github/dependabot.yml` | Weekly cargo updates (grouped), monthly GitHub Actions updates; Dependabot opens the `dependabot/*` branches |
@@ -46,6 +47,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `phoecord-installer` | `crates/phoecord-installer/` | lib | core |
 | `phoecord-cli` | `crates/phoecord-cli/` | bin `phoecord` | core, proxy, plugin-runtime, plugins |
 | `phoecord-i18n` | `crates/phoecord-i18n/` | lib | none |
+| `phoecord-installer-gui` | `crates/phoecord-installer-gui/` | bin `phoecord-installer` | core, i18n, installer, plugin-runtime, plugins, proxy |
 
 ## 3. Files by crate
 
@@ -71,6 +73,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/codec.rs` | `Codec` from the Gateway query (`encoding`, `compress`), `Inflater` / `Deflater` for zlib-stream and zstd-stream | Compression context is per connection: once a frame changes, everything after must use our context |
 | `src/ca.rs` | `Authority`: local CA load-or-create, name constraint (`CONSTRAINED_TO`), leaf certificates per SNI, rustls `ServerConfig` | `CA_NAME` is what `untrust` looks for; tests check the constraint blocks other domains |
 | `src/trust.rs` | Install/remove the CA: Windows `certutil -user`, macOS keychain, Linux NSS (incl. Flatpak, Snap) | Platform code behind `cfg`; build on all 3 OSes before merging |
+| `src/process.rs` | `command` / `hide_console`: child processes that open no console window on Windows (`CREATE_NO_WINDOW`) | Every child of `phoecord` and the window goes through it: started without a console, a console program would flash its own window |
 
 | `src/hostnet.rs` | `Net`: the client's session headers kept in memory only (30 min TTL, dropped on 401), `Host::rest` to the client's own Discord API host with route checks, per-plugin 1/s + global 5/s caps and Discord's rate-limit buckets; `Host::rest_files` (multipart upload, 10 files, 25 MB); `Host::fetch` to allow-listed HTTPS hosts (5 MB cap, no redirects, no credentials, raw `bytes` for non-JSON answers); a small dedicated runtime so plugin calls never block the proxy | Never log or persist the session headers; `Debug` is redacted |
 | `tests/hostnet.rs` | Loopback fake Discord and outside servers: capture/reuse, refusals, rate limits, allow-list, caps, a `Chain` test | |
@@ -135,7 +138,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | File | What |
 |:---|:---|
 | `src/lib.rs` | `Channel` (Stable, PTB, Canary, Phoenix), module list |
-| `src/discover.rs` | `discover()`: Stable/PTB/Canary on Windows, macOS, Linux (PATH, Flatpak, Snap); `discover_in(&Roots)` for tests |
+| `src/discover.rs` | `discover()`: Stable/PTB/Canary on Windows, macOS, Linux (PATH, Flatpak, Snap); `discover_with(extra)` adds the folders from `clients`, one entry per real folder (canonical paths, so a junction or symlink to a listed folder is not listed twice); `is_listed` for Choose folder; `clients_at(dir)` checks a folder the user picked; `discover_in(&Roots)` for tests |
 | `src/system.rs` | `Os`, `Env`, the `System` trait (trust store, Run key, launchctl, systemd); `RealSystem` is the only code that touches the machine |
 | `src/ca.rs`, `src/autostart.rs` | Install steps: local CA + trust; Run key / LaunchAgent / systemd user unit |
 | `src/ca.rs` (installer) | `ensure_ca`: trusts the CA when the fingerprint stored in `install.log` differs or `System::is_trusted` says no; `is_untrusted` drives the `run`/`launch` warning | A failing check must not re-prompt on every `setup` |
@@ -144,8 +147,31 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/vencord.rs` | `phoecord import-vencord`: finds Vencord / Vesktop / Equicord `settings.json` (or `--path`), maps enabled plugins by `Manifest::vencord` | Reads only; never writes Vencord's files; one file is listed once on case-insensitive file systems |
 | `src/terms.rs` | `TERMS_VERSION`, both terms texts (`include_str!` of `TERMS.md` / `TERMS.ru.md`), `needs_acceptance`, `accept` (stored in the data folder and logged so `uninstall` removes it) | Bump `TERMS_VERSION` whenever the text changes, so users are asked again |
 | `src/system.rs` additions | `stop_proxies` (only `run`/`launch` processes of PhoeCord's own binaries, never the calling process; `select_proxy_pids` is tested), `shortcut_create`, `Env.start_menu`, `Env.applications_dir` | |
-| `src/install.rs`, `src/uninstall.rs` | `install()` (idempotent) and `uninstall_all()` (undoes the log newest-first, `UninstallReport`) |
+| `src/install.rs`, `src/uninstall.rs` | `install()` (idempotent), `install_with_progress` (reports each `Phase` start/end for the window) and `uninstall_all()` (undoes the log newest-first, `UninstallReport`) |
 | `src/log.rs` | `install.log` (JSON lines in the data folder): every step the installer made, so rollback removes only what it created |
+
+### `phoecord-installer-gui`
+
+The installer window (stage 1.4.3). Every change to the machine goes through `phoecord-installer`, the same code as `phoecord setup` / `uninstall`.
+
+| File | What | Easy to break |
+|:---|:---|:---|
+| `src/main.rs` | Window options, icon, `--dry-run` / `--demo` / `--demo-empty` / `--open <path>` | `windows_subsystem = "windows"`: no console on Windows |
+| `src/app.rs` | `App`: header with tabs (adapts to narrow windows), tab transition, dialogs (scrim + card), toasts, drop overlay, messages from jobs | Dialog card is an `Area` anchored at the centre; its scroll area sets `min_scrolled_height` or it shrinks to half the window |
+| `src/backend.rs` | `Mode` (real or dry-run sandbox with a simulated trust store), `read_status` (clients, install log, trust, proxy probe), background jobs (install, uninstall, launch, plugin jobs) | `Env.proxy_exe` is the `phoecord` binary next to the window (or `PHOECORD_BIN`), never the window itself |
+| `src/packages.rs` | Plugin packages: stage a `.zip` / folder / `plugin.toml` into `plugins-staging/`, check it, `commit` into `plugins/<id>` and switch it on, `remove`, HTTPS-only `download` (32 MB cap) | Zip paths outside the archive are refused; only `plugin.toml`, `plugin.wasm`, README and LICENSE are copied |
+| `src/theme.rs` | The one palette, spacing, radii, type scale, Onest fonts + Phosphor icons, the app icon as window icon and in-app mark | Contrast is tested; add colours here, never inline |
+| `src/splash.rs` | Opening animation (~1.4 s): the flame rises and catches (flash, two shock rings, embers), the name comes in letter by letter, then the window opens out of the flame as an iris and comes in (`reveal`); click or key skips, off with reduced motion | Own clock capped per frame, so slow first frames do not eat it; drawn last in `update`, above everything |
+| `src/onboarding.rs` | First start: welcome, terms, pick a Discord, done (starts the install) | Shown on the first start of each app version: the `onboarded` file in the data folder holds the version that finished it; the terms step is skipped when already accepted |
+| `src/motion.rs` | Interruptible tweens with custom easing, durations, reduce-motion switch | Tweens request repaints only while they move |
+| `src/widgets.rs` | Buttons, segmented tabs, switch, pill, banner, field, spinner, check mark | Every widget reports itself to accesskit and shows a focus ring |
+| `src/terms.rs` | Draws `TERMS.md` from its Markdown (headings, bullets, bold, code, links as text) | |
+| `src/tabs/*.rs` | Install, Plugins (+ dialogs), Settings, About, terms screen | Strings only through `gui-*` keys (tested in `text.rs`) |
+| `assets/installer/` | NSIS header and sidebar, WiX banner and dialog, DMG background | Written by `scripts/package/make_art.py` |
+| `assets/icon/` | App icon: `icon.svg` (source), `icon-256.png` (window and in-app mark), `icon-1024.png`, `icon.ico` (Windows), `icon.icns` (macOS) | Regenerate the rest from the SVG when it changes (`python scripts/package/make_art.py`, which also draws `assets/installer/`) |
+| `assets/installer/nsis/Russian.nsh` | Russian strings for cargo-packager's own NSIS pages (`custom-language-file` in `Cargo.toml`) | UTF-8 with BOM; keys must match cargo-packager's `English.nsh` for the pinned version |
+| `build.rs` (here and in `phoecord-cli`) | Embeds `assets/icon/icon.ico` and version info in the Windows `.exe` files (`winresource`) | Taskbar, Explorer and Settings > Apps read the icon from the exe; `with_icon` covers only the title bar |
+| `assets/fonts/Onest-*.ttf` | Onest 400/500/600, static instances of the variable font | SIL OFL 1.1, `LICENSES/OFL-onest.txt` |
 
 ### `phoecord-i18n`
 
@@ -170,6 +196,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `scripts/check_i18n.py` | Every key of `crates/*/i18n/en/*.ftl` exists in the `ru` file with the same variables; exit 1 otherwise |
 | `examples/plugins/clear_urls/` | The first third-party plugin example: `clear_urls` as a WASM package (`plugin.toml` id `clear_urls_wasm`, `wit-bindgen`), its own cargo workspace, excluded from the main one; README shows build and install |
 | `scripts/update_contributors.py` | Rewrites the README contributors block (avatars between `<!-- contributors:* -->` markers) from GitHub's contributors list, bots left out; `--check` exits 1 if stale. Run after merging a new contributor's PR |
+| `scripts/package/make_art.py`, `scripts/package/name-files.sh`, `scripts/package/README.md` | Renders the app icons and installer pictures from `icon.svg`; renames the packaged `.exe`/`.msi` to `PhoeCord_<version>_…`; how to build the installers locally (`cargo packager`, config in `crates/phoecord-installer-gui/Cargo.toml`) |
 | `scripts/dev/New-TestVm.ps1` | Creates a throwaway Hyper-V VM (Gen 2, Secure Boot, vTPM, Default Switch) for the manual checks 1.4.6 and 1.5.7, so they never touch your own Discord; run elevated |
 | `scripts/gen_decisions.py` | Builds `docs/DECISIONS.md` from `Ruling:` lines of `docs/<plan>/ai/ledger.md`; `--check` exits 1 if stale |
 
@@ -187,6 +214,7 @@ Planned in 1.1; the table is filled as each item lands.
 | `upstream` | `config.toml` | unset (direct) | proxy (`phoecord-proxy::egress`): `socks5://host:port` or `http://host:port`; applies to new connections without a restart |
 | `intercept` | `config.toml` | Discord API and Gateway hosts | proxy |
 | `language` | `config.toml` | OS language, fallback `en` | all user-facing text; order: `--lang` flag, then this key, then the OS language, then `en` (`phoecord_i18n::resolve_language`); `phoecord paths` shows the result and its source |
+| `clients` | `config.toml` | empty | extra folders with a Discord client installed outside the default places, added by "Choose folder…" in the installer window; `launch`, `setup` and the window look in them too (`discover_with`) |
 | `--lang <code>` | CLI flag | unset | overrides `language` for one command |
 | `[plugins.<id>]` | `config.toml` | per plugin | `Host::setting` |
 | `PHOECORD_CONFIG`, `PHOECORD_DATA` | env | OS config/data dirs | paths |
@@ -196,3 +224,7 @@ Planned in 1.1; the table is filled as each item lands.
 | `plugins/<id>/kv.json` | data folder | empty map | `Host::kv_*` |
 | `plugins/message_logger/messages.jsonl` | data folder | created when `write_log` is on | `message_logger`, `phoecord log` |
 | `install.log` | data folder | created by the installer | `phoecord-installer` rollback |
+| `plugins-staging/` | data folder | created while a plugin waits for the user's yes in the installer window, removed after | `phoecord-installer-gui::packages` |
+| `launch.log` | data folder | written each time the installer window starts Discord | `phoecord-installer-gui::backend`: `phoecord launch` output, shown when it stops |
+| `PHOECORD_BIN` | env | the `phoecord` binary next to the window | `phoecord-installer-gui`: which binary autostart and shortcuts run |
+| `PHOECORD_GUI_SANDBOX` | env | `<temp>/phoecord-gui-dry-run` | `phoecord-installer --dry-run`: the sandbox folder |

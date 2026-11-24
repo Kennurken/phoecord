@@ -1,0 +1,95 @@
+[package]
+name = "phoecord-installer-gui"
+description = "PhoeCord installer window: terms, install / repair / uninstall, plugin packages"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "phoecord-installer"
+path = "src/main.rs"
+
+[build-dependencies]
+winresource.workspace = true
+
+[dependencies]
+phoecord-core.workspace = true
+phoecord-i18n = { path = "../phoecord-i18n" }
+phoecord-installer = { path = "../phoecord-installer" }
+phoecord-plugin-runtime.workspace = true
+phoecord-plugins.workspace = true
+phoecord-proxy.workspace = true
+anyhow.workspace = true
+dirs.workspace = true
+eframe = { version = "0.33", default-features = false, features = ["accesskit", "default_fonts", "glow", "persistence", "wayland", "x11"] }
+egui-phosphor = "0.11"
+serde.workspace = true
+toml = "0.9"
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
+
+# Native installers (`cargo packager --release`, see scripts/package/README.md): a setup .exe (NSIS)
+# and an .msi (WiX) on Windows, PhoeCord.app in a .dmg on macOS. Both binaries ship together: the
+# window finds `phoecord` next to itself.
+[package.metadata.packager]
+product-name = "PhoeCord"
+identifier = "dev.phoecord.installer"
+publisher = "Cheterin Group"
+copyright = "Copyright (C) 2026 Cheterin Group. GPL-3.0-or-later."
+category = "Utility"
+description = "Native mod loader for Discord: install, repair and remove PhoeCord and its plugins"
+homepage = "https://github.com/Nanda070/phoecord"
+license-file = "../../LICENSE"
+icons = ["assets/icon/icon.icns", "assets/icon/icon.ico", "assets/icon/icon-1024.png"]
+out-dir = "../../target/packages"
+binaries-dir = "../../target/release"
+before-packaging-command = "cargo build --release --locked -p phoecord-installer-gui -p phoecord-cli"
+binaries = [
+    { path = "phoecord-installer", main = true },
+    { path = "phoecord", main = false },
+]
+formats = ["nsis", "wix", "app", "dmg"]
+# The licences travel with the app (owner, PR #66 review): next to the exe on Windows (NSIS, WiX),
+# in Contents/Resources of the .app on macOS.
+resources = [
+    { src = "../../LICENSE", target = "LICENSE" },
+    { src = "../../NOTICE", target = "NOTICE" },
+    { src = "../../LICENSES", target = "LICENSES" },
+]
+
+[package.metadata.packager.macos]
+minimum-system-version = "11.0"
+
+[package.metadata.packager.nsis]
+# Per-user install (no administrator prompt), like Discord itself.
+installer-mode = "currentUser"
+installer-icon = "assets/icon/icon.ico"
+header-image = "assets/installer/nsis-header.bmp"
+sidebar-image = "assets/installer/nsis-sidebar.bmp"
+languages = ["English", "Russian"]
+# cargo-packager has no Russian strings for its own pages; without this they stay English.
+# (`nsis.custom_language_files` in its docs; the kebab-case key is singular in 0.11.)
+custom-language-file = { Russian = "assets/installer/nsis/Russian.nsh" }
+display-language-selector = true
+
+[package.metadata.packager.wix]
+languages = ["en-US", "ru-RU"]
+banner-path = "assets/installer/wix-banner.bmp"
+dialog-image-path = "assets/installer/wix-dialog.bmp"
+
+[package.metadata.packager.dmg]
+background = "assets/installer/dmg-background.png"
+window-size = { width = 640, height = 400 }
+app-position = { x = 180, y = 190 }
+application-folder-position = { x = 460, y = 190 }
