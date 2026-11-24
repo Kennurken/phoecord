@@ -138,7 +138,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | File | What |
 |:---|:---|
 | `src/lib.rs` | `Channel` (Stable, PTB, Canary, Phoenix), module list |
-| `src/discover.rs` | `discover()`: Stable/PTB/Canary on Windows, macOS, Linux (PATH, Flatpak, Snap); `discover_with(extra)` adds the folders from `clients`; `clients_at(dir)` checks a folder the user picked; `discover_in(&Roots)` for tests |
+| `src/discover.rs` | `discover()`: Stable/PTB/Canary on Windows, macOS, Linux (PATH, Flatpak, Snap); `discover_with(extra)` adds the folders from `clients`, one entry per real folder (canonical paths, so a junction or symlink to a listed folder is not listed twice); `is_listed` for Choose folder; `clients_at(dir)` checks a folder the user picked; `discover_in(&Roots)` for tests |
 | `src/system.rs` | `Os`, `Env`, the `System` trait (trust store, Run key, launchctl, systemd); `RealSystem` is the only code that touches the machine |
 | `src/ca.rs`, `src/autostart.rs` | Install steps: local CA + trust; Run key / LaunchAgent / systemd user unit |
 | `src/ca.rs` (installer) | `ensure_ca`: trusts the CA when the fingerprint stored in `install.log` differs or `System::is_trusted` says no; `is_untrusted` drives the `run`/`launch` warning | A failing check must not re-prompt on every `setup` |
@@ -161,8 +161,8 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `src/backend.rs` | `Mode` (real or dry-run sandbox with a simulated trust store), `read_status` (clients, install log, trust, proxy probe), background jobs (install, uninstall, launch, plugin jobs) | `Env.proxy_exe` is the `phoecord` binary next to the window (or `PHOECORD_BIN`), never the window itself |
 | `src/packages.rs` | Plugin packages: stage a `.zip` / folder / `plugin.toml` into `plugins-staging/`, check it, `commit` into `plugins/<id>` and switch it on, `remove`, HTTPS-only `download` (32 MB cap) | Zip paths outside the archive are refused; only `plugin.toml`, `plugin.wasm`, README and LICENSE are copied |
 | `src/theme.rs` | The one palette, spacing, radii, type scale, Onest fonts + Phosphor icons, the app icon as window icon and in-app mark | Contrast is tested; add colours here, never inline |
-| `src/splash.rs` | Opening animation: mark, glow and name, then the layer fades out (~1 s, click or key skips, off with reduced motion) | Drawn last in `update`, above everything |
-| `src/onboarding.rs` | First start: welcome, terms, pick a Discord, done (starts the install) | Shown once while the terms were never accepted; `onboarded` is kept in eframe storage |
+| `src/splash.rs` | Opening animation (~1.4 s): the flame rises into a glow, the name and a ring follow, then the layer fades while the window comes in (`reveal`); click or key skips, off with reduced motion | Own clock capped per frame, so slow first frames do not eat it; drawn last in `update`, above everything |
+| `src/onboarding.rs` | First start: welcome, terms, pick a Discord, done (starts the install) | Shown on the first start of each app version: the `onboarded` file in the data folder holds the version that finished it; the terms step is skipped when already accepted |
 | `src/motion.rs` | Interruptible tweens with custom easing, durations, reduce-motion switch | Tweens request repaints only while they move |
 | `src/widgets.rs` | Buttons, segmented tabs, switch, pill, banner, field, spinner, check mark | Every widget reports itself to accesskit and shows a focus ring |
 | `src/terms.rs` | Draws `TERMS.md` from its Markdown (headings, bullets, bold, code, links as text) | |
