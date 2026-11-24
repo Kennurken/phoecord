@@ -176,30 +176,35 @@ impl System for RealSystem {
     }
 
     fn run_key_set(&self, name: &str, value: &str) -> Result<()> {
-        run(Command::new("reg").args([
+        run(phoecord_proxy::process::command("reg").args([
             "add", RUN_KEY, "/v", name, "/t", "REG_SZ", "/d", value, "/f",
         ]))
     }
 
     fn run_key_delete(&self, name: &str) -> Result<()> {
-        run(Command::new("reg").args(["delete", RUN_KEY, "/v", name, "/f"]))
+        run(phoecord_proxy::process::command("reg").args(["delete", RUN_KEY, "/v", name, "/f"]))
     }
 
     fn launchctl_load(&self, plist: &Path) -> Result<()> {
-        run(Command::new("launchctl").args(["load", "-w"]).arg(plist))
+        run(phoecord_proxy::process::command("launchctl")
+            .args(["load", "-w"])
+            .arg(plist))
     }
 
     fn launchctl_unload(&self, plist: &Path) -> Result<()> {
-        run(Command::new("launchctl").args(["unload", "-w"]).arg(plist))
+        run(phoecord_proxy::process::command("launchctl")
+            .args(["unload", "-w"])
+            .arg(plist))
     }
 
     fn systemd_enable(&self, unit: &str) -> Result<()> {
-        run(Command::new("systemctl").args(["--user", "daemon-reload"]))?;
-        run(Command::new("systemctl").args(["--user", "enable", "--now", unit]))
+        run(phoecord_proxy::process::command("systemctl").args(["--user", "daemon-reload"]))?;
+        run(phoecord_proxy::process::command("systemctl").args(["--user", "enable", "--now", unit]))
     }
 
     fn systemd_disable(&self, unit: &str) -> Result<()> {
-        run(Command::new("systemctl").args(["--user", "disable", "--now", unit]))
+        run(phoecord_proxy::process::command("systemctl")
+            .args(["--user", "disable", "--now", unit]))
     }
 
     fn shortcut_create(
@@ -209,7 +214,7 @@ impl System for RealSystem {
         args: &str,
         description: &str,
     ) -> Result<()> {
-        run(Command::new("powershell").args([
+        run(phoecord_proxy::process::command("powershell").args([
             "-NoProfile",
             "-Command",
             &crate::shortcut::lnk_script(lnk, target, args, description),
@@ -219,7 +224,7 @@ impl System for RealSystem {
     fn stop_proxies(&self, exes: &[PathBuf]) -> Result<Vec<u32>> {
         let os = Os::current();
         let out = if os == Os::Windows {
-            Command::new("powershell")
+            phoecord_proxy::process::command("powershell")
                 .args([
                     "-NoProfile",
                     "-Command",
@@ -227,16 +232,20 @@ impl System for RealSystem {
                 ])
                 .output()
         } else {
-            Command::new("ps").args(["-eo", "pid=,args="]).output()
+            phoecord_proxy::process::command("ps").args(["-eo", "pid=,args="]).output()
         }
         .context("listing processes")?;
         let listing = String::from_utf8_lossy(&out.stdout);
         let pids = select_proxy_pids(&listing, exes, os, std::process::id());
         for pid in &pids {
             if os == Os::Windows {
-                run(Command::new("taskkill").args(["/PID", &pid.to_string(), "/F"]))?;
+                run(phoecord_proxy::process::command("taskkill").args([
+                    "/PID",
+                    &pid.to_string(),
+                    "/F",
+                ]))?;
             } else {
-                run(Command::new("kill").arg(pid.to_string()))?;
+                run(phoecord_proxy::process::command("kill").arg(pid.to_string()))?;
             }
         }
         Ok(pids)

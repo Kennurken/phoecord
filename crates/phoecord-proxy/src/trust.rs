@@ -62,7 +62,7 @@ pub fn is_trusted(ca_pem: &Path) -> Result<bool> {
     {
         // `-store` only looks the thumbprint up (no chain or revocation check, so it works offline).
         let _ = &sha256;
-        let out = Command::new("certutil")
+        let out = crate::process::command("certutil")
             .args(["-user", "-store", "Root", &sha1])
             .output()
             .context("running certutil")?;
@@ -70,7 +70,7 @@ pub fn is_trusted(ca_pem: &Path) -> Result<bool> {
     }
     #[cfg(target_os = "macos")]
     {
-        let out = Command::new("security")
+        let out = crate::process::command("security")
             .args(["find-certificate", "-a", "-Z", "-c", CA_NAME])
             .output()
             .context("running security")?;
@@ -88,7 +88,7 @@ pub fn is_trusted(ca_pem: &Path) -> Result<bool> {
             return Ok(false);
         }
         for db in dbs {
-            let out = Command::new("certutil")
+            let out = crate::process::command("certutil")
                 .arg("-d")
                 .arg(format!("sql:{}", db.display()))
                 .args(["-L", "-a", "-n", CA_NAME])
@@ -141,7 +141,11 @@ fn nss_dbs() -> Vec<PathBuf> {
 pub fn install(ca: &Path) -> Result<()> {
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        if Command::new("certutil").arg("-H").output().is_err() {
+        if crate::process::command("certutil")
+            .arg("-H")
+            .output()
+            .is_err()
+        {
             bail!(
                 "`certutil` is missing: install NSS tools (Arch: nss, Debian/Ubuntu: libnss3-tools, Fedora: nss-tools)"
             );
@@ -149,12 +153,12 @@ pub fn install(ca: &Path) -> Result<()> {
         for db in nss_dbs() {
             if !db.join("cert9.db").exists() {
                 std::fs::create_dir_all(&db)?;
-                run(Command::new("certutil")
+                run(crate::process::command("certutil")
                     .arg("-d")
                     .arg(format!("sql:{}", db.display()))
                     .args(["-N", "--empty-password"]))?;
             }
-            run(Command::new("certutil")
+            run(crate::process::command("certutil")
                 .arg("-d")
                 .arg(format!("sql:{}", db.display()))
                 .args(["-A", "-t", "C,,", "-n", CA_NAME, "-i"])
@@ -171,7 +175,7 @@ pub fn install(ca: &Path) -> Result<()> {
     #[cfg(windows)]
     {
         // Current-user store: no admin needed; Windows asks you to confirm once.
-        run(Command::new("certutil")
+        run(crate::process::command("certutil")
             .args(["-user", "-addstore", "Root"])
             .arg(ca))?;
         println!("trusted in your Windows certificate store (Current User > Trusted Root)");
@@ -181,7 +185,7 @@ pub fn install(ca: &Path) -> Result<()> {
         let kc = dirs::home_dir()
             .unwrap_or_default()
             .join("Library/Keychains/login.keychain-db");
-        run(Command::new("security")
+        run(crate::process::command("security")
             .args(["add-trusted-cert", "-r", "trustRoot", "-k"])
             .arg(kc)
             .arg(ca))?;
@@ -194,7 +198,7 @@ pub fn uninstall() -> Result<()> {
     #[cfg(all(unix, not(target_os = "macos")))]
     for db in nss_dbs() {
         if db.join("cert9.db").exists() {
-            let _ = run(Command::new("certutil")
+            let _ = run(crate::process::command("certutil")
                 .arg("-d")
                 .arg(format!("sql:{}", db.display()))
                 .args(["-D", "-n", CA_NAME]));
@@ -202,9 +206,9 @@ pub fn uninstall() -> Result<()> {
         }
     }
     #[cfg(windows)]
-    run(Command::new("certutil").args(["-user", "-delstore", "Root", CA_NAME]))?;
+    run(crate::process::command("certutil").args(["-user", "-delstore", "Root", CA_NAME]))?;
     #[cfg(target_os = "macos")]
-    run(Command::new("security").args(["delete-certificate", "-c", CA_NAME]))?;
+    run(crate::process::command("security").args(["delete-certificate", "-c", CA_NAME]))?;
     Ok(())
 }
 

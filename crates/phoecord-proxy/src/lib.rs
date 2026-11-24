@@ -11,6 +11,7 @@ pub mod egress;
 pub mod gateway;
 pub mod host;
 pub mod hostnet;
+pub mod process;
 pub mod rest;
 pub mod server;
 pub mod trust;
