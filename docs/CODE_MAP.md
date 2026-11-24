@@ -23,6 +23,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `LICENSE`, `NOTICE`, `LICENSES/` | GPL-3.0 text; copyright and exceptions; MIT notices for the v0 code (`MIT-v0.txt`) and the plugin SDK (`MIT-sdk.txt`) |
 | `assets/logo.svg` | Logo used in the README |
 | `.github/workflows/ci.yml` | CI: rustfmt, generated docs freshness, check/clippy/test on Linux, Windows, macOS, MSRV 1.88 |
+| `.github/workflows/package.yml` | Native installers (NSIS `.exe` + WiX `.msi` on Windows, `.app` in a `.dmg` on macOS arm64 and Intel) with `SHA256SUMS`, as workflow artifacts; on PRs touching the installer, `v*` tags and by hand |
 | `.github/ISSUE_TEMPLATE/` | Bug, feature and plugin forms; blank issues disabled |
 | `.github/PULL_REQUEST_TEMPLATE.md` | PR form with the living-docs checklist |
 | `.github/dependabot.yml` | Weekly cargo updates (grouped), monthly GitHub Actions updates; Dependabot opens the `dependabot/*` branches |
@@ -165,7 +166,8 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `src/widgets.rs` | Buttons, segmented tabs, switch, pill, banner, field, spinner, check mark | Every widget reports itself to accesskit and shows a focus ring |
 | `src/terms.rs` | Draws `TERMS.md` from its Markdown (headings, bullets, bold, code, links as text) | |
 | `src/tabs/*.rs` | Install, Plugins (+ dialogs), Settings, About, terms screen | Strings only through `gui-*` keys (tested in `text.rs`) |
-| `assets/icon/` | App icon: `icon.svg` (source), `icon-256.png` (window and in-app mark), `icon-1024.png`, `icon.ico` (Windows), `icon.icns` (macOS) | Regenerate the rest from the SVG when it changes (`scripts/package/icons.sh`) |
+| `assets/installer/` | NSIS header and sidebar, WiX banner and dialog, DMG background | Written by `scripts/package/make_art.py` |
+| `assets/icon/` | App icon: `icon.svg` (source), `icon-256.png` (window and in-app mark), `icon-1024.png`, `icon.ico` (Windows), `icon.icns` (macOS) | Regenerate the rest from the SVG when it changes (`python scripts/package/make_art.py`, which also draws `assets/installer/`) |
 | `assets/fonts/Onest-*.ttf` | Onest 400/500/600, static instances of the variable font | SIL OFL 1.1, `LICENSES/OFL-onest.txt` |
 
 ### `phoecord-i18n`
@@ -191,6 +193,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `scripts/check_i18n.py` | Every key of `crates/*/i18n/en/*.ftl` exists in the `ru` file with the same variables; exit 1 otherwise |
 | `examples/plugins/clear_urls/` | The first third-party plugin example: `clear_urls` as a WASM package (`plugin.toml` id `clear_urls_wasm`, `wit-bindgen`), its own cargo workspace, excluded from the main one; README shows build and install |
 | `scripts/update_contributors.py` | Rewrites the README contributors block (avatars between `<!-- contributors:* -->` markers) from GitHub's contributors list, bots left out; `--check` exits 1 if stale. Run after merging a new contributor's PR |
+| `scripts/package/make_art.py`, `scripts/package/README.md` | Renders the app icons and installer pictures from `icon.svg`; how to build the installers locally (`cargo packager`, config in `crates/phoecord-installer-gui/Cargo.toml`) |
 | `scripts/dev/New-TestVm.ps1` | Creates a throwaway Hyper-V VM (Gen 2, Secure Boot, vTPM, Default Switch) for the manual checks 1.4.6 and 1.5.7, so they never touch your own Discord; run elevated |
 | `scripts/gen_decisions.py` | Builds `docs/DECISIONS.md` from `Ruling:` lines of `docs/<plan>/ai/ledger.md`; `--check` exits 1 if stale |
 
