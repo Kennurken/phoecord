@@ -154,17 +154,7 @@ impl App {
             };
             widgets::caption(ui, self.tr.t(hint));
             ui.add_space(theme::S4);
-            ui.horizontal(|ui| {
-                widgets::caption(ui, self.tr.t("gui-elsewhere"));
-                let choose = self.tr.t("gui-choose-folder");
-                if Button::new(&choose, Kind::Ghost)
-                    .icon(icon::FOLDER_OPEN)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.choose_client_folder(ui.ctx());
-                }
-            });
+            self.elsewhere_row(ui);
         }
         ui.add_space(theme::S7);
         self.facts(ui);
@@ -255,6 +245,26 @@ impl App {
                     _ => {}
                 }
             });
+    }
+
+    /// "Discord installed somewhere else? [Choose folder…]", the caption centred on the button.
+    pub(crate) fn elsewhere_row(&mut self, ui: &mut egui::Ui) {
+        ui.allocate_ui_with_layout(
+            vec2(ui.available_width(), 36.0),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.set_min_height(36.0);
+                widgets::caption(ui, self.tr.t("gui-elsewhere"));
+                let choose = self.tr.t("gui-choose-folder");
+                if Button::new(&choose, Kind::Ghost)
+                    .icon(icon::FOLDER_OPEN)
+                    .show(ui)
+                    .clicked()
+                {
+                    self.choose_client_folder(ui.ctx());
+                }
+            },
+        );
     }
 
     /// "Choose folder…": a Discord installed outside the default folders. The folder is kept in

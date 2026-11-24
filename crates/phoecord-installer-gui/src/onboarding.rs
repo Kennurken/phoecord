@@ -240,17 +240,7 @@ impl App {
                     has_clients = true;
                     self.client_tiles(ui, &s.clients, s);
                     ui.add_space(theme::S4);
-                    ui.horizontal(|ui| {
-                        widgets::caption(ui, self.tr.t("gui-elsewhere"));
-                        let choose = self.tr.t("gui-choose-folder");
-                        if Button::new(&choose, Kind::Ghost)
-                            .icon(icon::FOLDER_OPEN)
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.choose_client_folder(ui.ctx());
-                        }
-                    });
+                    self.elsewhere_row(ui);
                 }
             });
         let next = self.tr.t("gui-onboard-next");
