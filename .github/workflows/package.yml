@@ -56,6 +56,9 @@ jobs:
           args=()
           for f in ${{ matrix.formats }}; do args+=(-f "$f"); done
           cargo packager --release "${args[@]}"
+      - name: Name the files
+        shell: bash
+        run: bash scripts/package/name-files.sh target/packages
       - name: SHA256SUMS
         shell: bash
         working-directory: target/packages
