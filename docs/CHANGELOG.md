@@ -69,4 +69,5 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Fixed
 
+- 1.4.3, owner's Windows test of the installer window (PR #66): "Open Discord" starts `phoecord launch` with no console window, keeps its output in `launch.log` in the data folder and watches its first seconds, so the window shows what `phoecord` said when it stops instead of reporting a start; `launch` no longer exits when it has no console to wait on for Ctrl+C; `certutil`, `reg`, `powershell`, `taskkill` and Discord's `Update.exe` start without a console window; `phoecord-installer.exe` and `phoecord.exe` carry the app icon (taskbar, Explorer, Settings > Apps); the Russian setup is fully Russian; the installers are named `PhoeCord_<version>_…`; the `Package` workflow computes `SHA256SUMS` on Windows; Uninstall says that the app itself stays until it is removed in Settings > Apps (Windows) or moved to the Trash (macOS).
 - `trust.rs`: an unused `PathBuf` import broke `-D warnings` builds on Windows and macOS.

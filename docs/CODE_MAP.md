@@ -73,6 +73,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/codec.rs` | `Codec` from the Gateway query (`encoding`, `compress`), `Inflater` / `Deflater` for zlib-stream and zstd-stream | Compression context is per connection: once a frame changes, everything after must use our context |
 | `src/ca.rs` | `Authority`: local CA load-or-create, name constraint (`CONSTRAINED_TO`), leaf certificates per SNI, rustls `ServerConfig` | `CA_NAME` is what `untrust` looks for; tests check the constraint blocks other domains |
 | `src/trust.rs` | Install/remove the CA: Windows `certutil -user`, macOS keychain, Linux NSS (incl. Flatpak, Snap) | Platform code behind `cfg`; build on all 3 OSes before merging |
+| `src/process.rs` | `command` / `hide_console`: child processes that open no console window on Windows (`CREATE_NO_WINDOW`) | Every child of `phoecord` and the window goes through it: started without a console, a console program would flash its own window |
 
 | `src/hostnet.rs` | `Net`: the client's session headers kept in memory only (30 min TTL, dropped on 401), `Host::rest` to the client's own Discord API host with route checks, per-plugin 1/s + global 5/s caps and Discord's rate-limit buckets; `Host::rest_files` (multipart upload, 10 files, 25 MB); `Host::fetch` to allow-listed HTTPS hosts (5 MB cap, no redirects, no credentials, raw `bytes` for non-JSON answers); a small dedicated runtime so plugin calls never block the proxy | Never log or persist the session headers; `Debug` is redacted |
 | `tests/hostnet.rs` | Loopback fake Discord and outside servers: capture/reuse, refusals, rate limits, allow-list, caps, a `Chain` test | |
@@ -168,6 +169,8 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `src/tabs/*.rs` | Install, Plugins (+ dialogs), Settings, About, terms screen | Strings only through `gui-*` keys (tested in `text.rs`) |
 | `assets/installer/` | NSIS header and sidebar, WiX banner and dialog, DMG background | Written by `scripts/package/make_art.py` |
 | `assets/icon/` | App icon: `icon.svg` (source), `icon-256.png` (window and in-app mark), `icon-1024.png`, `icon.ico` (Windows), `icon.icns` (macOS) | Regenerate the rest from the SVG when it changes (`python scripts/package/make_art.py`, which also draws `assets/installer/`) |
+| `assets/installer/nsis/Russian.nsh` | Russian strings for cargo-packager's own NSIS pages (`custom-language-file` in `Cargo.toml`) | UTF-8 with BOM; keys must match cargo-packager's `English.nsh` for the pinned version |
+| `build.rs` (here and in `phoecord-cli`) | Embeds `assets/icon/icon.ico` and version info in the Windows `.exe` files (`winresource`) | Taskbar, Explorer and Settings > Apps read the icon from the exe; `with_icon` covers only the title bar |
 | `assets/fonts/Onest-*.ttf` | Onest 400/500/600, static instances of the variable font | SIL OFL 1.1, `LICENSES/OFL-onest.txt` |
 
 ### `phoecord-i18n`
@@ -193,7 +196,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `scripts/check_i18n.py` | Every key of `crates/*/i18n/en/*.ftl` exists in the `ru` file with the same variables; exit 1 otherwise |
 | `examples/plugins/clear_urls/` | The first third-party plugin example: `clear_urls` as a WASM package (`plugin.toml` id `clear_urls_wasm`, `wit-bindgen`), its own cargo workspace, excluded from the main one; README shows build and install |
 | `scripts/update_contributors.py` | Rewrites the README contributors block (avatars between `<!-- contributors:* -->` markers) from GitHub's contributors list, bots left out; `--check` exits 1 if stale. Run after merging a new contributor's PR |
-| `scripts/package/make_art.py`, `scripts/package/README.md` | Renders the app icons and installer pictures from `icon.svg`; how to build the installers locally (`cargo packager`, config in `crates/phoecord-installer-gui/Cargo.toml`) |
+| `scripts/package/make_art.py`, `scripts/package/name-files.sh`, `scripts/package/README.md` | Renders the app icons and installer pictures from `icon.svg`; renames the packaged `.exe`/`.msi` to `PhoeCord_<version>_…`; how to build the installers locally (`cargo packager`, config in `crates/phoecord-installer-gui/Cargo.toml`) |
 | `scripts/dev/New-TestVm.ps1` | Creates a throwaway Hyper-V VM (Gen 2, Secure Boot, vTPM, Default Switch) for the manual checks 1.4.6 and 1.5.7, so they never touch your own Discord; run elevated |
 | `scripts/gen_decisions.py` | Builds `docs/DECISIONS.md` from `Ruling:` lines of `docs/<plan>/ai/ledger.md`; `--check` exits 1 if stale |
 
@@ -222,5 +225,6 @@ Planned in 1.1; the table is filled as each item lands.
 | `plugins/message_logger/messages.jsonl` | data folder | created when `write_log` is on | `message_logger`, `phoecord log` |
 | `install.log` | data folder | created by the installer | `phoecord-installer` rollback |
 | `plugins-staging/` | data folder | created while a plugin waits for the user's yes in the installer window, removed after | `phoecord-installer-gui::packages` |
+| `launch.log` | data folder | written each time the installer window starts Discord | `phoecord-installer-gui::backend`: `phoecord launch` output, shown when it stops |
 | `PHOECORD_BIN` | env | the `phoecord` binary next to the window | `phoecord-installer-gui`: which binary autostart and shortcuts run |
 | `PHOECORD_GUI_SANDBOX` | env | `<temp>/phoecord-gui-dry-run` | `phoecord-installer --dry-run`: the sandbox folder |

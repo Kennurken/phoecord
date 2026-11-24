@@ -19,9 +19,14 @@ cargo install cargo-packager --locked --version 0.11.8
 cd crates/phoecord-installer-gui
 cargo packager --release -f app -f dmg      # macOS
 cargo packager --release -f nsis -f wix     # Windows (downloads NSIS and WiX on first run)
+cd ../.. && bash scripts/package/name-files.sh
 ```
 
-Results land in `target/packages/`. CI builds the same on every PR that touches the installer and
+Results land in `target/packages/`. cargo-packager names the `.exe` and `.msi` after the main
+binary (`phoecord-installer_…`); `name-files.sh` renames them to `PhoeCord_…` like the `.dmg`. The
+Russian strings of cargo-packager's own NSIS pages come from
+`crates/phoecord-installer-gui/assets/installer/nsis/Russian.nsh` (UTF-8 with BOM, same keys as
+cargo-packager's `English.nsh`; check them when bumping cargo-packager). CI builds the same on every PR that touches the installer and
 on `v*` tags (`.github/workflows/package.yml`) and keeps them as workflow artifacts.
 
 ## Artwork
