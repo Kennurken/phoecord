@@ -46,6 +46,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `phoecord-installer` | `crates/phoecord-installer/` | lib | core |
 | `phoecord-cli` | `crates/phoecord-cli/` | bin `phoecord` | core, proxy, plugin-runtime, plugins |
 | `phoecord-i18n` | `crates/phoecord-i18n/` | lib | none |
+| `phoecord-installer-gui` | `crates/phoecord-installer-gui/` | bin `phoecord-installer` | core, i18n, installer, plugin-runtime, plugins, proxy |
 
 ## 3. Files by crate
 
@@ -144,8 +145,25 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/vencord.rs` | `phoecord import-vencord`: finds Vencord / Vesktop / Equicord `settings.json` (or `--path`), maps enabled plugins by `Manifest::vencord` | Reads only; never writes Vencord's files; one file is listed once on case-insensitive file systems |
 | `src/terms.rs` | `TERMS_VERSION`, both terms texts (`include_str!` of `TERMS.md` / `TERMS.ru.md`), `needs_acceptance`, `accept` (stored in the data folder and logged so `uninstall` removes it) | Bump `TERMS_VERSION` whenever the text changes, so users are asked again |
 | `src/system.rs` additions | `stop_proxies` (only `run`/`launch` processes of PhoeCord's own binaries, never the calling process; `select_proxy_pids` is tested), `shortcut_create`, `Env.start_menu`, `Env.applications_dir` | |
-| `src/install.rs`, `src/uninstall.rs` | `install()` (idempotent) and `uninstall_all()` (undoes the log newest-first, `UninstallReport`) |
+| `src/install.rs`, `src/uninstall.rs` | `install()` (idempotent), `install_with_progress` (reports each `Phase` start/end for the window) and `uninstall_all()` (undoes the log newest-first, `UninstallReport`) |
 | `src/log.rs` | `install.log` (JSON lines in the data folder): every step the installer made, so rollback removes only what it created |
+
+### `phoecord-installer-gui`
+
+The installer window (stage 1.4.3). Every change to the machine goes through `phoecord-installer`, the same code as `phoecord setup` / `uninstall`.
+
+| File | What | Easy to break |
+|:---|:---|:---|
+| `src/main.rs` | Window options, icon, `--dry-run` / `--demo` / `--open <path>` | `windows_subsystem = "windows"`: no console on Windows |
+| `src/app.rs` | `App`: header with tabs (adapts to narrow windows), tab transition, dialogs (scrim + card), toasts, drop overlay, messages from jobs | Dialog card is an `Area` anchored at the centre; its scroll area sets `min_scrolled_height` or it shrinks to half the window |
+| `src/backend.rs` | `Mode` (real or dry-run sandbox with a simulated trust store), `read_status` (clients, install log, trust, proxy probe), background jobs (install, uninstall, launch, plugin jobs) | `Env.proxy_exe` is the `phoecord` binary next to the window (or `PHOECORD_BIN`), never the window itself |
+| `src/packages.rs` | Plugin packages: stage a `.zip` / folder / `plugin.toml` into `plugins-staging/`, check it, `commit` into `plugins/<id>` and switch it on, `remove`, HTTPS-only `download` (32 MB cap) | Zip paths outside the archive are refused; only `plugin.toml`, `plugin.wasm`, README and LICENSE are copied |
+| `src/theme.rs` | The one palette, spacing, radii, type scale, Onest fonts + Phosphor icons, gradient mark | Contrast is tested; add colours here, never inline |
+| `src/motion.rs` | Interruptible tweens with custom easing, durations, reduce-motion switch | Tweens request repaints only while they move |
+| `src/widgets.rs` | Buttons, segmented tabs, switch, pill, banner, field, spinner, check mark | Every widget reports itself to accesskit and shows a focus ring |
+| `src/terms.rs` | Draws `TERMS.md` from its Markdown (headings, bullets, bold, code, links as text) | |
+| `src/tabs/*.rs` | Install, Plugins (+ dialogs), Settings, About, terms screen | Strings only through `gui-*` keys (tested in `text.rs`) |
+| `assets/fonts/Onest-*.ttf` | Onest 400/500/600, static instances of the variable font | SIL OFL 1.1, `LICENSES/OFL-onest.txt` |
 
 ### `phoecord-i18n`
 
@@ -196,3 +214,6 @@ Planned in 1.1; the table is filled as each item lands.
 | `plugins/<id>/kv.json` | data folder | empty map | `Host::kv_*` |
 | `plugins/message_logger/messages.jsonl` | data folder | created when `write_log` is on | `message_logger`, `phoecord log` |
 | `install.log` | data folder | created by the installer | `phoecord-installer` rollback |
+| `plugins-staging/` | data folder | created while a plugin waits for the user's yes in the installer window, removed after | `phoecord-installer-gui::packages` |
+| `PHOECORD_BIN` | env | the `phoecord` binary next to the window | `phoecord-installer-gui`: which binary autostart and shortcuts run |
+| `PHOECORD_GUI_SANDBOX` | env | `<temp>/phoecord-gui-dry-run` | `phoecord-installer --dry-run`: the sandbox folder |
