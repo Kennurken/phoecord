@@ -96,16 +96,37 @@ pub fn discover_in(roots: &Roots) -> Vec<Client> {
 /// Every installed client: the default folders plus `extra`, folders the user picked for a client
 /// installed somewhere else (`clients` in `config.toml`).
 pub fn discover_with(extra: &[PathBuf]) -> Vec<Client> {
-    let mut found = discover();
-    for dir in extra {
-        for c in clients_at(dir) {
-            if !found.iter().any(|f| f.root == c.root) {
-                found.push(c);
-            }
+    merge(discover(), extra)
+}
+
+/// `found` plus the clients in `extra`, one per real folder: a junction or symlink to a folder
+/// that is already listed (say `%LOCALAPPDATA%\DiscordCanary` pointing at another drive, which is
+/// also in `clients`) does not add a second tile.
+fn merge(found: Vec<Client>, extra: &[PathBuf]) -> Vec<Client> {
+    let mut out: Vec<Client> = Vec::new();
+    let picked = extra.iter().flat_map(|dir| clients_at(dir));
+    for c in found.into_iter().chain(picked) {
+        if !is_listed(&out, &c) {
+            out.push(c);
         }
     }
-    found.sort_by_key(|c| (c.channel.name(), c.source.rank(), c.root.clone()));
-    found
+    out.sort_by_key(|c| (c.channel.name(), c.source.rank(), c.root.clone()));
+    out
+}
+
+/// Whether `listed` already holds `client`: the same channel in the same real folder, after
+/// links and junctions are followed.
+pub fn is_listed(listed: &[Client], client: &Client) -> bool {
+    let real = real_path(&client.root);
+    listed
+        .iter()
+        .any(|c| c.channel == client.channel && real_path(&c.root) == real)
+}
+
+/// The folder with every link and junction followed, or the path as written when it cannot be
+/// resolved (it was removed, or access is denied).
+fn real_path(p: &Path) -> PathBuf {
+    std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
 }
 
 /// The clients in a folder the user picked, empty when it holds none. Accepted on every OS, so a
@@ -458,6 +479,44 @@ mod tests {
         fs::create_dir_all(&empty).unwrap();
         assert!(clients_at(&empty).is_empty());
         assert!(clients_at(&t.path().join("missing")).is_empty());
+    }
+
+    #[test]
+    fn a_linked_folder_is_listed_once() {
+        let t = tempfile::tempdir().unwrap();
+        let real = t.path().join("D/DiscordCanary");
+        touch(&real.join("app-1.0.1360/DiscordCanary.exe"));
+        let local = t.path().join("Local");
+        fs::create_dir_all(&local).unwrap();
+        let link = local.join("DiscordCanary");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_dir(&real, &link)
+            .or_else(|_| {
+                // A symlink needs Developer Mode; a junction does not.
+                std::process::Command::new("cmd")
+                    .args(["/C", "mklink", "/J"])
+                    .arg(&link)
+                    .arg(&real)
+                    .status()
+                    .map(|_| ())
+            })
+            .unwrap();
+        let found = discover_in(&Roots {
+            local_app_data: Some(local.clone()),
+            ..Roots::default()
+        });
+        assert_eq!(found.len(), 1);
+        // The real folder is also in `clients`, written two ways: still one tile.
+        let got = merge(found, &[real.clone(), link.clone()]);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(is_listed(&got, &clients_at(&real)[0]));
+        // A different folder with the same channel is a second client.
+        let other = t.path().join("E/DiscordCanary");
+        touch(&other.join("app-1.0.1361/DiscordCanary.exe"));
+        assert!(!is_listed(&got, &clients_at(&other)[0]));
+        assert_eq!(merge(got, &[other]).len(), 2);
     }
 
     #[test]

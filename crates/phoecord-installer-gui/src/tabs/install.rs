@@ -284,6 +284,20 @@ impl App {
             self.toast(ctx, t, Tone::Danger);
             return;
         }
+        // Already a tile, maybe through a junction or link to the same folder: say so, add nothing.
+        let listed = self.backend.mode.clients();
+        if found
+            .iter()
+            .all(|c| phoecord_installer::discover::is_listed(&listed, c))
+        {
+            let names: Vec<String> = found.iter().map(|c| self.channel_name(c.channel)).collect();
+            self.selected = found.first().map(|c| c.channel);
+            let t = self
+                .tr
+                .f("gui-folder-already-listed", &[("name", &names.join(", "))]);
+            self.toast(ctx, t, Tone::Neutral);
+            return;
+        }
         let config_path = self.backend.mode.paths().config;
         let saved = (|| -> anyhow::Result<()> {
             let mut cfg = phoecord_proxy::config::Config::load_or_init(&config_path)?;

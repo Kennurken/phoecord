@@ -212,6 +212,7 @@ gui-download-discord = Скачать Discord
 gui-elsewhere = Discord стоит в другом месте?
 gui-folder-no-discord = В { $path } нет Discord. Выберите папку, в которой лежит сам Discord.
 gui-folder-added = Добавлен { $name }. PhoeCord теперь будет искать и в этой папке.
+gui-folder-already-listed = { $name } из этой папки уже есть в списке. Добавлять её ещё раз не нужно.
 gui-folder-save-failed = Не удалось запомнить папку: { $error }. Проверьте, что папка настроек доступна для записи, и попробуйте снова.
 gui-check-again = Проверить снова
 gui-install-anyway = Установить без Discord
