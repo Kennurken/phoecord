@@ -167,13 +167,16 @@ impl App {
         for r in &packages {
             self.plugin_row(ui, r);
         }
-        ui.add_space(theme::S5);
-        self.section_title(ui, &self.tr.t("gui-plugins-builtin"), builtin.len());
-        if builtin.is_empty() {
-            widgets::muted(ui, self.tr.t("gui-plugins-no-match"));
-        }
-        for r in &builtin {
-            self.plugin_row(ui, r);
+        // Only `--demo` has built-ins here: the real ones are managed inside Discord.
+        if !self.builtin.is_empty() {
+            ui.add_space(theme::S5);
+            self.section_title(ui, &self.tr.t("gui-plugins-builtin"), builtin.len());
+            if builtin.is_empty() {
+                widgets::muted(ui, self.tr.t("gui-plugins-no-match"));
+            }
+            for r in &builtin {
+                self.plugin_row(ui, r);
+            }
         }
         let _ = ctx;
     }

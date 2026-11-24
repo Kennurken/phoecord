@@ -150,7 +150,13 @@ impl App {
             .as_ref()
             .is_none_or(phoecord_installer::terms::needs_acceptance);
         let store = Store::new(&paths.data, &paths.config);
-        let chain = phoecord_plugin_runtime::Chain::new(phoecord_plugins::builtin());
+        // Built-in plugins are managed inside Discord (owner, PR #66 review); the window shows
+        // them only in `--demo`, for screenshots, until that in-client tab exists.
+        let chain = phoecord_plugin_runtime::Chain::new(if mode.demo {
+            phoecord_plugins::builtin()
+        } else {
+            Vec::new()
+        });
         let builtin = chain.manifests();
         let gateway = builtin
             .iter()
