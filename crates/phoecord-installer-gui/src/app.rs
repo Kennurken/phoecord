@@ -825,6 +825,19 @@ impl eframe::App for App {
             .frame(egui::Frame::new().fill(color::BG))
             .show(ctx, |ui| {
                 let full = ui.max_rect();
+                // Under the opening animation the window comes in after the mark: the header
+                // first, the rest a beat later (`crate::splash`).
+                let entering = |ui: &mut egui::Ui, content: bool| {
+                    let (alpha, rise) = crate::splash::reveal(ui.ctx(), content);
+                    let mut child = ui.new_child(
+                        egui::UiBuilder::new().max_rect(full.translate(vec2(0.0, rise))),
+                    );
+                    child.set_clip_rect(full);
+                    child.set_opacity(alpha);
+                    child
+                };
+                let mut whole = entering(ui, true);
+                let ui = &mut whole;
                 if let Some(step) = self.onboarding {
                     // The terms step moves on by itself once they are accepted.
                     if step == crate::onboarding::TERMS && !self.terms_needed {
@@ -838,7 +851,8 @@ impl eframe::App for App {
                     self.terms_screen(ui, full);
                     return;
                 }
-                self.header(ui);
+                let mut head = entering(ui, false);
+                self.header(&mut head);
                 self.content(ui, content_rect(full));
             });
         self.dialogs(ctx);
