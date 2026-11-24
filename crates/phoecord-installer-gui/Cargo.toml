@@ -35,3 +35,48 @@ tempfile = "3"
 
 [lints]
 workspace = true
+
+# Native installers (`cargo packager --release`, see scripts/package/README.md): a setup .exe (NSIS)
+# and an .msi (WiX) on Windows, PhoeCord.app in a .dmg on macOS. Both binaries ship together: the
+# window finds `phoecord` next to itself.
+[package.metadata.packager]
+product-name = "PhoeCord"
+identifier = "dev.phoecord.installer"
+publisher = "Cheterin Group"
+copyright = "Copyright (C) 2026 Cheterin Group. GPL-3.0-or-later."
+category = "Utility"
+description = "Native mod loader for Discord: install, repair and remove PhoeCord and its plugins"
+homepage = "https://github.com/Nanda070/phoecord"
+license-file = "../../LICENSE"
+icons = ["assets/icon/icon.icns", "assets/icon/icon.ico", "assets/icon/icon-1024.png"]
+out-dir = "../../target/packages"
+binaries-dir = "../../target/release"
+before-packaging-command = "cargo build --release --locked -p phoecord-installer-gui -p phoecord-cli"
+binaries = [
+    { path = "phoecord-installer", main = true },
+    { path = "phoecord", main = false },
+]
+formats = ["nsis", "wix", "app", "dmg"]
+
+[package.metadata.packager.macos]
+minimum-system-version = "11.0"
+
+[package.metadata.packager.nsis]
+# Per-user install (no administrator prompt), like Discord itself.
+installer-mode = "currentUser"
+installer-icon = "assets/icon/icon.ico"
+header-image = "assets/installer/nsis-header.bmp"
+sidebar-image = "assets/installer/nsis-sidebar.bmp"
+languages = ["English", "Russian"]
+display-language-selector = true
+
+[package.metadata.packager.wix]
+languages = ["en-US", "ru-RU"]
+banner-path = "assets/installer/wix-banner.bmp"
+dialog-image-path = "assets/installer/wix-dialog.bmp"
+
+[package.metadata.packager.dmg]
+background = "assets/installer/dmg-background.png"
+window-size = { width = 640, height = 400 }
+app-position = { x = 180, y = 190 }
+application-folder-position = { x = 460, y = 190 }
