@@ -23,6 +23,8 @@ pub struct Mode {
     pub sandbox: Option<PathBuf>,
     /// `--demo`: show two made-up Discord installs (with `--dry-run`, for screenshots).
     pub demo: bool,
+    /// `--demo-empty`: like `--demo`, but no Discord is found (the empty state, for screenshots).
+    pub demo_empty: bool,
     /// `--open <path>`: offer this plugin package for install on start (a file or folder
     /// association can use it too).
     pub open: Option<PathBuf>,
@@ -42,7 +44,8 @@ impl Mode {
             .and_then(|i| args.get(i + 1))
             .map(PathBuf::from);
         Mode {
-            demo: has("--demo") && sandbox.is_some(),
+            demo: (has("--demo") || has("--demo-empty")) && sandbox.is_some(),
+            demo_empty: has("--demo-empty") && sandbox.is_some(),
             sandbox,
             open,
         }
@@ -92,6 +95,9 @@ impl Mode {
     }
 
     pub fn clients(&self) -> Vec<Client> {
+        if self.demo_empty {
+            return Vec::new();
+        }
         if self.demo {
             return demo_clients();
         }
@@ -467,6 +473,7 @@ mod tests {
         Mode {
             sandbox: Some(dir.to_path_buf()),
             demo: true,
+            demo_empty: false,
             open: None,
         }
     }

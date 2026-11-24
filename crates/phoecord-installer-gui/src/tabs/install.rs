@@ -23,7 +23,7 @@ impl App {
         }
     }
 
-    fn start_install(&mut self, channel: Option<Channel>, repair: bool) {
+    pub(crate) fn start_install(&mut self, channel: Option<Channel>, repair: bool) {
         let ctx = self.backend.ctx_clone();
         for i in 0..3 {
             motion::forget(&ctx, Id::new(("phase-done", i)));
@@ -154,7 +154,7 @@ impl App {
             };
             widgets::caption(ui, self.tr.t(hint));
             ui.add_space(theme::S4);
-            ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
                 widgets::caption(ui, self.tr.t("gui-elsewhere"));
                 let choose = self.tr.t("gui-choose-folder");
                 if Button::new(&choose, Kind::Ghost)
@@ -208,7 +208,7 @@ impl App {
         ctx.request_repaint();
     }
 
-    fn no_clients(&mut self, ui: &mut egui::Ui, installed: bool) {
+    pub(crate) fn no_clients(&mut self, ui: &mut egui::Ui, installed: bool) {
         egui::Frame::new()
             .fill(color::SURFACE)
             .stroke(theme::stroke(1.0, color::LINE))
@@ -237,27 +237,21 @@ impl App {
                 ui.add_space(theme::S4);
                 let choose = self.tr.t("gui-choose-folder");
                 let download = self.tr.t("gui-download-discord");
-                match button_row(
-                    ui,
-                    vec![
-                        Button::new(&choose, Kind::Primary).icon(icon::FOLDER_OPEN),
-                        Button::new(&download, Kind::Secondary).icon(icon::ARROW_SQUARE_OUT),
-                    ],
-                ) {
-                    Some(0) => self.choose_client_folder(ui.ctx()),
-                    Some(1) => ui.ctx().open_url(egui::OpenUrl::new_tab(DISCORD_DOWNLOAD)),
-                    _ => {}
-                }
-                ui.add_space(theme::S2);
                 let again = self.tr.t("gui-check-again");
                 let anyway = self.tr.t("gui-install-anyway");
-                let mut b = vec![Button::new(&again, Kind::Ghost).icon(icon::ARROWS_CLOCKWISE)];
+                let mut b = vec![
+                    Button::new(&choose, Kind::Primary).icon(icon::FOLDER_OPEN),
+                    Button::new(&download, Kind::Secondary).icon(icon::ARROW_SQUARE_OUT),
+                    Button::new(&again, Kind::Ghost).icon(icon::ARROWS_CLOCKWISE),
+                ];
                 if !installed {
                     b.push(Button::new(&anyway, Kind::Ghost));
                 }
                 match button_row(ui, b) {
-                    Some(0) => self.backend.refresh(),
-                    Some(1) => self.start_install(None, false),
+                    Some(0) => self.choose_client_folder(ui.ctx()),
+                    Some(1) => ui.ctx().open_url(egui::OpenUrl::new_tab(DISCORD_DOWNLOAD)),
+                    Some(2) => self.backend.refresh(),
+                    Some(3) => self.start_install(None, false),
                     _ => {}
                 }
             });
@@ -308,7 +302,7 @@ impl App {
         }
     }
 
-    fn client_tiles(
+    pub(crate) fn client_tiles(
         &mut self,
         ui: &mut egui::Ui,
         clients: &[ClientStatus],
@@ -574,24 +568,21 @@ impl App {
         }
     }
 
-    /// One install step: a dot that becomes a spinner, then a check that draws itself.
-    fn phase_row(
+    /// The title and caption of one install step (`skipped`: the shortcut step was skipped).
+    pub(crate) fn phase_text(
         &self,
-        ui: &mut egui::Ui,
-        i: usize,
         ph: Phase,
-        st: PState,
+        skipped: bool,
         channel: Option<Channel>,
-    ) {
-        let ctx = ui.ctx().clone();
-        let (label, caption) = match ph {
+    ) -> (String, String) {
+        match ph {
             Phase::Certificate => (self.tr.t("gui-phase-cert"), self.tr.t("gui-phase-cert-sub")),
             Phase::Autostart => (
                 self.tr.t("gui-phase-autostart"),
                 self.tr.t("gui-phase-autostart-sub"),
             ),
             Phase::Shortcut => {
-                let cap = if st == PState::Skipped {
+                let cap = if skipped {
                     if Os::current() == Os::MacOs && channel.is_some() {
                         self.tr.t("gui-phase-shortcut-mac")
                     } else {
@@ -608,7 +599,20 @@ impl App {
                 };
                 (self.tr.t("gui-phase-shortcut"), cap)
             }
-        };
+        }
+    }
+
+    /// One install step: a dot that becomes a spinner, then a check that draws itself.
+    fn phase_row(
+        &self,
+        ui: &mut egui::Ui,
+        i: usize,
+        ph: Phase,
+        st: PState,
+        channel: Option<Channel>,
+    ) {
+        let ctx = ui.ctx().clone();
+        let (label, caption) = self.phase_text(ph, st == PState::Skipped, channel);
         ui.horizontal_top(|ui| {
             let (dot, _) = ui.allocate_exact_size(vec2(24.0, 24.0), Sense::hover());
             let p = ui.painter();
@@ -892,7 +896,12 @@ const DISCORD_DOWNLOAD: &str = "https://discord.com/download";
 /// Where discovery looks on this OS, for the "nothing found" screen.
 fn looked_in() -> Vec<String> {
     let roots = phoecord_installer::discover::Roots::system();
-    let show = |p: &std::path::Path| p.display().to_string();
+    // The home folder as `~`, so the list stays short (and screenshots keep the user's name out).
+    let home = dirs::home_dir();
+    let show = |p: &std::path::Path| match home.as_deref().and_then(|h| p.strip_prefix(h).ok()) {
+        Some(rest) => std::path::Path::new("~").join(rest).display().to_string(),
+        None => p.display().to_string(),
+    };
     match Os::current() {
         Os::Windows => roots
             .local_app_data

@@ -106,6 +106,10 @@ pub struct App {
     pub tab: Tab,
     prev_tab: Tab,
     pub terms_needed: bool,
+    /// First start: the onboarding step shown instead of the window (`crate::onboarding`).
+    pub onboarding: Option<u8>,
+    /// The last onboarding move went back (the screens slide the other way).
+    pub onboard_back: bool,
     pub terms_viewing: bool,
     pub terms_at_end: bool,
     pub flow: Flow,
@@ -133,6 +137,7 @@ pub struct App {
 }
 
 const REDUCE_KEY: &str = "reduce_motion";
+const ONBOARDED_KEY: &str = "onboarded";
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>, mode: crate::backend::Mode) -> App {
@@ -149,6 +154,12 @@ impl App {
         let terms_needed = env
             .as_ref()
             .is_none_or(phoecord_installer::terms::needs_acceptance);
+        let onboarded = cc
+            .storage
+            .and_then(|s| s.get_string(ONBOARDED_KEY))
+            .is_some_and(|v| v == "true");
+        // Only a first start sees the onboarding; a new version of the terms shows the terms alone.
+        let onboarding = (terms_needed && !onboarded).then_some(crate::onboarding::WELCOME);
         let store = Store::new(&paths.data, &paths.config);
         // Built-in plugins are managed inside Discord (owner, PR #66 review); the window shows
         // them only in `--demo`, for screenshots, until that in-client tab exists.
@@ -172,6 +183,8 @@ impl App {
             tab: Tab::Install,
             prev_tab: Tab::Install,
             terms_needed,
+            onboarding,
+            onboard_back: false,
             terms_viewing: false,
             terms_at_end: false,
             flow: Flow::Idle,
@@ -787,6 +800,7 @@ impl eframe::App for App {
         }
         self.files_dropped(ctx);
         if !self.terms_needed
+            && self.onboarding.is_none()
             && let Some(p) = self.pending_open.take()
         {
             self.go(ctx, Tab::Plugins);
@@ -801,6 +815,15 @@ impl eframe::App for App {
             .frame(egui::Frame::new().fill(color::BG))
             .show(ctx, |ui| {
                 let full = ui.max_rect();
+                if let Some(step) = self.onboarding {
+                    // The terms step moves on by itself once they are accepted.
+                    if step == crate::onboarding::TERMS && !self.terms_needed {
+                        self.onboard_to(ctx, crate::onboarding::PICK);
+                    }
+                    let step = self.onboarding.unwrap_or(step);
+                    self.onboarding_screen(ui, full, step);
+                    return;
+                }
                 if self.terms_needed || self.terms_viewing {
                     self.terms_screen(ui, full);
                     return;
@@ -811,10 +834,14 @@ impl eframe::App for App {
         self.dialogs(ctx);
         self.drop_overlay(ctx);
         self.toasts(ctx);
+        crate::splash::show(ctx);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         storage.set_string(REDUCE_KEY, self.reduce_motion.to_string());
+        if !self.terms_needed {
+            storage.set_string(ONBOARDED_KEY, "true".into());
+        }
     }
 
     /// Scroll positions and the like start fresh on every start.

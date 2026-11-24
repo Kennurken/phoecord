@@ -154,15 +154,18 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 
 | File | What | Easy to break |
 |:---|:---|:---|
-| `src/main.rs` | Window options, icon, `--dry-run` / `--demo` / `--open <path>` | `windows_subsystem = "windows"`: no console on Windows |
+| `src/main.rs` | Window options, icon, `--dry-run` / `--demo` / `--demo-empty` / `--open <path>` | `windows_subsystem = "windows"`: no console on Windows |
 | `src/app.rs` | `App`: header with tabs (adapts to narrow windows), tab transition, dialogs (scrim + card), toasts, drop overlay, messages from jobs | Dialog card is an `Area` anchored at the centre; its scroll area sets `min_scrolled_height` or it shrinks to half the window |
 | `src/backend.rs` | `Mode` (real or dry-run sandbox with a simulated trust store), `read_status` (clients, install log, trust, proxy probe), background jobs (install, uninstall, launch, plugin jobs) | `Env.proxy_exe` is the `phoecord` binary next to the window (or `PHOECORD_BIN`), never the window itself |
 | `src/packages.rs` | Plugin packages: stage a `.zip` / folder / `plugin.toml` into `plugins-staging/`, check it, `commit` into `plugins/<id>` and switch it on, `remove`, HTTPS-only `download` (32 MB cap) | Zip paths outside the archive are refused; only `plugin.toml`, `plugin.wasm`, README and LICENSE are copied |
-| `src/theme.rs` | The one palette, spacing, radii, type scale, Onest fonts + Phosphor icons, gradient mark | Contrast is tested; add colours here, never inline |
+| `src/theme.rs` | The one palette, spacing, radii, type scale, Onest fonts + Phosphor icons, the app icon as window icon and in-app mark | Contrast is tested; add colours here, never inline |
+| `src/splash.rs` | Opening animation: mark, glow and name, then the layer fades out (~1 s, click or key skips, off with reduced motion) | Drawn last in `update`, above everything |
+| `src/onboarding.rs` | First start: welcome, terms, pick a Discord, done (starts the install) | Shown once while the terms were never accepted; `onboarded` is kept in eframe storage |
 | `src/motion.rs` | Interruptible tweens with custom easing, durations, reduce-motion switch | Tweens request repaints only while they move |
 | `src/widgets.rs` | Buttons, segmented tabs, switch, pill, banner, field, spinner, check mark | Every widget reports itself to accesskit and shows a focus ring |
 | `src/terms.rs` | Draws `TERMS.md` from its Markdown (headings, bullets, bold, code, links as text) | |
 | `src/tabs/*.rs` | Install, Plugins (+ dialogs), Settings, About, terms screen | Strings only through `gui-*` keys (tested in `text.rs`) |
+| `assets/icon/` | App icon: `icon.svg` (source), `icon-256.png` (window and in-app mark), `icon-1024.png`, `icon.ico` (Windows), `icon.icns` (macOS) | Regenerate the rest from the SVG when it changes (`scripts/package/icons.sh`) |
 | `assets/fonts/Onest-*.ttf` | Onest 400/500/600, static instances of the variable font | SIL OFL 1.1, `LICENSES/OFL-onest.txt` |
 
 ### `phoecord-i18n`

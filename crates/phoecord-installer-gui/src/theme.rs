@@ -186,54 +186,43 @@ pub fn apply(ctx: &egui::Context) {
     });
 }
 
-/// The PhoeCord mark: a rounded square, rose at the top to garnet at the bottom.
-pub fn paint_mark(painter: &egui::Painter, rect: egui::Rect) {
-    let r = (rect.width() * 0.28) as u8;
-    paint_vgradient(
-        painter,
-        rect,
-        radius(r),
-        color::ROSE,
-        Color32::from_rgb(0x7A, 0x10, 0x22),
-    );
+/// The app icon (`assets/icon/icon.svg`, rendered to PNG), as window icon data.
+pub fn icon_data() -> egui::IconData {
+    eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon/icon-256.png"))
+        .expect("the bundled icon is a valid PNG")
 }
 
-/// A rounded rectangle with a vertical gradient. egui has no gradient fill: the outline is drawn
-/// as an anti-aliased polygon in the middle colour, then a mesh fan with per-vertex colours fills
-/// it from just inside the edge.
-pub fn paint_vgradient(
-    painter: &egui::Painter,
-    rect: egui::Rect,
-    r: CornerRadius,
-    top: Color32,
-    bottom: Color32,
-) {
-    use egui::epaint::{Mesh, PathShape, tessellator::path::rounded_rectangle};
-    let mut outline = Vec::new();
-    rounded_rectangle(&mut outline, rect, r.into());
-    painter.add(PathShape::convex_polygon(
-        outline,
-        lerp_color(top, bottom, 0.5),
-        Stroke::NONE,
-    ));
-    let mut inner = Vec::new();
-    let shrink = 0.6;
-    let mut ri: egui::epaint::CornerRadiusF32 = r.into();
-    for c in [&mut ri.nw, &mut ri.ne, &mut ri.sw, &mut ri.se] {
-        *c = (*c - shrink).max(0.0);
+/// The PhoeCord mark (the app icon without its transparent margin), loaded once per window.
+fn mark_texture(ctx: &egui::Context) -> egui::TextureHandle {
+    let id = egui::Id::new("phoecord-mark");
+    if let Some(t) = ctx.data(|d| d.get_temp::<egui::TextureHandle>(id)) {
+        return t;
     }
-    rounded_rectangle(&mut inner, rect.shrink(shrink), ri);
-    let at = |y: f32| lerp_color(top, bottom, (y - rect.top()) / rect.height().max(1.0));
-    let mut mesh = Mesh::default();
-    mesh.colored_vertex(rect.center(), at(rect.center().y));
-    for p in &inner {
-        mesh.colored_vertex(*p, at(p.y));
-    }
-    let n = inner.len() as u32;
-    for i in 0..n {
-        mesh.add_triangle(0, 1 + i, 1 + (i + 1) % n);
-    }
-    painter.add(mesh);
+    let icon = icon_data();
+    let image = egui::ColorImage::from_rgba_unmultiplied(
+        [icon.width as usize, icon.height as usize],
+        &icon.rgba,
+    );
+    let t = ctx.load_texture("phoecord-mark", image, egui::TextureOptions::LINEAR);
+    ctx.data_mut(|d| d.insert_temp(id, t.clone()));
+    t
+}
+
+/// The icon's artwork spans 448 of its 512 units; the rest is transparent margin.
+const MARK_UV: egui::Rect = egui::Rect {
+    min: egui::pos2(32.0 / 512.0, 32.0 / 512.0),
+    max: egui::pos2(480.0 / 512.0, 480.0 / 512.0),
+};
+
+/// The PhoeCord mark filling `rect`.
+pub fn paint_mark(painter: &egui::Painter, rect: egui::Rect) {
+    paint_mark_tinted(painter, rect, Color32::WHITE);
+}
+
+/// [`paint_mark`] with a tint (its alpha fades it in).
+pub fn paint_mark_tinted(painter: &egui::Painter, rect: egui::Rect, tint: Color32) {
+    let t = mark_texture(painter.ctx());
+    painter.image(t.id(), rect, MARK_UV, tint);
 }
 
 /// A stroke (egui's `Stroke::new` takes `impl Into<f32>`, which leaves float literals untyped).

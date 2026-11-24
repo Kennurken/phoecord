@@ -343,7 +343,6 @@ gui-about-report = Report a problem
 gui-about-terms = Terms of use
 gui-about-license = PhoeCord is free software under the GPL-3.0-or-later license.
 gui-about-security = Found a leak or a vulnerability? Report it privately, as SECURITY.md describes, never in a public issue.
-gui-about-font = Font: Onest, SIL Open Font License 1.1. Icons: Phosphor, MIT.
 gui-terms-title = Before you install
 gui-terms-title-view = Terms of use
 gui-terms-sub = Version { $version }. Read to the end, then accept to continue.
@@ -352,3 +351,35 @@ gui-terms-quit = Quit
 gui-terms-scroll = Scroll to the end to accept
 gui-open-hint-mac = Open it from this window each time: macOS has no PhoeCord shortcut.
 gui-ready-sub-mac = Open { $name } from this window whenever you want it with PhoeCord.
+
+## Installer window: first start
+gui-onboard-step = Step { $n } of { $total }
+gui-onboard-back = Back
+gui-onboard-next = Continue
+gui-onboard-skip = Skip for now
+gui-onboard-later = Not now
+gui-onboard-start = Get started
+gui-onboard-welcome-title = Welcome to PhoeCord
+gui-onboard-welcome-sub = A mod loader for Discord. Three things to know before you start:
+gui-onboard-point-proxy-title = It runs next to Discord
+gui-onboard-point-proxy = A small local proxy changes what Discord sends and receives. Discord's own files stay untouched.
+gui-onboard-point-plugins-title = You pick the plugins
+gui-onboard-point-plugins = Add plugins from a file or a link. Before anything installs, you see what it can do.
+gui-onboard-point-undo-title = One button undoes it
+gui-onboard-point-undo = Uninstall removes the certificate, the proxy and the shortcut, and leaves nothing behind.
+gui-onboard-pick-sub = PhoeCord starts this Discord through its proxy. You can add another one later.
+gui-onboard-looking = Looking for Discord…
+gui-onboard-done-title = You're all set
+gui-onboard-done-what = What happens
+gui-onboard-done-sub = PhoeCord will be set up for { $name }. It takes a few seconds, and you can undo it with one button.
+
+## Installer window: credits
+gui-credits = Credits
+gui-credits-contributors = Contributors
+gui-credits-vencord = Plugin ideas from Vencord (GPL-3.0-or-later, © Vendicated and contributors). Code adapted from it names the original file.
+gui-credits-gpui = Thanks to Zed Industries for open-sourcing GPUI.
+gui-credits-font = Onest font, SIL Open Font License 1.1.
+gui-credits-icons = Phosphor icons, MIT license.
+gui-credits-egui = Window built with egui and eframe, MIT or Apache-2.0.
+gui-credits-licenses = All licenses
+gui-credits-affiliation = Not affiliated with Discord Inc., Vencord or Zed Industries.
