@@ -199,6 +199,9 @@ interface host {
     schedule: func(after-ms: u64, tag: string) -> result<_, string>;
     /// Cancel this plugin's pending timers with this tag. Always allowed.
     cancel-schedule: func(tag: string);
+    /// `fetch` with extra request headers (name, value). The host refuses `Host`,
+    /// `Authorization`, `Cookie`, `Proxy-*` and hop-by-hop headers. Right `fetch`.
+    fetch-with: func(method: string, url: string, headers: list<tuple<string, string>>, body: option<tree>) -> result<host-response, string>;
 }
 
 world plugin {

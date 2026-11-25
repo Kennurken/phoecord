@@ -16,7 +16,8 @@
 //! #   send: glob over the op number, e.g. "send:3"
 //! events = ["dispatch:MESSAGE_CREATE"]
 //! rights = ["notify"]          # which `Host` methods it may call (see `wasm::Right`)
-//! fetch = ["api.example.com"]  # outside hosts `Host::fetch` may call (needs the `fetch` right)
+//! fetch = ["api.example.com"]  # outside hosts `Host::fetch` may call (needs the `fetch` right);
+//!                               # "*.example.com" matches exactly one more label
 //! ```
 //!
 //! Rights (`rights = [...]`): a call without its right is an error for the guest and one log line
@@ -141,12 +142,15 @@ impl PackageManifest {
     }
 }
 
-/// A `fetch` entry is a bare lower-case host name: no scheme, port, path or wildcard.
+/// A `fetch` entry is a bare lower-case host name (no scheme, port or path), or `*.` and such a
+/// name: the pattern matches exactly one more DNS label (`*.discordsays.com` allows
+/// `123.discordsays.com`, not `discordsays.com` nor `a.b.discordsays.com`).
 fn valid_fetch_host(h: &str) -> Result<String, String> {
     let h = h.trim().to_ascii_lowercase();
-    let ok = !h.is_empty()
-        && h.split('.').count() >= 2
-        && h.split('.').all(|l| {
+    let name = h.strip_prefix("*.").unwrap_or(&h);
+    let ok = !name.is_empty()
+        && name.split('.').count() >= 2
+        && name.split('.').all(|l| {
             !l.is_empty()
                 && !l.starts_with('-')
                 && !l.ends_with('-')
@@ -156,7 +160,8 @@ fn valid_fetch_host(h: &str) -> Result<String, String> {
         Ok(h)
     } else {
         Err(format!(
-            "fetch host {h:?} must be a plain host name such as \"api.example.com\""
+            "fetch host {h:?} must be a plain host name such as \"api.example.com\" or a pattern \
+             such as \"*.example.com\""
         ))
     }
 }
@@ -659,6 +664,34 @@ mod tests {
         assert!(!glob_match("a?c", "ac"));
         assert!(glob_match("*", ""));
         assert!(glob_match("*a*b*", "xxaxxbxx"));
+    }
+
+    #[test]
+    fn fetch_entries_are_hosts_or_one_label_patterns() {
+        assert_eq!(
+            valid_fetch_host(" API.example.com ").unwrap(),
+            "api.example.com"
+        );
+        assert_eq!(
+            valid_fetch_host("*.DiscordSays.com").unwrap(),
+            "*.discordsays.com"
+        );
+        for bad in [
+            "*.com",
+            "*",
+            "*.",
+            "**.x.com",
+            "a.*.com",
+            "https://x.com",
+            "x.com:443",
+            "x.com/p",
+            "*.*.x.com",
+        ] {
+            assert!(valid_fetch_host(bad).is_err(), "{bad}");
+        }
+        let toml = "id = \"p\"\nname = \"p\"\nversion = \"0.1.0\"\napi = 1\nfetch = [\"*.discordsays.com\"]\n";
+        let p = PackageManifest::parse(toml).unwrap();
+        assert_eq!(p.manifest.fetch, vec!["*.discordsays.com".to_string()]);
     }
 
     #[test]

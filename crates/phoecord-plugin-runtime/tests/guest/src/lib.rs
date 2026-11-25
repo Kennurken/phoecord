@@ -103,6 +103,21 @@ fn dispatch(name: &str) -> Outcome {
             Err(e) => denied(e),
         },
         "DATA" => answer(host::append_data("log.jsonl", "{}")),
+        // `fetch-with`: 200 with the answer's status in the body, 403 with the error.
+        "FETCH_WITH" => match host::fetch_with(
+            "POST",
+            "https://1.example.com/x",
+            &[("X-Test".to_string(), "1".to_string())],
+            None,
+        ) {
+            Ok(r) => outcome(Verdict::Reply(Reply {
+                status: 200,
+                body: Some(Tree {
+                    nodes: vec![Node::Int(i64::from(r.status))],
+                }),
+            })),
+            Err(e) => denied(e),
+        },
         // Two timers and a cancelled third; a timer answers with a log line naming its tag.
         "SCHEDULE" => {
             let r = host::schedule(1000, "tick").and_then(|()| host::schedule(10, "drop"));

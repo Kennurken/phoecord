@@ -389,6 +389,19 @@ impl Host for ProxyHost<'_> {
             .net
             .fetch(&self.fetch_hosts, method, url, body, upstream)
     }
+
+    fn fetch_with(
+        &mut self,
+        method: &str,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: Option<&Val>,
+    ) -> Result<HostResponse, String> {
+        let upstream = self.upstream()?;
+        self.shared
+            .net
+            .fetch_with(&self.fetch_hosts, method, url, headers, body, upstream)
+    }
 }
 
 impl ProxyHost<'_> {

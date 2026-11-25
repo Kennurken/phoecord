@@ -348,20 +348,47 @@ impl Net {
         body: Option<&Val>,
         upstream: Option<egress::Upstream>,
     ) -> Result<HostResponse, String> {
+        self.fetch_with(allowed, method, url, &[], body, upstream)
+    }
+
+    /// [`Net::fetch`] with the caller's extra request headers. Hop-by-hop and credential
+    /// headers are refused before anything is sent (`phoecord_core::plugin::fetch_header_refused`).
+    pub fn fetch_with(
+        &self,
+        allowed: &[String],
+        method: &str,
+        url: &str,
+        extra: &[(&str, &str)],
+        body: Option<&Val>,
+        upstream: Option<egress::Upstream>,
+    ) -> Result<HostResponse, String> {
         let method = parse_method(method)?;
         let url = parse_fetch_url(url)?;
-        if !allowed.iter().any(|h| h.eq_ignore_ascii_case(&url.host)) {
+        if !allowed
+            .iter()
+            .any(|h| phoecord_core::plugin::fetch_host_matches(h, &url.host))
+        {
             return Err(format!(
                 "host {} is not in this plugin's `fetch` list",
                 url.host
             ));
         }
-        let json = encode_body(body)?;
         let mut headers = HeaderMap::new();
         headers.insert(
             header::USER_AGENT,
             HeaderValue::from_static(concat!("PhoeCord/", env!("CARGO_PKG_VERSION"))),
         );
+        for (name, value) in extra {
+            if phoecord_core::plugin::fetch_header_refused(name) {
+                return Err(format!("header {name:?} may not be set by a plugin"));
+            }
+            let n = HeaderName::from_bytes(name.trim().to_ascii_lowercase().as_bytes())
+                .map_err(|_| format!("bad header name {name:?}"))?;
+            let v = HeaderValue::from_str(value)
+                .map_err(|_| format!("bad value for header {name:?}"))?;
+            headers.insert(n, v);
+        }
+        let json = encode_body(body)?;
         Ok(self
             .run(
                 method,

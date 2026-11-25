@@ -48,7 +48,8 @@ pub struct Manifest {
     pub layers: Vec<Layer>,
     /// [`API_VERSION`] the plugin was built against.
     pub api: u32,
-    /// Outside hosts `Host::fetch` may call (exact host names, no scheme or port).
+    /// Outside hosts `Host::fetch` may call: exact host names (no scheme or port), or a pattern
+    /// `*.example.com` that matches exactly one more DNS label (see [`fetch_host_matches`]).
     pub fetch: Vec<String>,
 }
 
@@ -130,6 +131,21 @@ pub trait Host {
     ) -> Result<HostResponse, String> {
         let _ = (method, url, body);
         Err("Host::fetch is not available in this host".into())
+    }
+    /// [`Host::fetch`] with extra request headers, e.g. `("Referer", "https://...")`. Same rules as
+    /// `fetch` (manifest hosts only, HTTPS, no redirects, no Discord credentials or cookies); the
+    /// host refuses hop-by-hop and credential headers (`Host`, `Authorization`, `Cookie`,
+    /// `Proxy-*`, `Connection`, `Content-Length`, `Transfer-Encoding`, `TE`, `Upgrade`,
+    /// `Keep-Alive`, `Trailer`). The default (a host without it) returns `Err`.
+    fn fetch_with(
+        &mut self,
+        method: &str,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: Option<&Val>,
+    ) -> Result<HostResponse, String> {
+        let _ = (method, url, headers, body);
+        Err("Host::fetch_with is not supported by this host".into())
     }
     /// A Discord API call on the user's behalf, through the host's shared rate limiter.
     fn rest(
@@ -214,6 +230,40 @@ pub trait Host {
     }
 }
 
+/// Request headers [`Host::fetch_with`] refuses (lower-case; `proxy-` is a prefix).
+pub const FETCH_REFUSED_HEADERS: &[&str] = &[
+    "host",
+    "authorization",
+    "cookie",
+    "connection",
+    "content-length",
+    "transfer-encoding",
+    "te",
+    "upgrade",
+    "keep-alive",
+    "trailer",
+];
+
+/// Whether [`Host::fetch_with`] refuses a request header name.
+pub fn fetch_header_refused(name: &str) -> bool {
+    let n = name.trim().to_ascii_lowercase();
+    n.starts_with("proxy-") || FETCH_REFUSED_HEADERS.contains(&n.as_str())
+}
+
+/// Whether a manifest `fetch` entry allows `host`. An entry is an exact host name, or
+/// `*.example.com`, which matches exactly one more DNS label: `123.example.com`, but not
+/// `example.com` nor `a.b.example.com`. Case does not matter.
+pub fn fetch_host_matches(entry: &str, host: &str) -> bool {
+    let (entry, host) = (entry.to_ascii_lowercase(), host.to_ascii_lowercase());
+    match entry.strip_prefix("*.") {
+        Some(base) => host
+            .strip_suffix(base)
+            .and_then(|label| label.strip_suffix('.'))
+            .is_some_and(|label| !label.is_empty() && !label.contains('.') && !base.is_empty()),
+        None => entry == host,
+    }
+}
+
 /// An answer to [`Host::fetch`] or [`Host::rest`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostResponse {
@@ -280,6 +330,49 @@ mod tests {
         fn channel_guild(&self, _: u64) -> Option<u64> {
             None
         }
+    }
+
+    #[test]
+    fn fetch_patterns_match_exactly_one_more_label() {
+        let p = "*.discordsays.com";
+        assert!(fetch_host_matches(p, "123.discordsays.com"));
+        assert!(fetch_host_matches(p, "ABC.DiscordSays.com"));
+        assert!(!fetch_host_matches(p, "discordsays.com"));
+        assert!(!fetch_host_matches(p, ".discordsays.com"));
+        assert!(!fetch_host_matches(p, "a.b.discordsays.com"));
+        assert!(!fetch_host_matches(p, "evildiscordsays.com"));
+        assert!(!fetch_host_matches(p, "123.discordsays.com.evil.example"));
+        assert!(fetch_host_matches("api.example.com", "API.example.com"));
+        assert!(!fetch_host_matches("api.example.com", "x.api.example.com"));
+        assert!(!fetch_host_matches("*.", "a."));
+    }
+
+    #[test]
+    fn fetch_with_refuses_credential_and_hop_by_hop_headers() {
+        for n in [
+            "Host",
+            "authorization",
+            "Cookie",
+            "Proxy-Authorization",
+            "proxy-x",
+            "TE",
+            "Content-Length",
+        ] {
+            assert!(fetch_header_refused(n), "{n}");
+        }
+        for n in [
+            "Referer",
+            "X-Auth-Token",
+            "Content-Type",
+            "X-Discord-Quest-ID",
+        ] {
+            assert!(!fetch_header_refused(n), "{n}");
+        }
+        let mut h = Bare;
+        assert!(
+            h.fetch_with("GET", "https://x.example/", &[], None)
+                .is_err()
+        );
     }
 
     #[test]
