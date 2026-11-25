@@ -18,6 +18,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 |:---|:---|
 | `Cargo.toml` | Workspace: members `crates/*`, default member `phoecord-cli`, shared `[workspace.package]` (edition 2024, MSRV 1.88, GPL-3.0-or-later), shared dependency versions, lints, release profile |
 | `Cargo.lock` | Locked versions; committed because the workspace ships binaries |
+| `catalog/` | The plugin catalog (1.3.11): `plugins.json` (the index, empty until a community plugin has a hashed download), `plugins.schema.json`, `README.md` (how to add an entry) |
 | `README.md` | Product overview |
 | `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` | Process, security policy, conduct |
 | `LICENSE`, `NOTICE`, `LICENSES/` | GPL-3.0 text; copyright and exceptions; MIT notices for the v0 code (`MIT-v0.txt`) and the plugin SDK (`MIT-sdk.txt`) |
@@ -48,9 +49,10 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `phoecord-plugins` | `crates/phoecord-plugins/` | lib | core |
 | `phoecord-loader` | `crates/phoecord-loader/` | cdylib + rlib | none |
 | `phoecord-installer` | `crates/phoecord-installer/` | lib | core |
-| `phoecord-cli` | `crates/phoecord-cli/` | bin `phoecord` | core, proxy, transport, plugin-runtime, plugins |
+| `phoecord-cli` | `crates/phoecord-cli/` | bin `phoecord` | catalog, core, proxy, transport, plugin-runtime, plugins |
 | `phoecord-i18n` | `crates/phoecord-i18n/` | lib | none |
-| `phoecord-installer-gui` | `crates/phoecord-installer-gui/` | bin `phoecord-installer` | core, i18n, installer, plugin-runtime, plugins, proxy |
+| `phoecord-catalog` | `crates/phoecord-catalog/` | lib | plugin-runtime, proxy |
+| `phoecord-installer-gui` | `crates/phoecord-installer-gui/` | bin `phoecord-installer` | catalog, core, i18n, installer, plugin-runtime, plugins, proxy |
 
 ## 3. Files by crate
 
@@ -221,6 +223,17 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/log.rs` | `install.log` (JSON lines in the data folder): every step the installer made, so rollback removes only what it created |
 | `src/loader.rs` | Loader DLL step (1.5.6, opt-in `setup --loader`, Windows only): `install_loader` records `Step::LoaderWanted` and copies `version.dll` (next to the `phoecord` binary, `default_source`) into the newest `app-x.y.z` (`discover::newest_app_dir`); `ensure_loader` re-applies it on `run`/`launch` after Discord updates; every copy is logged as `Step::LoaderCopy` with its SHA-256 | A `version.dll` whose hash is not recorded for that file is foreign: never overwritten, never removed by `uninstall` (`Kept::NotOurs`); `ensure_loader` never fails its caller |
 
+### `phoecord-catalog`
+
+Plugin packages and the community catalog (1.3.11), shared by the CLI and the installer window.
+
+| File | What | Easy to break |
+|:---|:---|:---|
+| `src/store.rs` | Plugin packages: stage a `.zip` / folder / `plugin.toml` into `plugins-staging/`, check it, `commit` into `plugins/<id>` and switch it on, `remove`, HTTPS-only `download` (32 MB cap), `verify_package` (the WASM load check) | Zip paths outside the archive are refused; only `plugin.toml`, `plugin.wasm`, README, LICENSE and `i18n/*.ftl` are copied |
+| `src/index.rs` | `Index` / `Entry` of `catalog/plugins.json`: parsing, validation (`parse_strict` is the CI check), `Mark` (`.catalog.json` next to a catalog-installed package), `updates`, `is_newer` | A hand-installed package has no mark and is never offered a catalog update |
+| `src/catalog.rs` | `fetch_index`, `download_entry` (SHA-256 must equal the entry's), `stage_entry` (the staged package must have the entry's id and version and no right the entry lacks); URL from `PHOECORD_CATALOG_URL` or the `main` branch on GitHub; tests run a local HTTP fixture | Hash check comes before unpacking; `stage_entry` discards the staging folder on any mismatch |
+| `src/net.rs` | One size-capped GET: HTTPS only, plain `http://` only to 127.0.0.1 / `[::1]` / `localhost` (no redirects then) | `user@host` tricks must not pass `is_loopback_http` |
+
 ### `phoecord-installer-gui`
 
 The installer window (stage 1.4.3). Every change to the machine goes through `phoecord-installer`, the same code as `phoecord setup` / `uninstall`.
@@ -230,7 +243,8 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `src/main.rs` | Window options, icon, `--dry-run` / `--demo` / `--demo-empty` / `--open <path>` | `windows_subsystem = "windows"`: no console on Windows |
 | `src/app.rs` | `App`: header with tabs (adapts to narrow windows), tab transition, dialogs (scrim + card), toasts, drop overlay, messages from jobs | Dialog card is an `Area` anchored at the centre; its scroll area sets `min_scrolled_height` or it shrinks to half the window |
 | `src/backend.rs` | `Mode` (real or dry-run sandbox with a simulated trust store), `read_status` (clients, install log, trust, proxy probe), background jobs (install, uninstall, launch, plugin jobs) | `Env.proxy_exe` is the `phoecord` binary next to the window (or `PHOECORD_BIN`), never the window itself |
-| `src/packages.rs` | Plugin packages: stage a `.zip` / folder / `plugin.toml` into `plugins-staging/`, check it, `commit` into `plugins/<id>` and switch it on, `remove`, HTTPS-only `download` (32 MB cap) | Zip paths outside the archive are refused; only `plugin.toml`, `plugin.wasm`, README and LICENSE are copied |
+| `src/packages.rs` | Re-exports `phoecord_catalog::store` (the package code moved there in 1.3.11) | none |
+| `src/tabs/catalog.rs` | The Catalog list of the Plugins tab (1.3.11): reads the index, rows with Install / Update, an "updates available" pill; installs go through `catalog::stage_entry` and the normal rights dialog | The index is fetched only when the list is opened, or when a package installed from the catalog exists (to offer updates) |
 | `src/theme.rs` | The one palette, spacing, radii, type scale, Onest fonts + Phosphor icons, the app icon as window icon and in-app mark | Contrast is tested; add colours here, never inline |
 | `src/splash.rs` | Opening animation (~1.4 s): the flame rises and catches (flash, two shock rings, embers), the name comes in letter by letter, then the window opens out of the flame as an iris and comes in (`reveal`); click or key skips, off with reduced motion | Own clock capped per frame, so slow first frames do not eat it; drawn last in `update`, above everything |
 | `src/onboarding.rs` | First start: welcome, terms, pick a Discord, done (starts the install) | Shown on the first start of each app version: the `onboarded` file in the data folder holds the version that finished it; the terms step is skipped when already accepted |
@@ -257,6 +271,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 |:---|:---|:---|
 | `src/main.rs` | Commands: `run`, `launch`, `setup` (installer `install()`), `uninstall` (installer `uninstall_all()`), `trust`, `untrust`, `plugins`, `enable`, `disable`, `toggle`, `log`, `selftest`, `paths`; `run` loads WASM packages | `plugins`/`enable` know built-ins only, not WASM packages; every user-facing string comes from `crates/phoecord-i18n/i18n/{en,ru}/main.ftl`; `setup` asks to accept `TERMS.md` first (`--accept-terms` skips the prompt); `setup --loader` installs the loader DLL, and `run`/`launch` call `ensure_loader` first |
 | `src/help.rs` | `--help` built at runtime from the `Localizer` (clap needs static strings, so the help is rebuilt per language); `lang_from_args` reads `--lang` before clap runs | A new subcommand or flag needs `cmd-*` / `cli-arg-*` keys in both `.ftl` files |
+| `src/catalog.rs` | `phoecord install <id\|https link\|path>`, `update [id]`, `remove <id>`, `catalog` (1.3.11): stage through `phoecord-catalog`, print what the plugin asks for, ask (`--yes` skips; no terminal and no `--yes` means no) | `uninstall` stays the undo of `setup`, so removing a plugin is `remove`; an install from a link or a path has no hash and says so |
 | `src/log.rs`, `src/selftest.rs` | `phoecord log` output, `phoecord selftest` | |
 
 ## 4. Scripts
@@ -285,6 +300,7 @@ Planned in 1.1; the table is filled as each item lands.
 | `listen` | `config.toml` | `127.0.0.1:18463` | proxy |
 | `upstream` | `config.toml` | unset (direct) | proxy (`phoecord-proxy::egress`): `socks5://host:port` or `http://host:port`; applies to new connections without a restart |
 | `intercept` | `config.toml` | Discord API and Gateway hosts | proxy |
+| `PHOECORD_CATALOG_URL` | env | the `main` branch's `catalog/plugins.json` on raw.githubusercontent.com | `phoecord-catalog::catalog::index_url`: a mirror or a test server; plain `http://` only to this computer |
 | `language` | `config.toml` | OS language, fallback `en` | all user-facing text; order: `--lang` flag, then this key, then the OS language, then `en` (`phoecord_i18n::resolve_language`); `phoecord paths` shows the result and its source |
 | `clients` | `config.toml` | empty | extra folders with a Discord client installed outside the default places, added by "Choose folder…" in the installer window; `launch`, `setup` and the window look in them too (`discover_with`) |
 | `--lang <code>` | CLI flag | unset | overrides `language` for one command |
@@ -296,7 +312,7 @@ Planned in 1.1; the table is filled as each item lands.
 | `plugins/<id>/kv.json` | data folder | empty map | `Host::kv_*` |
 | `plugins/message_logger/messages.jsonl` | data folder | created when `write_log` is on | `message_logger`, `phoecord log` |
 | `install.log` | data folder | created by the installer | `phoecord-installer` rollback |
-| `plugins-staging/` | data folder | created while a plugin waits for the user's yes in the installer window, removed after | `phoecord-installer-gui::packages` |
+| `plugins-staging/` | data folder | created while a plugin waits for the user's yes in the installer window, removed after | `phoecord-catalog::store` |
 | `launch.log` | data folder | written each time the installer window starts Discord | `phoecord-installer-gui::backend`: `phoecord launch` output, shown when it stops |
 | `PHOECORD_BIN` | env | the `phoecord` binary next to the window | `phoecord-installer-gui`: which binary autostart and shortcuts run |
 | `PHOECORD_GUI_SANDBOX` | env | `<temp>/phoecord-gui-dry-run` | `phoecord-installer --dry-run`: the sandbox folder |

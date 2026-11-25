@@ -58,6 +58,7 @@ It runs `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, and check
 - **Tests without network.** Tests never call Discord and never need a token. Gateway tests use recorded payloads with personal data removed.
 - **Plugins.** Port or write them by [`docs/PORTING_PLUGINS.md`](docs/PORTING_PLUGINS.md); adapted Vencord code is fine with its attribution header. Every plugin has a unique `snake_case` id, tests next to its code, and a row in the plugin table of [`ROADMAP.md`](docs/ROADMAP.md).
 - **User-facing text.** The localization layer exists (`phoecord-i18n`, Fluent); moving the CLI, notification and installer strings into it is stages 1.7.2–1.7.3. Until a crate is moved, keep its strings in one place (for example `crates/phoecord-cli/src/text.rs`) so they are easy to extract. English is the source language, Russian is the first translation.
+- **Plugin catalog.** A community WASM plugin is listed in [`catalog/plugins.json`](catalog/plugins.json) by pull request, with the SHA-256 of its release file; how, and what the review looks at: [`catalog/README.md`](catalog/README.md).
 - **License.** PhoeCord is GPL-3.0-or-later ([`LICENSE`](LICENSE), [`NOTICE`](NOTICE)); by contributing you license your work under it. The plugin SDK and templates are MIT. Never remove the notices in [`LICENSES/`](LICENSES/).
 
 ## What not to send
