@@ -173,3 +173,18 @@ fn a_rest_plugin_never_sees_gateway_events() {
     );
     assert_eq!(verdict, Verdict::Changed);
 }
+
+#[test]
+fn fetch_with_needs_the_fetch_right_and_reaches_the_host() {
+    let mut host = NullHost::default();
+    let (status, body) = call("\"kv\"", "FETCH_WITH", &mut host);
+    assert_eq!(status, 403);
+    assert!(denial(body).contains("no `fetch` right"));
+    // With the right the call reaches the host; NullHost has no network, so its default refuses.
+    let (status, body) = call("\"fetch\"", "FETCH_WITH", &mut host);
+    assert_eq!(status, 403);
+    assert!(
+        denial(body).contains("fetch_with is not supported"),
+        "denied"
+    );
+}

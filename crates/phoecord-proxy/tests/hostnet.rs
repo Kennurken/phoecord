@@ -325,6 +325,87 @@ fn fetch_goes_only_to_listed_hosts_and_never_carries_discord_credentials() {
 }
 
 #[test]
+fn fetch_with_sends_the_callers_headers_to_pattern_hosts_and_refuses_sensitive_ones() {
+    let (addr, seen) = fake(Box::new(|_| json(200, r#"{"token":"t"}"#)));
+    let s = shared(addr);
+    let cfg = Config::default();
+    sign_in(&s, "tok");
+    let mut h = ProxyHost::new(&s, &cfg);
+    h.begin_plugin("p");
+    h.set_fetch_hosts(&["*.discordsays.com".to_string()]);
+    let headers = [
+        ("Content-Type", "application/json"),
+        ("X-Auth-Token", ""),
+        ("X-Discord-Quest-ID", "42"),
+        ("Referer", "https://123.discordsays.com/?instance_id=x"),
+    ];
+    let body = Val::from_json(serde_json::json!({"code": "abc"}));
+    let r = h
+        .fetch_with(
+            "POST",
+            "https://123.discordsays.com/.proxy/acf/authorize",
+            &headers,
+            Some(&body),
+        )
+        .unwrap();
+    assert_eq!(r.body.unwrap().str_at(&["token"]), Some("t"));
+    {
+        let v = seen.lock().unwrap();
+        assert_eq!(v.len(), 1);
+        assert_eq!(v[0].line, "POST /.proxy/acf/authorize HTTP/1.1");
+        assert_eq!(v[0].header("host"), Some("123.discordsays.com"));
+        assert_eq!(v[0].header("x-discord-quest-id"), Some("42"));
+        assert_eq!(v[0].header("x-auth-token"), Some(""));
+        assert_eq!(
+            v[0].header("referer"),
+            Some("https://123.discordsays.com/?instance_id=x")
+        );
+        assert_eq!(v[0].header("content-type"), Some("application/json"));
+        for n in ["authorization", "cookie", "x-super-properties"] {
+            assert_eq!(v[0].header(n), None, "{n} must not reach outside hosts");
+        }
+    }
+    // The pattern is one label deep only.
+    for bad in [
+        "https://discordsays.com/x",
+        "https://a.b.discordsays.com/x",
+        "https://123.discordsays.com.evil.example/x",
+    ] {
+        let e = h.fetch_with("GET", bad, &[], None).unwrap_err();
+        assert!(e.contains("fetch` list"), "{bad}: {e}");
+    }
+    // Credential and hop-by-hop headers never leave, and nothing is sent.
+    for name in [
+        "Authorization",
+        "cookie",
+        "Host",
+        "Proxy-Authorization",
+        "Connection",
+        "Content-Length",
+        "Transfer-Encoding",
+        "TE",
+        "Upgrade",
+    ] {
+        let e = h
+            .fetch_with("GET", "https://1.discordsays.com/x", &[(name, "x")], None)
+            .unwrap_err();
+        assert!(e.contains("may not be set"), "{name}: {e}");
+    }
+    let e = h
+        .fetch_with(
+            "GET",
+            "https://1.discordsays.com/x",
+            &[("X-Bad", "a\r\nb")],
+            None,
+        )
+        .unwrap_err();
+    assert!(e.contains("bad value"), "{e}");
+    assert_eq!(seen.lock().unwrap().len(), 1);
+    // Plain `fetch` still works on the pattern.
+    assert!(h.fetch("GET", "https://9.discordsays.com/x", None).is_ok());
+}
+
+#[test]
 fn fetch_text_size_cap_and_redirects() {
     let (addr, _) = fake(Box::new(|line| {
         if line.contains("/big") {

@@ -238,6 +238,7 @@ enum HostCall {
     GuildEmojis(u64),
     ChannelGuild(u64),
     Fetch(String, String, Option<Val>),
+    FetchWith(String, String, Vec<(String, String)>, Option<Val>),
     Rest(String, String, Option<Val>),
     RestFiles(String, String, Option<Val>, Vec<FilePart>),
     EmitDispatch(Val),
@@ -480,6 +481,17 @@ impl wit_host::Host for State {
     fn cancel_schedule(&mut self, tag: String) {
         let _ = self.call_unit(HostCall::CancelSchedule(tag));
     }
+    fn fetch_with(
+        &mut self,
+        method: String,
+        url: String,
+        headers: Vec<(String, String)>,
+        body: Option<wit::Tree>,
+    ) -> Result<wit::HostResponse, String> {
+        self.allow(Right::Fetch)?;
+        let body = body.as_ref().map(tree_to_val).transpose()?;
+        self.call_response(HostCall::FetchWith(method, url, headers, body))
+    }
 }
 
 /// Start the clock for one guest call.
@@ -515,6 +527,10 @@ fn serve(host: &mut dyn Host, call: HostCall) -> HostReply {
         HostCall::GuildEmojis(g) => HostReply::Ids(host.guild_emojis(g)),
         HostCall::ChannelGuild(c) => HostReply::Id(host.channel_guild(c)),
         HostCall::Fetch(m, u, b) => HostReply::Response(host.fetch(&m, &u, b.as_ref())),
+        HostCall::FetchWith(m, u, h, b) => {
+            let h: Vec<(&str, &str)> = h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+            HostReply::Response(host.fetch_with(&m, &u, &h, b.as_ref()))
+        }
         HostCall::Rest(m, r, b) => HostReply::Response(host.rest(&m, &r, b.as_ref())),
         HostCall::RestFiles(m, r, p, f) => {
             HostReply::Response(host.rest_files(&m, &r, p.as_ref(), &f))
@@ -661,7 +677,7 @@ pub enum Right {
     EmitSend,
     /// `guild_emojis`, `channel_guild`.
     Guilds,
-    /// `fetch`.
+    /// `fetch`, `fetch_with`.
     Fetch,
     /// `rest`.
     Rest,
