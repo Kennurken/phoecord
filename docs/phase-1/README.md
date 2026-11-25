@@ -24,7 +24,7 @@ The work plan until Phoenix Canary ships, written 23.11.2026 at Nanda's request.
 - Plugin runtime: WASM (wasmtime + WIT), not Lua or QuickJS (Nanda 23.11.2026: "I don't know, decide yourself what's better", translated; decided by Claude, see `docs/DECISIONS.md`).
 - Installer GUI on egui, not GPUI (same delegation).
 - No code signing, now or at 1.0, like Vencord (Nanda 23.11.2026: "we build the project without signing", translated).
-- Plugin scope: everything Vencord has, plus the owner's userplugins, is the priority; `no_track` is the only plugin on by default (Nanda 23.11.2026: "priority is everything in Vencord" and "also the ones in my userplugins", translated). QuestMaster and TrustMeBro are excluded (see `docs/PLUGINS.md`).
+- Plugin scope: everything Vencord has, plus the owner's userplugins, is the priority; `no_track` is the only plugin on by default (Nanda 23.11.2026: "priority is everything in Vencord" and "also the ones in my userplugins", translated). TrustMeBro is excluded; QuestMaster is back in scope (Nanda 25.11.2026: "we are NOT dropping QuestMaster", translated; see `docs/PLUGINS.md`).
 - License: GPL-3.0-or-later, like Vencord; the plugin SDK stays MIT so third-party plugins may use any license (Nanda 23.11.2026: "make ours GPL 3.0 too", translated).
 - Git history stays as it is; no force-push to `main` (Nanda 23.11.2026: "keep the history", translated).
 - Docs, plans and templates follow the VALORANT repository's structure (Nanda 23.11.2026: "like VALORANT", translated).
