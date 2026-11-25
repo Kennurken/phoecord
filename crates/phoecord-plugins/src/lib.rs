@@ -60,6 +60,7 @@ pub mod silent_typing;
 pub mod spotify_share_commands;
 pub mod state;
 pub mod text_replace;
+pub mod translate;
 pub mod typing_indicator;
 pub mod unindent;
 pub mod unsuppress_embeds;
@@ -204,6 +205,8 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "ru",
         include_str!("../i18n/ru/spotify_share_commands.ftl"),
     ),
+    ("translate", "en", include_str!("../i18n/en/translate.ftl")),
+    ("translate", "ru", include_str!("../i18n/ru/translate.ftl")),
     (
         "unsuppress_embeds",
         "en",
@@ -323,6 +326,9 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let ignore_activities = ignore_activities::IgnoreActivities::new();
     let ignore_activities_commands = ignore_activities.commands();
     let auto_dnd_while_playing = auto_dnd_while_playing::AutoDndWhilePlaying::new();
+    // Stage 1.2.17 plugins (off by default).
+    let translate = translate::Translate::new();
+    let translate_commands = translate.commands();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(dearrow::Dearrow::new()),
@@ -374,6 +380,7 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(rmcord),
         Box::new(silent_delete),
         Box::new(quest_master),
+        Box::new(translate),
         Box::new(friend_invites),
         Box::new(unsuppress_embeds),
         Box::new(custom_rpc),
@@ -437,6 +444,9 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     }
     commands = commands.with(custom_idle_command);
     commands = commands.with(custom_rpc_command);
+    for c in translate_commands {
+        commands = commands.with(c);
+    }
     plugins.push(Box::new(commands));
     plugins
 }
