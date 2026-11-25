@@ -215,7 +215,7 @@ From Nanda's Vencord `userplugins` folder. They behave 1:1 like the owner's orig
 | SilentDelete | Replace a message with other text, then delete it, so loggers keep the replacement | 🌐 Network | 1.2.19 |
 | FakeDeafen | Look deafened to others while still hearing | 🌐 Network | done: data — `/phoecord fakedeafen [on\|off]` rewrites outbound op 4 (`fakeMute`, `fakeDeafen`); the toggle reaches Discord on the next gateway frame (up to ~40 s) / 2 (button, keybind) |
 | FakeDeafenDetector | Flag members who speak while marked muted or deafened | 🌐 + 🎨 | partial: data — `/phoecord flagged`; tracks mute/deafen claims, detection waits for a voice `SPEAKING` feed the proxy does not see yet / 2 (flag next to the name) |
-| localDevBadges | Show staff and developer badges on your own profile, locally only | 🌐 Network | 1.2.19 |
+| localDevBadges | Show staff and developer badges on your own profile, locally only | 🌐 Network | done: data — settings `discordStaff`, `earlyVerifiedBotDeveloper`, `activeDeveloper` add the badges to your own profile answer and set the flags on your own user (READY, USER_UPDATE, `/users/@me`, profile); nothing leaves the machine |
 | FollowUser | Follow a user from voice channel to voice channel | 🌐 Network | done: data — `/phoecord follow [user]`, `/phoecord unfollow` or `followUserId`; joins via op 4 on the next gateway frame / 2 (context menu, header icon) |
 | VoiceChatUtilities | Move, mute or disconnect everyone in a voice channel (rate-limited) | 🌐 + 🎨 | 1.2.19 / 2 |
 | rmcord | Bulk-delete your own messages (rate-limited) | 🌐 + 🎨 | 1.2.19 / 2 |

@@ -135,6 +135,7 @@ plugin-desc-fake_deafen = Выглядеть для других с выключ
 plugin-desc-fake_deafen_detector = Отмечать участников, которые говорят с выключенным микрофоном или звуком
 plugin-desc-follow_user = Ходить за пользователем по голосовым каналам
 plugin-desc-anti_rickroll = Находить ссылки на рикролл в сообщениях
+plugin-desc-local_dev_badges = Значки сотрудника и разработчика на своём профиле, только у себя
 
 # CLI: log
 cli-log-empty = пока ничего не записано ({ $path })
