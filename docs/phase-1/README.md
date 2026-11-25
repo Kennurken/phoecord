@@ -41,7 +41,7 @@ none
 | | Nanda | Contributors |
 |:---|:---|:---|
 | Area | core, Plugin API, proxy, CA and trust, loader, installer, runtime, releases, review and merging | plugins, SDK examples, tests and fixtures, translations, docs, research |
-| Tasks | 1.0.1, 1.0.2, 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5, 1.1.6, 1.1.7, 1.1.8, 1.1.10, 1.1.12, 1.1.13, 1.2.3, 1.2.4, 1.2.5, 1.2.6, 1.2.8, 1.2.10, 1.2.11, 1.3.1, 1.3.2, 1.3.3, 1.3.4, 1.3.5, 1.3.8, 1.4.1, 1.4.2, 1.4.4, 1.4.6, 1.4.7, 1.4.8, 1.4.9, 1.5.1, 1.5.2, 1.5.3, 1.5.4, 1.5.5, 1.5.7, 1.5.8, 1.6.1, 1.6.2, 1.6.3, 1.6.4, 1.6.5, 1.7.1, 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.3.9, 1.3.10, 1.3.11 (open: 1.3.9, 1.3.10, 1.3.11) | 1.2.1, 1.2.2, 1.2.7, 1.2.12, 1.2.13, 1.2.17, 1.3.7 (matvee; open: 1.2.17, 1.3.7); 1.1.11, 1.2.9, 1.2.15, 1.3.6, 1.1.9, 1.2.14 (buslan07; open: 1.2.15, 1.3.6, 1.1.9, 1.2.14); 1.2.16, 1.2.18, 1.2.19, 1.4.3, 1.4.5, 1.5.6, 1.4.10, 1.4.11, 1.5.9 (Kennurken; open: 1.4.10, 1.4.11, 1.5.9) |
+| Tasks | 1.0.1, 1.0.2, 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5, 1.1.6, 1.1.7, 1.1.8, 1.1.10, 1.1.12, 1.1.13, 1.2.3, 1.2.4, 1.2.5, 1.2.6, 1.2.8, 1.2.10, 1.2.11, 1.3.1, 1.3.2, 1.3.3, 1.3.4, 1.3.5, 1.3.8, 1.4.1, 1.4.2, 1.4.4, 1.4.6, 1.4.7, 1.4.8, 1.4.9, 1.5.1, 1.5.2, 1.5.3, 1.5.4, 1.5.5, 1.5.7, 1.5.8, 1.6.1, 1.6.2, 1.6.3, 1.6.4, 1.6.5, 1.7.1, 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.3.9, 1.3.10, 1.3.11 (open: 1.3.9, 1.3.10, 1.3.11) | 1.2.1, 1.2.2, 1.2.7, 1.2.12, 1.2.13, 1.2.17, 1.3.7, 1.1.9 (matvee; open: 1.2.17, 1.3.7, 1.1.9); 1.1.11, 1.2.9, 1.2.15, 1.3.6, 1.2.14 (buslan07; open: 1.2.15, 1.3.6, 1.2.14); 1.2.16, 1.2.18, 1.2.19, 1.4.3, 1.4.5, 1.5.6, 1.4.10, 1.4.11, 1.5.9 (Kennurken; open: 1.4.10, 1.4.11, 1.5.9) |
 
 Plugin API changes (`phoecord-core::plugin`) are made by Nanda only: contributor plugins are written against an API that is already merged.
 
@@ -61,7 +61,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **1.1.6** 🔴 | Gateway through `Chain` | Nanda | ✅ |
 | **1.1.7** 🔴 | CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths` | Nanda | ✅ |
 | **1.1.8** 🟡 | `selftest` against the real Discord | Nanda | ✅ |
-| **1.1.9** 🟡 | Gateway fixtures without personal data | buslan07 | ⏳ |
+| **1.1.9** 🟡 | Gateway fixtures without personal data | matvee | ⏳ |
 | **1.1.10** 🟡 | Chain benchmark: ≤ 1 ms p99 | Nanda | ✅ 25.11, PR #74 (MESSAGE_CREATE p99 < 0.1 ms; a 5 MB READY takes 130–300 ms, mostly the JSON codec: plan in `docs/chain-bench.md`) |
 | **1.1.11** 🟡 | Upstream proxy (SOCKS5 / HTTP) for outgoing connections, for VPN and zapret users | buslan07 | ✅ 24.11, PR #54 |
 | **1.1.12** 🟡 | Transport boundary: the proxy as one backend of the plugin chain, ready for an in-process backend | Nanda | ✅ 25.11, PR #85 (`phoecord-transport` with one `Engine` entry for REST request and response, dispatch, send and timers; the proxy goes through it, no behaviour change, bench unchanged) |

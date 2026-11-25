@@ -123,7 +123,7 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 
 **Done when:** `phoecord selftest` prints "all checks passed" against the real Discord.
 
-### 1.1.9. Gateway fixtures (buslan07)
+### 1.1.9. Gateway fixtures (matvee)
 
 **Files:** `tests/fixtures/**`, `tests/fixtures/README.md`
 
