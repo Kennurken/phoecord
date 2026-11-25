@@ -6,7 +6,7 @@ The work plan from Phoenix Canary to v1.0, written 25.11.2026 at Nanda's request
 
 ## Status
 
-25.11.2026, `main` `db479a0`. Phase 1 open tasks running in parallel: 1.1.9, 1.2.14 (partial), 1.2.15 (partial), 1.2.17, 1.3.7, 1.4.10, 1.4.11, 1.5.9. Phase 2 starts with stage 2.1; next: 2.1.1.
+26.11.2026. Nanda: 2.1.2 done; 2.1.5 and 2.1.6 in progress (findings in [`research/phoenix-recon.md`](../research/phoenix-recon.md), GPUI lifecycle notes in [`re/gpui-lifecycle.md`](../re/gpui-lifecycle.md)); 2.2.2 and 2.2.3 have their structure, no detours yet; 2.2.1 not marked started. Part 1 of 2.2.5 and 2.3.1 is in `main`, still in review. Next for Nanda: a transport-sliced dump (closes the open half of 2.1.5), then 2.1.7. Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` are two separate types and should become one (2.2.2 with 2.2.5). Phase 1 open tasks running in parallel: 1.1.9, 1.2.14 (partial), 1.2.15 (partial), 1.2.17, 1.3.7, 1.4.10, 1.4.11, 1.5.9.
 
 ## What we get
 
@@ -82,8 +82,8 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
 | **2.2.1** 🔴 | Ghidra / IDA project on Phoenix Canary: GPUI symbols imported from the reference build (1.6) | Nanda | ⏳ |
-| **2.2.2** 🔴 | HTTP transport hook: inline entry on `send`, vtable swap for `poll`, allocator-safe body replacement | Nanda | ⏳ |
-| **2.2.3** 🔴 | Gateway registry detours: per-event handler swap, `Engine::on_dispatch` wiring | Nanda | ⏳ |
+| **2.2.2** 🔴 | HTTP transport hook: inline entry on `send`, vtable swap for `poll`, allocator-safe body replacement | Nanda | 🚧 structure only (`hooks/`: `HookPlan`, `HookRuntime` → `Engine::on_request` / `on_response`, panic guard; nothing calls it yet). The detours wait for 2.1.5 (transport layout, `__rust_dealloc`) and 2.1.7 |
+| **2.2.3** 🔴 | Gateway registry detours: per-event handler swap, `Engine::on_dispatch` wiring | Nanda | 🚧 structure only (`hooks/gateway.rs`: `Engine::on_dispatch` bridge, panic guard). The detours wait for 2.1.7; signatures for 2.1.6 anchors are not in `signatures/` yet |
 | **2.2.4** 🟡 | Outgoing gateway hook (if found in 2.1.6): `Engine::on_send` wiring | ken | ⏳ |
 | **2.2.5** 🔴 | Typed locators (`Found<T>`) for decoded structures: struct sizes, field offsets, handler ABI | matvee | ⏳ part 1 in review (branch `feat/locators`: `Found<T>`, errors, `Image`, `CallIndex`, string anchors; the target locators wait for 2.1.5 / 2.1.6) |
 | **2.2.6** 🔴 | `phoecord check <exe>`: run all locators against a binary, CI on `.text` dumps | buslan | ⏳ |

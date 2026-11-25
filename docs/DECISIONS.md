@@ -57,6 +57,7 @@ Source: `docs/phase-1/ai/ledger.md`, decisions: 46.
 
 ## Phase 2. Phoenix Canary release
 
-Source: `docs/phase-2/ai/ledger.md`, decisions: 1.
+Source: `docs/phase-2/ai/ledger.md`, decisions: 2.
 
 - Ruling: task 2.2.1 (Ghidra / IDA project) is reassigned from matvee to Nanda (owner Nanda, 2026-11-25, "move 2.2.1 to Nanda" (translated)) — why: the project feeds the hook targets of 2.1.5–2.1.6 and 2.2.2, which Nanda owns — risk: Nanda's RE load grows; 2.2.5 (matvee) depends on the project
+- Ruling: the local Phase 2 work and the open pull requests go straight into main without a new PR, and other local branches and worktrees are deleted (owner Nanda, 2026-11-26, "Влей в main и запушь все на гитхаб (сразу в main, без PR) после проверь все открытые PR и тоже влей их в мейн" (translated: "merge into main and push everything to GitHub (straight into main, no PR), then check all open PRs and merge them into main too")) — why: the owner wants one up-to-date main — risk: the local work gets no PR review and CI runs only after the push
