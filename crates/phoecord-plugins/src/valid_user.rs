@@ -9,7 +9,7 @@
 //! the message's `mentions`, which is where the client reads mention names from.
 //!
 //! Limits: at most `max_per_message` lookups per message (default 3), at most `max_per_minute`
-//! lookups in total (default 20); the host allows one Discord call per second per plugin, and the
+//! lookups in total (default 20); the host allows 5 Discord calls per 5 s per plugin, and the
 //! first refusal ends the lookups of that message. Users Discord says do not exist are remembered
 //! and not asked again. Only ids, names and avatar hashes are kept, bounded to 500 users.
 //!

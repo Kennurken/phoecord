@@ -78,6 +78,8 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/process.rs` | `command` / `hide_console`: child processes that open no console window on Windows (`CREATE_NO_WINDOW`) | Every child of `phoecord` and the window goes through it: started without a console, a console program would flash its own window |
 
 | `src/hostnet.rs` | `Net`: the client's session headers kept in memory only (30 min TTL, dropped on 401), `Host::rest` to the client's own Discord API host with route checks, per-plugin 1/s + global 5/s caps and Discord's rate-limit buckets; `Host::rest_files` (multipart upload, 10 files, 25 MB); `Host::fetch` to allow-listed HTTPS hosts (5 MB cap, no redirects, no credentials, raw `bytes` for non-JSON answers); a small dedicated runtime so plugin calls never block the proxy | Never log or persist the session headers; `Debug` is redacted |
+| `src/timers.rs` | `Timers`: plugin timers from `Host::schedule` (50 ms min, 24 h max, 64 per plugin, memory only) and the `drive` task that fires them through `Proxy::fire_timer` | Holds only a `Weak<Proxy>` |
+| `src/live.rs` | `LiveGateways`: registry of bridged gateway connections; sends queued outside a frame go to the newest one at once | A `LiveGuard` unregisters on drop |
 | `tests/hostnet.rs` | Loopback fake Discord and outside servers: capture/reuse, refusals, rate limits, allow-list, caps, a `Chain` test | |
 
 ### `phoecord-plugin-runtime`

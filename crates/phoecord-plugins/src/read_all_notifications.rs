@@ -16,8 +16,8 @@
 //!
 //! Limits: nothing is sent automatically. One command run sends one request with at most
 //! `max_channels` channels (default 100, the most the client sends at once, never more than 100);
-//! if more are unread, the reply says how many remain and you run it again. The host allows one
-//! Discord call per second per plugin, so rapid repeats are refused politely.
+//! if more are unread, the reply says how many remain and you run it again. The host allows 5
+//! Discord calls per 5 s per plugin, so rapid repeats beyond that are refused politely.
 //!
 //! Not ported: the button itself (Phase 2).
 
