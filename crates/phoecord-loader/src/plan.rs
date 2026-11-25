@@ -8,9 +8,10 @@
 //!   work without that one ([`requires`]).
 //!
 //! No OS code and no binary access: the caller says which locators resolved, so every case is
-//! tested on every OS. Nothing is wired to hooks yet.
+//! tested on every OS. `crate::transport` applies the plan.
 
-use crate::locators::Located;
+#[cfg(feature = "dll")]
+use crate::hooks::found::HookPlan;
 
 /// A network entry point of `phoecord_transport::Engine`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,9 +91,9 @@ pub enum Target {
 /// `Ok` when everything the target needs was found, else why not (one line, for the log).
 pub type Probe = Result<(), String>;
 
-/// A locator's result as a probe. A target that needs several locators joins them with
-/// `Result::and`, so the first failure is the one reported.
-pub fn probe<T>(found: &Located<T>) -> Probe {
+/// A locator's result as a probe, whichever locator framework it comes from. A target that needs
+/// several locators joins them with `Result::and`, so the first failure is the one reported.
+pub fn probe<T, E: std::fmt::Display>(found: &Result<T, E>) -> Probe {
     found.as_ref().map(|_| ()).map_err(ToString::to_string)
 }
 
@@ -144,6 +145,20 @@ impl Plan {
     /// The plan for a known build; `probe` runs the locators and is asked once per target.
     pub fn resolve(probe: impl FnMut(Target) -> Probe) -> Plan {
         Plan::resolve_with(probe, requires)
+    }
+
+    /// The plan for what the hook locators found in this build. `HookPlan::send` is the REST
+    /// transport's `send`, so it is the *request* entry point; sending on the gateway has no
+    /// locator yet (2.1.6, 2.2.4), and neither has any UI feature.
+    #[cfg(feature = "dll")]
+    pub fn from_hooks(hooks: &HookPlan) -> Plan {
+        Plan::resolve(|target| match target {
+            Target::Net(EntryPoint::Request) => probe(&hooks.send),
+            Target::Net(EntryPoint::Response) => probe(&hooks.poll),
+            Target::Net(EntryPoint::Dispatch) => probe(&hooks.registry),
+            Target::Net(EntryPoint::Send) => Err("no outgoing send locator".into()),
+            Target::Ui(_) => Err("no locator".into()),
+        })
     }
 
     fn resolve_with(
@@ -229,7 +244,7 @@ fn requires(point: EntryPoint) -> &'static [EntryPoint] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::locators::{Found, LocatorError};
+    use crate::locators::{Found, Located, LocatorError};
 
     /// Fake locators: everything resolves except `missing`.
     fn without(missing: &'static [Target]) -> impl FnMut(Target) -> Probe {
