@@ -23,3 +23,9 @@ follow_user-bad-user = `{ $user }` is not a user id or mention.
 fake_deafen_detector-none = Nobody has been caught speaking while shown as muted or deafened.
 fake_deafen_detector-header = Caught speaking while shown as muted or deafened: { $count }
 fake_deafen_detector-line = { $user }: caught speaking { $count }x while shown as muted/deafened (first: { $first }, last: { $last }), likely faking it
+
+# AntiRickroll: `/phoecord rickrolls`.
+anti_rickroll-none = No rickroll links seen yet.
+anti_rickroll-header = Messages with rickroll links: { $count }
+anti_rickroll-line-known = { $channel } message { $message }: `{ $url }` is a known rickroll.
+anti_rickroll-line-custom = { $channel } message { $message }: `{ $url }` matches one of your filters for rickrolls.
