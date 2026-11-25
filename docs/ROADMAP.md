@@ -6,9 +6,9 @@ The plan from rebuilding the v0 codebase to a v1.0 release on Project Phoenix. H
 |:---|:---|:---|:---|
 | **0. Foundation** | November 2026 | Workspace, docs, CI | ✅ |
 | **1. Before the Phoenix Canary public beta** | until Canary ships | Network layer works on today's Discord, dynamic plugins, installer and loader prototypes, localization | `0.2` – `0.6` |
-| **2. Phoenix Canary release** | after Canary ships | Reverse engineering, signatures, UI hooks and themes, v1.0 | `0.7` – `1.0` |
+| **2. Phoenix Canary release** | started 25.11.2026 | Reverse engineering, signatures, UI hooks and themes, v1.0 | `0.7` – `1.0` |
 
-Phase 2 has no dates: it starts when Discord releases Phoenix Canary. Until then we do everything we can on today's client.
+Phase 2 started 25.11.2026: Phoenix Canary is available on the owner's account. Task-level detail: [`docs/phase-2/`](phase-2/README.md).
 
 ---
 

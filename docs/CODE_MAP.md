@@ -299,6 +299,12 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 
 See [`README.md`](README.md) in this folder. Project-level documents live here too: [`ARCHITECTURE.md`](ARCHITECTURE.md), [`ROADMAP.md`](ROADMAP.md), [`AGENTS.md`](AGENTS.md) + [`CLAUDE.md`](CLAUDE.md) (rules for people and AI agents). [`PORTING_PLUGINS.md`](PORTING_PLUGINS.md) is the porting guide; [`PLUGINS.md`](PLUGINS.md) is the plugin catalogue (every Vencord plugin and userplugin mapped to a layer and a task).
 
+| Path | What |
+|:---|:---|
+| `docs/phase-1/` | Phase 1 plan, task table, agent rules, spec, implementation plan and ledger |
+| `docs/phase-2/` | Phase 2 plan (Phoenix Canary → v1.0): `README.md` (task table), `AGENTS.md`, `ai/spec.md`, `ai/plan.md`, `ai/ledger.md` |
+| `docs/research/` | Research documents: `phoenix-desktop.md` (sunbird study), `gpui.md` (GPUI map) |
+
 ## 6. Config, environment and files on disk
 
 Planned in 1.1; the table is filled as each item lands.
