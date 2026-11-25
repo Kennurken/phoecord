@@ -64,6 +64,16 @@ pub fn localize(mut cmd: Command, l: &Localizer) -> Command {
                         a.help(l.t("cli-arg-import-path"))
                     } else if id == "accept_terms" {
                         a.help(l.t("cli-arg-accept-terms"))
+                    } else if id == "yes" {
+                        a.help(l.t("cli-arg-yes"))
+                    } else if id == "target" {
+                        a.help(l.t("cli-arg-install-target"))
+                    } else if id == "id" {
+                        a.help(l.t(if name == "update" {
+                            "cli-arg-update-id"
+                        } else {
+                            "cli-arg-remove-id"
+                        }))
                     } else if id == "loader" {
                         a.help(l.t("cli-arg-setup-loader"))
                     } else {

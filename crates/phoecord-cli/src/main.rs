@@ -2,6 +2,7 @@
 //!
 //! Every user-facing string comes from the `.ftl` bundles of `phoecord-i18n` through one `Localizer`.
 
+mod catalog;
 mod dev;
 mod help;
 mod log;
@@ -87,6 +88,20 @@ enum Cmd {
     Trust,
     Untrust,
     Plugins,
+    Install {
+        target: String,
+        #[arg(long)]
+        yes: bool,
+    },
+    Update {
+        id: Option<String>,
+        #[arg(long)]
+        yes: bool,
+    },
+    Remove {
+        id: String,
+    },
+    Catalog,
     Enable {
         name: String,
     },
@@ -232,6 +247,10 @@ fn dispatch(cli: Cli, paths: Paths, resolved: &Resolved, l10n: &Localizer) -> Re
         }
         Cmd::Untrust => trust::uninstall(),
         Cmd::Plugins => plugins(&paths, l10n),
+        Cmd::Install { target, yes } => catalog::install(&paths, l10n, &target, yes),
+        Cmd::Update { id, yes } => catalog::update(&paths, l10n, id.as_deref(), yes),
+        Cmd::Remove { id } => catalog::remove(&paths, l10n, &id),
+        Cmd::Catalog => catalog::list(&paths, l10n),
         Cmd::Enable { name } => switch(&paths, &name, Some(true), l10n),
         Cmd::Disable { name } => switch(&paths, &name, Some(false), l10n),
         Cmd::Toggle { name } => switch(&paths, &name, None, l10n),

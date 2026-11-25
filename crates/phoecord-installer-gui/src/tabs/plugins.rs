@@ -35,6 +35,7 @@ impl App {
         ui.add_space(theme::S4);
         let from_file = self.tr.t("gui-plugins-from-file");
         let from_link = self.tr.t("gui-plugins-from-link");
+        let browse = self.tr.t("gui-plugins-browse");
         match button_row(
             ui,
             vec![
@@ -44,6 +45,7 @@ impl App {
                 Button::new(&from_link, Kind::Secondary)
                     .icon(icon::LINK)
                     .enabled(!self.plugin_busy),
+                Button::new(&browse, Kind::Secondary).icon(icon::STOREFRONT),
             ],
         ) {
             Some(0) => {
@@ -63,11 +65,13 @@ impl App {
                 error: None,
                 busy: false,
             }),
+            Some(2) => self.toggle_catalog(),
             _ => {}
         }
         ui.add_space(theme::S1);
         widgets::caption(ui, self.tr.t("gui-plugins-drop-hint"));
         ui.add_space(theme::S5);
+        self.catalog_section(ui);
 
         // Search.
         let hint = format!(
@@ -181,7 +185,7 @@ impl App {
         let _ = ctx;
     }
 
-    fn by_line(&self, version: &str, authors: &[String]) -> String {
+    pub(crate) fn by_line(&self, version: &str, authors: &[String]) -> String {
         if authors.is_empty() {
             self.tr
                 .f("gui-plugins-meta-version", &[("version", version)])

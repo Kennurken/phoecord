@@ -13,6 +13,7 @@ publish = false
 winresource.workspace = true
 
 [dependencies]
+phoecord-catalog = { path = "../phoecord-catalog" }
 phoecord-core.workspace = true
 phoecord-i18n = { path = "../phoecord-i18n" }
 phoecord-proxy.workspace = true
@@ -33,6 +34,9 @@ tokio-rustls = { version = "0.26", default-features = false, features = ["ring",
 tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "handshake"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true
