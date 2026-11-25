@@ -9,3 +9,7 @@ toggle-on = `{ $id }` is now on.
 toggle-off = `{ $id }` is now off.
 toggle-reconnect = Takes effect when Discord reconnects (Ctrl+R).
 toggle-failed = Could not switch `{ $id }`: { $error }
+# fake_deafen
+fake_deafen-on = Fake deafen is **on**: others see you muted and deafened.
+fake_deafen-off = Fake deafen is **off**.
+fake_deafen-unknown-state = Unknown state `{ $state }`. Use `on` or `off`.
