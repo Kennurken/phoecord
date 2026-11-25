@@ -8,11 +8,15 @@
 use phoecord_core::Plugin;
 
 pub mod anonymise_file_names;
+pub mod anti_rickroll;
 pub mod better_sessions;
 pub mod clear_urls;
 pub mod commands;
 pub mod experiments;
+pub mod fake_deafen;
+pub mod fake_deafen_detector;
 pub mod fake_nitro;
+pub mod follow_user;
 pub mod game_activity_toggle;
 pub mod i_love_spam;
 pub mod implicit_relationships;
@@ -63,6 +67,16 @@ pub const I18N: &[(&str, &str, &str)] = &[
     ),
     ("commands", "en", include_str!("../i18n/en/commands.ftl")),
     ("commands", "ru", include_str!("../i18n/ru/commands.ftl")),
+    (
+        "follow_user",
+        "en",
+        include_str!("../i18n/en/follow_user.ftl"),
+    ),
+    (
+        "follow_user",
+        "ru",
+        include_str!("../i18n/ru/follow_user.ftl"),
+    ),
     (
         "relationship_notifier",
         "en",
@@ -130,6 +144,14 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let show_hidden_things_command = show_hidden_things.command();
     let experiments = experiments::Experiments::new();
     let experiments_command = experiments.command();
+    let fake_deafen = fake_deafen::FakeDeafen::new();
+    let fake_deafen_command = fake_deafen.command();
+    let fake_deafen_detector = fake_deafen_detector::FakeDeafenDetector::new();
+    let fake_deafen_detector_command = fake_deafen_detector.command();
+    let follow_user = follow_user::FollowUser::new();
+    let follow_user_commands = follow_user.commands();
+    let anti_rickroll = anti_rickroll::AntiRickroll::new();
+    let anti_rickroll_command = anti_rickroll.command();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(silent_typing::SilentTyping::new()),
@@ -165,6 +187,10 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(show_hidden_channels),
         Box::new(show_hidden_things),
         Box::new(experiments),
+        Box::new(fake_deafen),
+        Box::new(fake_deafen_detector),
+        Box::new(follow_user),
+        Box::new(anti_rickroll),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
@@ -174,26 +200,31 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         .map(|p| commands::PluginInfo::of(p.as_ref()))
         .collect();
     infos.push(commands::PluginInfo::of(&commands));
-    plugins.push(Box::new(
-        commands::Commands::new(infos)
-            .with(silent_command)
-            .with(message_link_embeds_command)
-            .with(new_guild_settings_command)
-            .with(pause_invites_forever_command)
-            .with(read_all_notifications_command)
-            .with(platform_indicators_command)
-            .with(typing_indicator_command)
-            .with(user_voice_show_command)
-            .with(member_count_command)
-            .with(better_sessions_command)
-            .with(implicit_relationships_command)
-            .with(mutual_group_dms_command)
-            .with(who_reacted_command)
-            .with(message_latency_command)
-            .with(show_hidden_channels_command)
-            .with(show_hidden_things_command)
-            .with(experiments_command),
-    ));
+    let mut commands = commands::Commands::new(infos)
+        .with(silent_command)
+        .with(message_link_embeds_command)
+        .with(new_guild_settings_command)
+        .with(pause_invites_forever_command)
+        .with(read_all_notifications_command)
+        .with(platform_indicators_command)
+        .with(typing_indicator_command)
+        .with(user_voice_show_command)
+        .with(member_count_command)
+        .with(better_sessions_command)
+        .with(implicit_relationships_command)
+        .with(mutual_group_dms_command)
+        .with(who_reacted_command)
+        .with(message_latency_command)
+        .with(show_hidden_channels_command)
+        .with(show_hidden_things_command)
+        .with(experiments_command)
+        .with(fake_deafen_command)
+        .with(fake_deafen_detector_command)
+        .with(anti_rickroll_command);
+    for c in follow_user_commands {
+        commands = commands.with(c);
+    }
+    plugins.push(Box::new(commands));
     plugins
 }
 

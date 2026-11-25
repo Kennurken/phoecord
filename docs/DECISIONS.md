@@ -6,7 +6,7 @@ in its plan's `ai/ledger.md` first, then rerun the script.
 
 ## Phase 1. Before the Phoenix Canary public beta
 
-Source: `docs/phase-1/ai/ledger.md`, decisions: 38.
+Source: `docs/phase-1/ai/ledger.md`, decisions: 39.
 
 - Ruling: the repository is public on Nanda070's account (owner Nanda, 2026-11-23, "Public" (translated)) — why: open-source MIT project — risk: everything pushed is published at once; secrets rules in AGENTS.md and SECRETS.md
 - Ruling: the copyright holder is Cheterin Group, next to the retained upstream MIT copyright line (owner Nanda, 2026-11-23, "Copyright in LICENSE" (translated)) — why: project ownership — risk: none
