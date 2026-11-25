@@ -17,9 +17,12 @@
 //! Settings (`[plugins.fake_deafen]`, the script's names and defaults): `fakeMute` (`true`),
 //! `fakeDeafen` (`true`).
 //!
+//! The refresh the script sends the moment the switch flips is sent by the command at once
+//! (`emit_send` from a REST event goes out immediately). It carries your real state; the op 4
+//! handler below sees it like any other send and puts the fake on top while the switch is on.
+//!
 //! Not ported: the button and its icon, `showButton`, the keybind and `enableKeybind` (UI,
-//! Phase 2). The refresh the script sends the moment the switch flips goes out with the next
-//! heartbeat or voice dispatch instead: a `/phoecord` command cannot queue gateway sends.
+//! Phase 2).
 
 use crate::commands::{Args, FnCmd, Subcommand};
 use crate::state::Shared;
@@ -29,8 +32,6 @@ use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdic
 const PLUGIN_ID: &str = "fake_deafen";
 /// Gateway op 4: voice state update.
 const VOICE_STATE_UPDATE: i64 = 4;
-/// Gateway op 1: heartbeat. Carries the pending refresh out when nothing else does.
-const HEARTBEAT: i64 = 1;
 
 /// The last voice state the client itself sent (before any rewrite).
 struct Real {
@@ -45,8 +46,6 @@ struct Real {
 struct State {
     /// The script's `enabled`.
     enabled: bool,
-    /// The switch was flipped and the refresh has not gone out yet.
-    refresh: bool,
     last: Option<Real>,
 }
 
@@ -96,7 +95,17 @@ impl FakeDeafen {
                     }
                 };
                 st.enabled = want;
-                st.refresh = true;
+                // The script's `refresh_voice_state`; the Send handler adds the fake when on.
+                let refresh = st.refresh_payload(&*host);
+                drop(st);
+                if let Some(d) = refresh {
+                    host.emit_send(VOICE_STATE_UPDATE, d);
+                    host.log(if want {
+                        "voice state updated to fake deafen"
+                    } else {
+                        "voice state updated to normal"
+                    });
+                }
                 host.t(
                     if want {
                         "fake_deafen-on"
@@ -168,26 +177,7 @@ impl State {
         d.set("self_deaf", Val::Bool(last.self_deaf));
         d.set("self_video", Val::Bool(last.self_video));
         d.set("flags", Val::Int(0));
-        // Queued sends do not pass the Send event again, so the fake goes in here.
-        if self.enabled {
-            fake(host, &mut d);
-        }
         Some(d)
-    }
-
-    fn flush(&mut self, host: &mut dyn Host) {
-        if !self.refresh {
-            return;
-        }
-        self.refresh = false;
-        if let Some(d) = self.refresh_payload(&*host) {
-            host.emit_send(VOICE_STATE_UPDATE, d);
-            host.log(if self.enabled {
-                "voice state updated to fake deafen"
-            } else {
-                "voice state updated to normal"
-            });
-        }
     }
 }
 
@@ -198,8 +188,7 @@ impl Plugin for FakeDeafen {
 
     fn wants(&self, event: &EventKind) -> bool {
         match event {
-            EventKind::Send { op } => *op == VOICE_STATE_UPDATE || *op == HEARTBEAT,
-            EventKind::Dispatch { name } => *name == "VOICE_STATE_UPDATE",
+            EventKind::Send { op } => *op == VOICE_STATE_UPDATE,
             _ => false,
         }
     }
@@ -223,16 +212,11 @@ impl Plugin for FakeDeafen {
                 let mut st = self.state.lock();
                 st.remember(d);
                 let changed = st.enabled && fake(&*host, d);
-                st.flush(host);
                 if changed {
                     Verdict::Changed
                 } else {
                     Verdict::Pass
                 }
-            }
-            Event::Send { op: HEARTBEAT, .. } | Event::Dispatch { .. } => {
-                self.state.lock().flush(host);
-                Verdict::Pass
             }
             _ => Verdict::Pass,
         }
@@ -314,32 +298,38 @@ mod tests {
     }
 
     #[test]
-    fn flipping_the_switch_sends_the_real_state_with_the_fake_on_top() {
+    fn flipping_the_switch_sends_the_real_state_at_once_and_the_chain_fakes_it() {
         let (chain, cmd) = setup();
         let mut h = Rec::default();
         // No voice channel known yet: nothing to refresh.
         cmd.run(&mut h, &args(Some("on")));
-        chain.send(&mut h, 1, &mut j(r#"{"op":1,"d":5}"#));
         assert!(h.sent.is_empty());
         cmd.run(&mut h, &args(Some("off")));
         op4(&chain, &mut h, REAL);
         h.sent.clear();
-        // Flip on: the next heartbeat carries the refresh, mute and deafen forced.
+        // Flip on: the command itself queues the refresh, with the real state.
         assert!(cmd.run(&mut h, &args(None)).contains("on"));
-        chain.send(&mut h, 1, &mut j(r#"{"op":1,"d":5}"#));
         assert_eq!(h.sent.len(), 1);
-        let (op, d) = &h.sent[0];
-        assert_eq!(*op, 4);
+        let (op, d) = h.sent[0].clone();
+        assert_eq!(op, 4);
         assert_eq!(d.str_at(&["channel_id"]), Some("20"));
-        assert_eq!(d.at(&["self_mute"]), Some(&Val::Bool(true)));
-        assert_eq!(d.at(&["self_deaf"]), Some(&Val::Bool(true)));
+        assert_eq!(d.at(&["self_mute"]), Some(&Val::Bool(false)));
         assert_eq!(d.at(&["flags"]), Some(&Val::Int(0)));
-        // Once only; flip off sends the real state again.
-        chain.send(&mut h, 1, &mut j(r#"{"op":1,"d":5}"#));
+        // The queued send passes the Send chain once, and that is what puts the fake on top.
+        let mut frame = j(r#"{"op":4,"d":{}}"#);
+        frame.set("d", d);
+        assert_eq!(chain.send(&mut h, 4, &mut frame), Outcome::Changed);
+        assert_eq!(frame.at(&["d", "self_mute"]), Some(&Val::Bool(true)));
+        assert_eq!(frame.at(&["d", "self_deaf"]), Some(&Val::Bool(true)));
+        assert_eq!(frame.str_at(&["d", "channel_id"]), Some("20"));
+        // Nothing is queued twice, and the fake did not become the remembered real state.
         assert_eq!(h.sent.len(), 1);
         cmd.run(&mut h, &args(None));
-        chain.send(&mut h, 1, &mut j(r#"{"op":1,"d":6}"#));
+        assert_eq!(h.sent.len(), 2);
         assert_eq!(h.sent[1].1.at(&["self_deaf"]), Some(&Val::Bool(false)));
+        let mut off = j(r#"{"op":4,"d":{}}"#);
+        off.set("d", h.sent[1].1.clone());
+        assert_eq!(chain.send(&mut h, 4, &mut off), Outcome::Untouched);
     }
 
     #[test]
