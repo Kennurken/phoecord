@@ -75,6 +75,22 @@ jobs:
       - run: cargo build --release --target wasm32-wasip2 --locked
         working-directory: examples/hello-plugin
 
+  typescript-template:
+    name: TypeScript template (componentize-js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: examples/hello-plugin-ts/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Release: loading the 12 MB JavaScript component compiles it with Cranelift, which is
+      # minutes in a debug build.
+      - run: cargo test --release -p phoecord-plugin-runtime --test hello_plugin_ts_wasm -- --ignored --nocapture
+
   msrv:
     name: MSRV (1.88)
     runs-on: ubuntu-latest
