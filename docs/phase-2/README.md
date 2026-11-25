@@ -87,7 +87,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.2.4** 🟡 | Outgoing gateway hook (if found in 2.1.6): `Engine::on_send` wiring | ken | ⏳ |
 | **2.2.5** 🔴 | Typed locators (`Found<T>`) for decoded structures: struct sizes, field offsets, handler ABI | matvee | ⏳ part 1 merged, PR #103 (`Found<T>`, errors, `Image`, `CallIndex`, string anchors; the target locators wait for 2.1.5 / 2.1.6) |
 | **2.2.6** 🔴 | `phoecord check <exe>`: run all locators against a binary, CI on `.text` dumps | buslan | ⏳ |
-| **2.2.7** 🔴 | In-process transport wired to `Engine`: REST and Gateway through the hook layer, `Effects` delivery | ken | ⏳ preparation merged, PR #104: fallback planner (`phoecord_loader::plan`); the wiring waits for 2.2.2, 2.2.3, 2.2.5 |
+| **2.2.7** 🔴 | In-process transport wired to `Engine`: REST and Gateway through the hook layer, `Effects` delivery | ken | ⏳ planner (PR #104) and the transport around `HookRuntime`: effects delivery, timer clock, per-entry-point fallback; open: calls from the detours (2.2.2, 2.2.3), in-process `Network`, a way to send (2.2.4), telling the proxy which entry points the loader owns |
 | **2.2.8** 🔴 | Phoenix installer: loader placement (or injection), reconcile after Phoenix updates, uninstall | buslan | ⏳ |
 | **2.2.9** 🔴 | Every signature verified unique on two adjacent builds | buslan | ⏳ |
 | **2.2.10** 🟡 | Signature updates without rebuilding the loader; hot-fix path for TOML AOB entries | buslan | ⏳ |

@@ -110,8 +110,8 @@ What each transport supplies:
 |:---|:---|:---|
 | Event source | `rest.rs` and `gateway.rs` decode HTTP and WebSocket frames from the intercepted TLS streams | Hooks on the client's own network read/write functions |
 | `Network` (`Host::rest`, `Host::fetch`) | `hostnet::Net`: session headers copied from the client's own requests, Discord's rate-limit buckets, TLS, the `upstream` proxy | Its own implementation over the client's HTTP stack or a small client; the engine only passes the raw `upstream` string |
-| Timer clock | A tokio task (`timers::drive`) | A thread or the client's own loop |
-| Delivering `Effects` | `locals` to a broadcast the gateway tasks read, `frames` to the newest live gateway connection (`live.rs`) | Write into the hooked connection |
+| Timer clock | A tokio task (`timers::drive`) | One thread (`transport::Clock`) |
+| Delivering `Effects` | `locals` to a broadcast the gateway tasks read, `frames` to the newest live gateway connection (`live.rs`) | `locals` queue until the dispatch detour takes them (dropped without that hook); `frames` need a send hook, which is not known yet, so they are dropped and logged (`transport::Delivery`) |
 | Not needed | | CA, port, TLS, extra process |
 
 Why not in-process on today's client: Electron's network stack is Chromium's (BoringSSL) and the Gateway lives in the sandboxed renderer process, so hooks there are fragile and plugins could not read their config or data. Why not proxy-only on Phoenix: the loader is needed there anyway for the UI, so moving the network hooks into the same DLL removes the CA, the port and the extra process. Once 2.1 shows what Phoenix's network stack is, in-process becomes Phoenix's main transport and the proxy stays as the fallback when signatures for a new build are missing.
@@ -245,7 +245,7 @@ Process: Ghidra/IDA + the open GPUI (Zed) sources → find the function → make
 | A panic in a hook | The hook is removed, the error is logged; the client keeps running |
 | The proxy is not running | The loader does not interfere with the client and intercepts nothing |
 
-Which entry points and UI features run is decided in one place, `phoecord_loader::plan`, from the locator results: an unknown build is proxy only without UI, and a failed locator costs its own entry point or feature. Two entry points also depend on another one: `on_response` on `on_request` (it needs the method and route), `on_send` on `on_dispatch` (one gateway connection). `on_dispatch` does not depend on `on_send`, because Phoenix may have no send function to hook. It is not wired to hooks yet.
+Which entry points and UI features run is decided in one place, `phoecord_loader::plan`, from the locator results: an unknown build is proxy only without UI, and a failed locator costs its own entry point or feature. Two entry points also depend on another one: `on_response` on `on_request` (it needs the method and route), `on_send` on `on_dispatch` (one gateway connection). `on_dispatch` does not depend on `on_send`, because Phoenix may have no send function to hook. `transport::InProcessTransport` asks the plan before every entry point; no detour calls it yet.
 
 ---
 
