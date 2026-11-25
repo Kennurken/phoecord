@@ -55,6 +55,7 @@ Ask: *"Could a program between the client and Discord do this by changing the tr
 | Gateway sends (presence, voice state) | `Event::Send { op, payload }`, `host.emit_send(op, payload)` | op 3 presence, op 4 voice state |
 | `DataStore` / `Settings.plugins.X.store` | `host.kv_get` / `host.kv_set` | small JSON values, per plugin |
 | `showNotification` / `Toasts` | `host.notify(title, body)` | rate-limited by the host |
+| `fetch` / `PluginNative` HTTP to an outside host with custom headers | `host.fetch_with(method, url, &[(name, value)], body)`; list the host in `Manifest.fetch` (`*.example.com` for one subdomain label) | no `Authorization`, `Cookie`, `Host`, `Proxy-*` or hop-by-hop headers |
 | `setTimeout` / `await sleep(ms)` / `setInterval` | `host.schedule(ms, tag)`, then handle `Event::Dispatch { name: TIMER_EVENT }` (`d.tag`); `host.cancel_schedule(tag)` to stop | never sleep inside `on_event`; keep the loop's state in the plugin and do one step per timer |
 | `sendBotMessage` | `Host::emit_dispatch` with a local `MESSAGE_CREATE` (a message only the user sees) | `crates/phoecord-plugins/src/commands.rs` |
 | `UserStore.getCurrentUser()` | `host.self_id()` | more account facts: `host.guild_emojis`, `host.channel_guild` |

@@ -222,7 +222,7 @@ From Nanda's Vencord `userplugins` folder. They behave 1:1 like the owner's orig
 | AntiRickroll | Warn before opening rickroll links | 🌐 + 🎨 | done: data — `/phoecord rickrolls` lists messages with known or custom rickroll links, local lists only / 2 (warning under the message, click dialog) |
 | BetterActivities | Activity icons in the member list, all activities shown | 🎨 UI | 2 |
 | SoundboardToVoice | Play soundboard sounds through your microphone | 🎨 UI | 2 (audio pipeline) |
-| QuestMaster | Quest dashboard and auto-completion | 🌐 + 🎨 | partial: data — `/phoecord quests <list\|start\|stop\|status\|claim\|retry>` runs the script's engine (enroll, video progress, heartbeats, claim) on timers; no faked game or stream process, no ACHIEVEMENT bypass (needs per-app hosts and headers `Host::fetch` does not allow) / 2 (dashboard) |
+| QuestMaster | Quest dashboard and auto-completion | 🌐 + 🎨 | done: data — `/phoecord quests <list\|start\|stop\|status\|claim\|retry\|consent>` runs the script's engine on timers: video progress, game and stream heartbeats with the game's presence sent on the wire, the ACHIEVEMENT bypass through `*.discordsays.com`; desktop heartbeat shapes not yet checked on a live account / 2 (dashboard, sound) |
 | TrustMeBro | Age verification bypass | 🌐 Network | not scheduled |
 
 

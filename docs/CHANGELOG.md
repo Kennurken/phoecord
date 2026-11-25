@@ -10,7 +10,8 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 ### Added
 
 - Plugin timers: `Host::schedule(after_ms, tag)` and `Host::cancel_schedule(tag)` (also WASM imports `schedule` / `cancel-schedule`); a due timer is a `PHOECORD_TIMER` dispatch to the scheduling plugin only. Additive, Plugin API stays v1. Needed by the 1.2.19 userplugins with delayed loops.
-- 1.2.19: network parts of the owner's userplugins FakeDeafen (`/phoecord fakedeafen`), FollowUser (`/phoecord follow`, `unfollow`), FakeDeafenDetector (`/phoecord flagged`; detection needs a voice `SPEAKING` feed the proxy does not see yet), AntiRickroll (`/phoecord rickrolls`), localDevBadges (badges on your own profile, local only), VoiceChatUtilities (`/phoecord vcu`), rmcord (`/phoecord rmcord`), SilentDelete (`/phoecord silentdelete`, `silentpurge`) and QuestMaster (`/phoecord quests`; no faked game or stream process), ported 1:1 from the owner's scripts, all off by default.
+- `Host::fetch_with(method, url, headers, body)` (WASM `fetch-with`, same `fetch` right): `fetch` with the plugin's own headers, credential and hop-by-hop names refused; `fetch` host entries may be `*.example.com` (exactly one extra label). Additive, Plugin API stays v1.
+- 1.2.19: network parts of the owner's userplugins FakeDeafen (`/phoecord fakedeafen`), FollowUser (`/phoecord follow`, `unfollow`), FakeDeafenDetector (`/phoecord flagged`; detection needs a voice `SPEAKING` feed the proxy does not see yet), AntiRickroll (`/phoecord rickrolls`), localDevBadges (badges on your own profile, local only), VoiceChatUtilities (`/phoecord vcu`), rmcord (`/phoecord rmcord`), SilentDelete (`/phoecord silentdelete`, `silentpurge`) and QuestMaster (`/phoecord quests`; game and stream paths emulated on the wire, ACHIEVEMENT bypass through `*.discordsays.com`), ported 1:1 from the owner's scripts, all off by default.
 
 ### Changed
 
