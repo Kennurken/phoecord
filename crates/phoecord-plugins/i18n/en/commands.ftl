@@ -18,3 +18,8 @@ follow_user-following = Following user `{ $id }`.
 follow_user-trigger = Joining the followed user's channel.
 follow_user-unfollowed = No longer following anyone.
 follow_user-bad-user = `{ $user }` is not a user id or mention.
+
+# FakeDeafenDetector: `/phoecord flagged`.
+fake_deafen_detector-none = Nobody has been caught speaking while shown as muted or deafened.
+fake_deafen_detector-header = Caught speaking while shown as muted or deafened: { $count }
+fake_deafen_detector-line = { $user }: caught speaking { $count }x while shown as muted/deafened (first: { $first }, last: { $last }), likely faking it

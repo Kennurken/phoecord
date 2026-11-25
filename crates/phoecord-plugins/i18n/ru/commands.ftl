@@ -18,3 +18,8 @@ follow_user-following = Слежу за пользователем `{ $id }`.
 follow_user-trigger = Захожу в канал отслеживаемого пользователя.
 follow_user-unfollowed = Больше ни за кем не слежу.
 follow_user-bad-user = `{ $user }` не похоже на id или упоминание пользователя.
+
+# FakeDeafenDetector: `/phoecord flagged`.
+fake_deafen_detector-none = Никого не поймали на разговоре при отметке «микрофон выключен» или «звук выключен».
+fake_deafen_detector-header = Пойманы на разговоре при отметке «микрофон выключен» или «звук выключен»: { $count }
+fake_deafen_detector-line = { $user }: пойман на разговоре { $count } раз при отметке «выключен микрофон/звук» (первый раз: { $first }, последний: { $last }), скорее всего притворяется
