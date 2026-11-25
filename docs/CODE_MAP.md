@@ -23,7 +23,8 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `LICENSE`, `NOTICE`, `LICENSES/` | GPL-3.0 text; copyright and exceptions; MIT notices for the v0 code (`MIT-v0.txt`) and the plugin SDK (`MIT-sdk.txt`) |
 | `assets/logo.svg` | Logo used in the README |
 | `.github/workflows/ci.yml` | CI: rustfmt, generated docs freshness, check/clippy/test on Linux, Windows, macOS, MSRV 1.88 |
-| `.github/workflows/package.yml` | Native installers (NSIS `.exe` + WiX `.msi` on Windows, `.app` in a `.dmg` on macOS arm64 and Intel) with `SHA256SUMS`, as workflow artifacts; on PRs touching the installer, `v*` tags and by hand |
+| `.github/workflows/package.yml` | Native installers (NSIS `.exe` + WiX `.msi` on Windows, `.app` in a `.dmg` on macOS arm64 and Intel) with `SHA256SUMS`, as workflow artifacts; on PRs touching the installer, by hand, and called by `release.yml` |
+| `.github/workflows/release.yml` | Releases on a `v*` tag: checks the tag against `Cargo.toml`, builds and archives the CLI (and `version.dll` on Windows) for 4 targets, reuses `package.yml` for installers, writes `SHA256SUMS`, publishes the GitHub release (prerelease for `-` tags); manual run is a dry run |
 | `.github/ISSUE_TEMPLATE/` | Bug, feature and plugin forms; blank issues disabled |
 | `.github/PULL_REQUEST_TEMPLATE.md` | PR form with the living-docs checklist |
 | `.github/dependabot.yml` | Weekly cargo updates (grouped), monthly GitHub Actions updates; Dependabot opens the `dependabot/*` branches |
