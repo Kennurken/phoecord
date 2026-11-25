@@ -29,3 +29,17 @@ anti_rickroll-none = Рикроллов в ссылках пока не заме
 anti_rickroll-header = Сообщения со ссылками на рикролл: { $count }
 anti_rickroll-line-known = { $channel } сообщение { $message }: `{ $url }` это известный рикролл.
 anti_rickroll-line-custom = { $channel } сообщение { $message }: `{ $url }` подходит под один из ваших фильтров на рикроллы.
+
+# VoiceChatUtilities: `/phoecord vcu`.
+voice_chat_utilities-started = Запущено «{ $action }» для { $count } участников <#{ $channel }>.
+voice_chat_utilities-stopped = Остановлено заданий: { $count }.
+voice_chat_utilities-idle = Сейчас ни одно действие над голосовым каналом не выполняется.
+voice_chat_utilities-status-line = { $action } в <#{ $channel }>: { $done } из { $count }.
+voice_chat_utilities-bad-action = Неизвестное действие `{ $action }`. Доступно: disconnect, mute, unmute, deafen, undeafen, move, stop, status.
+voice_chat_utilities-need-channel = Укажите голосовой канал: id или упоминание.
+voice_chat_utilities-unknown-channel = Канал `{ $channel }` неизвестен.
+voice_chat_utilities-not-voice = <#{ $channel }> не голосовой и не трибуна.
+voice_chat_utilities-need-target = Для move нужен целевой голосовой канал.
+voice_chat_utilities-bad-target = `{ $channel }` не другой голосовой канал этого сервера.
+voice_chat_utilities-empty = В <#{ $channel }> никого нет.
+voice_chat_utilities-nobody = В <#{ $channel }> никого, кроме вас.
