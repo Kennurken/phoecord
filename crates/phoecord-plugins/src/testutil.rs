@@ -92,9 +92,21 @@ pub struct Rec {
     pub rest_calls: Vec<(String, Option<Val>)>,
     /// Language `Host::t` answers in (`""` = English).
     pub lang: &'static str,
+    /// Every `schedule` call as `(after_ms, tag)`, in order (cancelled ones stay listed).
+    pub scheduled: Vec<(u64, String)>,
+    /// Every `cancel_schedule` tag, in order.
+    pub cancelled: Vec<String>,
 }
 
 impl Rec {
+    /// A due timer: the `PHOECORD_TIMER` frame the proxy delivers for `tag`.
+    pub fn timer_frame(tag: &str) -> Val {
+        j(&format!(
+            r#"{{"op":0,"t":"PHOECORD_TIMER","d":{{"tag":{}}}}}"#,
+            serde_json::to_string(tag).unwrap()
+        ))
+    }
+
     pub fn with(mut self, key: &str, val: Val) -> Rec {
         self.settings.insert(key.into(), val);
         self
@@ -140,6 +152,13 @@ impl Host for Rec {
     fn emit_send(&mut self, op: i64, payload: Val) {
         self.sent.push((op, payload));
     }
+    fn schedule(&mut self, after_ms: u64, tag: &str) -> Result<(), String> {
+        self.scheduled.push((after_ms, tag.to_string()));
+        Ok(())
+    }
+    fn cancel_schedule(&mut self, tag: &str) {
+        self.cancelled.push(tag.to_string());
+    }
     fn guild_emojis(&self, _: u64) -> Vec<u64> {
         Vec::new()
     }
@@ -177,6 +196,19 @@ impl Host for Rec {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rec_records_timers_and_builds_timer_frames() {
+        use phoecord_core::Host;
+        let mut h = Rec::default();
+        h.schedule(600, "step").unwrap();
+        h.cancel_schedule("step");
+        assert_eq!(h.scheduled, vec![(600, "step".to_string())]);
+        assert_eq!(h.cancelled, vec!["step".to_string()]);
+        let f = Rec::timer_frame("step");
+        assert_eq!(f.str_at(&["t"]), Some(phoecord_core::TIMER_EVENT));
+        assert_eq!(f.str_at(&["d", "tag"]), Some("step"));
+    }
 
     #[test]
     fn rec_answers_scripted_rest_and_records_calls() {
