@@ -1,0 +1,19 @@
+{
+  "name": "hello-plugin-ts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PhoeCord plugin template in TypeScript: logs the ids of every new message",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "types": "jco guest-types ../../wit --world-name plugin -o types",
+    "check": "npm run types && tsc -p .",
+    "build": "npm run check && node build.mjs"
+  },
+  "devDependencies": {
+    "@bytecodealliance/componentize-js": "0.24.0",
+    "@bytecodealliance/jco": "1.42.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

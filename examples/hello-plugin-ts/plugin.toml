@@ -1,0 +1,11 @@
+id = "hello_plugin_ts"
+name = "Hello (TypeScript example)"
+version = "0.1.0"
+description = "Logs the ids of every new message"
+authors = ["matvee"]
+layers = ["network"]
+api = 1
+
+events = ["dispatch:MESSAGE_CREATE"]
+# `log` needs no right, and the plugin calls nothing else.
+rights = []

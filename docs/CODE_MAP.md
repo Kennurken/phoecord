@@ -112,6 +112,7 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `tests/strings.rs` | `Host::t` for packages: a string from the package's own `.ftl`, English fallback, hot reload of an edited `.ftl`, unload | Uses the guest's `STRINGS` dispatch |
 | `tests/clear_urls_wasm.rs` | Builds `examples/plugins/clear_urls`, loads it as a package (also into a running chain) and checks it behaves like the native plugin | Needs the `wasm32-wasip2` target |
 | `tests/hello_plugin_wasm.rs` | Builds `examples/hello-plugin`, loads it and checks that it logs each `MESSAGE_CREATE` without the text | Needs the `wasm32-wasip2` target |
+| `tests/hello_plugin_ts_wasm.rs` | Builds `examples/hello-plugin-ts` with npm, loads it and checks the same logs as the Rust example | `#[ignore]`: needs Node.js; the `typescript-template` CI job runs it in release |
 | `benches/overhead.rs` | Per-event cost of a WASM plugin vs a native one on a MESSAGE_CREATE payload (`cargo bench`) | Input for benchmark task 1.1.10 |
 | `wit/phoecord.wit` (repo root) | The `plugin` world and `host` interface; mirrors `phoecord-core::plugin` | Change together with `plugin.rs` |
 
@@ -295,6 +296,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `scripts/check_i18n.py` | Every key of `crates/*/i18n/en/*.ftl` exists in the `ru` file with the same variables; exit 1 otherwise |
 | `examples/plugins/clear_urls/` | The first third-party plugin example: `clear_urls` as a WASM package (`plugin.toml` id `clear_urls_wasm`, `wit-bindgen`), its own cargo workspace, excluded from the main one; README shows build and install |
 | `examples/hello-plugin/` | The smallest SDK plugin (`hello_plugin`): logs `MESSAGE_CREATE` ids; its own cargo workspace, built by the `sdk-example` CI job | `Cargo.lock` is committed and CI builds with `--locked` |
+| `examples/hello-plugin-ts/` | The TypeScript template (`hello_plugin_ts`): the same plugin; `build.mjs` (esbuild + `componentize-js` with WASI features off), `src/tree.ts` (value tree helpers) | `package-lock.json` is committed, versions pinned; `types/`, `dist/`, `plugin.wasm` are build output |
 | `scripts/update_contributors.py` | Rewrites the README contributors block (avatars between `<!-- contributors:* -->` markers) from GitHub's contributors list, bots left out; `--check` exits 1 if stale. Run after merging a new contributor's PR |
 | `scripts/package/make_art.py`, `scripts/package/name-files.sh`, `scripts/package/README.md` | Renders the app icons and installer pictures from `icon.svg`; renames the packaged `.exe`/`.msi` to `PhoeCord_<version>_…`; how to build the installers locally (`cargo packager`, config in `crates/phoecord-installer-gui/Cargo.toml`) |
 | `scripts/dev/New-TestVm.ps1` | Creates a throwaway Hyper-V VM (Gen 2, Secure Boot, vTPM, Default Switch) for the manual checks 1.4.6 and 1.5.7, so they never touch your own Discord; run elevated |
