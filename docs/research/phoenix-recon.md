@@ -2,7 +2,7 @@
 
 Findings about an official Phoenix build, and the steps that produce them. This file holds the sections of tasks **2.1.3** (proxy behavior), **2.1.4** (gateway wire format) and **2.3.7** (degradation). Task 2.1.9 assembles the full report around them: binary layout, loading path, HTTP transport, gateway registry and the decisions for 2.2–2.4.
 
-**Status: method only. Nothing here has been run against Phoenix.** Every result cell says "not run" until someone with access fills it in. What these steps expect is a hypothesis, not a finding. What the study of another loader says about Phoenix is in [`phoenix-desktop.md`](phoenix-desktop.md).
+**Status: partly run (2026-11-25, Windows, signed out at the login screen).** Proxy settings from the environment and the command line, and certificate verification, have results. The system proxy, a trusted CA, the gateway and degradation are "not run". What an unrun step expects is a hypothesis, not a finding. What the study of another loader says about Phoenix is in [`phoenix-desktop.md`](phoenix-desktop.md).
 
 ## Before you start
 
@@ -23,9 +23,13 @@ Get-FileHash $exe -Algorithm SHA256
 
 | Fact | Value |
 |:---|:---|
-| Date, OS | not run |
-| Phoenix version | not run |
-| Executable SHA-256 | not run |
+| Date, OS | 2026-11-25, Windows 11 25H2 (26200) |
+| Phoenix version | file 0.1.0.2208; release `0.1.0-dev.20261123093910.gb71ec80`, channel `release/phoenix_desktop`, client build 678271 |
+| Executable SHA-256 | `f4186cf28cb5289c0e6764de11eef8f91cb205b72284050582aa29b3c0e5ca33` |
+| Signature | valid, Discord Inc. |
+| Executable | `%LOCALAPPDATA%\DiscordPhoenix\app\Discord.exe` (the folder has no version in its name) |
+
+The client logs to `%LOCALAPPDATA%\DiscordPhoenix\logs\libdiscord.log`, one JSON object per line; TLS failures show up there. Redact before quoting it.
 
 ## Proxy behavior
 
@@ -46,7 +50,7 @@ Linux: `ss -tnp | grep -i discord`.
 
 QUIC (UDP) would not appear here and would not pass an HTTP proxy. Check `Get-NetUDPEndpoint -OwningProcess $ids` as well; voice uses UDP too, so look before joining a call.
 
-### Step 1. `HTTPS_PROXY`
+### Step 1. `HTTPS_PROXY` and `--proxy-server`
 
 Start with the environment variable alone. `phoecord launch` also passes `--proxy-server`, which would hide which of the two worked.
 
@@ -64,6 +68,8 @@ Linux: `HTTPS_PROXY=http://127.0.0.1:8080 ./Discord`.
 mitmproxy's list shows each host the client asks for, even when the TLS handshake then fails. A request arriving here answers the question; the certificate is step 3.
 
 If nothing arrives, repeat with `https_proxy`, then `ALL_PROXY`, then the command-line flag `--proxy-server=http://127.0.0.1:8080`.
+
+**Result.** With `HTTPS_PROXY`, `HTTP_PROXY` and `ALL_PROXY` all set (checked to reach a child process started the same way), nothing arrived and the client connected directly. With `--proxy-server` every TCP connection went to the proxy: `discord.com` and `status.discord.com` (ALPN `h2`, `http/1.1`) and `remote-auth-gateway.discord.gg` (no ALPN). A tunnel that decrypts nothing was enough for this step.
 
 ### Step 2. System proxy
 
@@ -84,7 +90,7 @@ Linux: `http_proxy` and `https_proxy` in the environment; on GNOME also the syst
 
 ### Step 3. System certificate store
 
-Use whichever method of step 1 or 2 delivered traffic. First without any added CA: every intercepted handshake must fail. If requests succeed, the client does not verify certificates; record that and tell the owner.
+Use whichever method of step 1 or 2 delivered traffic (on this build: `--proxy-server`). First without any added CA: every intercepted handshake must fail. If requests succeed, the client does not verify certificates; record that and tell the owner.
 
 Then PhoeCord's own CA, which is what the fallback uses:
 
@@ -95,17 +101,18 @@ phoecord run                         # 127.0.0.1:18463
 ```
 
 ```powershell
-$env:HTTPS_PROXY = 'http://127.0.0.1:18463'
-Start-Process 'C:\path\to\Phoenix\Discord.exe'
+Start-Process 'C:\path\to\Phoenix\Discord.exe' -ArgumentList '--proxy-server=http://127.0.0.1:18463'
 ```
 
 | `phoecord run` shows | Meaning |
 |:---|:---|
 | `gateway connected (…)` | The proxy is used and the CA is trusted |
-| `gateway.discord.gg:443: …` with a TLS alert such as `UnknownCA` | The proxy is used, the certificate is refused |
+| `discord.com:443: …` with a TLS alert such as `UnknownCA` | The proxy is used, the certificate is refused |
 | Nothing | No intercepted host came here: compare the hosts in step 1 with the `intercept` list in `config.toml` |
 
 The proxy speaks HTTP/1.1 only. If the client requires HTTP/2, record the error.
+
+**Result without the CA trusted.** `phoecord run` showed `discord.com:443: received fatal alert: UnknownCA`; the client logged `rustls_platform_verifier::verification::windows` / `invalid peer certificate: UnknownIssuer`. So the client verifies certificates, through the Windows verifier. The run with the CA trusted is not done.
 
 ### Step 4. Bundled roots or pinning
 
@@ -137,16 +144,16 @@ With a working setup, use the client for a few minutes (open channels, send a me
 
 | Question | Windows | Linux |
 |:---|:---|:---|
-| `HTTPS_PROXY` honoured | not run | not run |
-| `--proxy-server` honoured | not run | not run |
-| System proxy honoured | not run | not run |
-| Verifies certificates | not run | not run |
+| `HTTPS_PROXY` honoured | **no** (nor `HTTP_PROXY`, `ALL_PROXY`) | not run |
+| `--proxy-server` honoured | **yes** | not run |
+| System proxy honoured | not run; the log has a `net::proxy` line about auto-detect and "manual settings" | not run |
+| Verifies certificates | **yes**, `rustls-platform-verifier` (Windows) | not run |
 | PhoeCord CA in the system store accepted | not run | not run |
 | mitmproxy CA in the system store accepted | not run | not run |
-| TLS crates seen | not run | not run |
-| HTTP/2 or QUIC required | not run | not run |
-| Hosts through the proxy | not run | not run |
-| Hosts that bypass it | not run | not run |
+| TLS crates seen | `rustls` 0.23.46, `rustls-platform-verifier` 0.7.1, `rustls-native-certs` 0.8.5, `aws-lc-rs` 1.18.2; no `webpki-roots` path | not run |
+| HTTP/2 or QUIC required | not run; ALPN offers `http/1.1`, no UDP at the login screen; `h2` 0.4.20 and `quinn` 0.11.9 are linked | not run |
+| Hosts through the proxy | signed out: `discord.com`, `status.discord.com`, `remote-auth-gateway.discord.gg` | not run |
+| Hosts that bypass it | signed out, with the flag: none over TCP | not run |
 
 ### What the answers mean for 2.1.8
 
@@ -210,6 +217,8 @@ mitmdump --listen-port 8080 -s gateway_capture.py
 
 Start the client after mitmdump: stream compression keeps one context per connection, so a capture that misses the first frame cannot be decompressed. In the client, wait for it to load and send one message, then quit.
 
+Start Phoenix with `--proxy-server=http://127.0.0.1:8080`.
+
 Run the same capture against today's Electron client (`Discord.exe --proxy-server=http://127.0.0.1:8080`) with the same account and actions, for the comparison.
 
 ### Fixtures
@@ -233,6 +242,8 @@ For each event name, compare the set of key paths and value types between the tw
 | Decodes with the current codec | not run | not run |
 | Events only on this client | not run | not run |
 | Fields added or removed | not run | not run |
+
+A hint, not a result: the executable contains the strings `encoding=json`, `zstd-stream` and `zlib-stream`; `encoding=etf` was not found.
 
 ## Degradation
 
