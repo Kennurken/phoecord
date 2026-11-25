@@ -134,6 +134,7 @@ plugin-desc-local_dev_badges = Show staff and developer badges on your own profi
 plugin-desc-voice_chat_utilities = Move, mute, deafen or disconnect everyone in a voice channel
 plugin-desc-rmcord = Delete your own messages in bulk
 plugin-desc-silent_delete = Replace a message, then delete it, so loggers keep the replacement
+plugin-desc-quest_master = Complete Discord Quests automatically
 
 # CLI: log
 cli-log-empty = nothing logged yet ({ $path })

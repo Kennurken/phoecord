@@ -33,6 +33,7 @@ pub mod no_track;
 pub mod override_forum_defaults;
 pub mod pause_invites_forever;
 pub mod platform_indicators;
+pub mod quest_master;
 pub mod read_all_notifications;
 pub mod relationship_notifier;
 pub mod rmcord;
@@ -123,6 +124,16 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "ru",
         include_str!("../i18n/ru/silent_delete.ftl"),
     ),
+    (
+        "quest_master",
+        "en",
+        include_str!("../i18n/en/quest_master.ftl"),
+    ),
+    (
+        "quest_master",
+        "ru",
+        include_str!("../i18n/ru/quest_master.ftl"),
+    ),
 ];
 
 /// Hand [`I18N`] to the host's plugin strings, which answer `Host::t`.
@@ -184,6 +195,8 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let rmcord_command = rmcord.command();
     let silent_delete = silent_delete::SilentDelete::new();
     let silent_delete_commands = silent_delete.commands();
+    let quest_master = quest_master::QuestMaster::new();
+    let quest_master_command = quest_master.command();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(silent_typing::SilentTyping::new()),
@@ -227,6 +240,7 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(voice_chat_utilities),
         Box::new(rmcord),
         Box::new(silent_delete),
+        Box::new(quest_master),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
@@ -258,7 +272,8 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         .with(fake_deafen_detector_command)
         .with(anti_rickroll_command)
         .with(voice_chat_utilities_command)
-        .with(rmcord_command);
+        .with(rmcord_command)
+        .with(quest_master_command);
     for c in silent_delete_commands {
         commands = commands.with(c);
     }

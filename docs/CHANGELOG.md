@@ -10,7 +10,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 ### Added
 
 - Plugin timers: `Host::schedule(after_ms, tag)` and `Host::cancel_schedule(tag)` (also WASM imports `schedule` / `cancel-schedule`); a due timer is a `PHOECORD_TIMER` dispatch to the scheduling plugin only. Additive, Plugin API stays v1. Needed by the 1.2.19 userplugins with delayed loops.
-- 1.2.19 (in progress): network parts of the owner's userplugins FakeDeafen (`/phoecord fakedeafen`), FollowUser (`/phoecord follow`, `unfollow`), FakeDeafenDetector (`/phoecord flagged`; detection needs a voice `SPEAKING` feed the proxy does not see yet), AntiRickroll (`/phoecord rickrolls`), localDevBadges (badges on your own profile, local only), VoiceChatUtilities (`/phoecord vcu`), rmcord (`/phoecord rmcord`) and SilentDelete (`/phoecord silentdelete`, `silentpurge`), ported 1:1 from the owner's scripts, all off by default.
+- 1.2.19: network parts of the owner's userplugins FakeDeafen (`/phoecord fakedeafen`), FollowUser (`/phoecord follow`, `unfollow`), FakeDeafenDetector (`/phoecord flagged`; detection needs a voice `SPEAKING` feed the proxy does not see yet), AntiRickroll (`/phoecord rickrolls`), localDevBadges (badges on your own profile, local only), VoiceChatUtilities (`/phoecord vcu`), rmcord (`/phoecord rmcord`), SilentDelete (`/phoecord silentdelete`, `silentpurge`) and QuestMaster (`/phoecord quests`; no faked game or stream process), ported 1:1 from the owner's scripts, all off by default.
 
 ### Changed
 
