@@ -21,7 +21,7 @@
 //!
 //! Not ported: the hover trigger and the client's reply store (Phase 2).
 
-use crate::state::Shared;
+use crate::state::{Shared, dispatch_data_mut};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::{HashMap, VecDeque};
@@ -233,7 +233,7 @@ impl Plugin for ValidReply {
         match event {
             Event::Dispatch { name, payload, .. } if is_message_event(name) => {
                 let mut st = self.state.lock();
-                if fix_message(host, &mut st, payload, &HashMap::new()) {
+                if fix_message(host, &mut st, dispatch_data_mut(payload), &HashMap::new()) {
                     Verdict::Changed
                 } else {
                     Verdict::Pass
@@ -319,6 +319,27 @@ mod tests {
         let mut again = j(REPLY);
         assert_eq!(create(&p, &mut h, &mut again), Verdict::Changed);
         assert_eq!(h.rest_calls.len(), 1);
+    }
+
+    #[test]
+    fn missing_referenced_message_is_fetched_in_a_real_gateway_frame() {
+        use phoecord_plugin_runtime::{Chain, Outcome};
+        let chain = Chain::new(vec![Box::new(ValidReply::new())]);
+        let mut h = Rec::default().answer(
+            "GET",
+            "/channels/7/messages?limit=1&around=50",
+            200,
+            r#"[{"id":"50","content":"original"}]"#,
+        );
+        let mut frame = j(&format!(
+            r#"{{"op":0,"t":"MESSAGE_CREATE","s":1,"d":{REPLY}}}"#
+        ));
+        let out = chain.dispatch(&mut h, "MESSAGE_CREATE", &mut frame, &mut Vec::new());
+        assert_eq!(out, Outcome::Changed);
+        assert_eq!(
+            frame.str_at(&["d", "referenced_message", "content"]),
+            Some("original")
+        );
     }
 
     #[test]
