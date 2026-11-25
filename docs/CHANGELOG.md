@@ -7,6 +7,14 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 ### Fixed
 
 - Twelve data parts from 1.2.16 (MemberCount, MessageLinkEmbeds, ReadAllNotificationsButton, PauseInvitesForever, PlatformIndicators, UserVoiceShow, TypingIndicator, VcNarrator, NewGuildSettings, ValidReply, ValidUser, OverrideForumDefaults) read gateway dispatches as bare data while the proxy hands plugins the whole `{op, t, d}` frame, so they saw nothing in a real session; they now read `d` through `state::dispatch_data`, with a real-frame test each.
+### Added
+
+- Plugin timers: `Host::schedule(after_ms, tag)` and `Host::cancel_schedule(tag)` (also WASM imports `schedule` / `cancel-schedule`); a due timer is a `PHOECORD_TIMER` dispatch to the scheduling plugin only. Additive, Plugin API stays v1. Needed by the 1.2.19 userplugins with delayed loops.
+
+### Changed
+
+- `Host::emit_send` from a REST event (for example a `/phoecord` command) or a timer goes to the live gateway connection at once instead of being lost; every plugin-queued send passes the Send chain once.
+- The per-plugin `Host::rest` limit allows bursts: 5 calls per 5 s (was 1 per second); a refusal says `retry in X s`. The 5/s overall cap and Discord's buckets are unchanged.
 
 ## [0.5.0] - 2026-11-25
 

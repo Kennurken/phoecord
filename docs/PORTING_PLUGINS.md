@@ -49,12 +49,13 @@ Ask: *"Could a program between the client and Discord do this by changing the tr
 | `FluxDispatcher` events (`MESSAGE_CREATE`, …) | `Event::Dispatch { name, payload, extra }` | same event names as the Gateway; `payload` is the whole frame `{op, t, s, d}`, read the data with `state::dispatch_data(payload)` (or `_mut` to rewrite) |
 | `MessageEvents.addPreSendListener` | `Event::RestRequest` on `POST /channels/{id}/messages` | edit `body["content"]`, return `Verdict::Changed` |
 | `MessageEvents.addPreEditListener` | `Event::RestRequest` on `PATCH /channels/{id}/messages/{mid}` | |
-| `RestAPI` calls you make | `host.rest(method, route, body)` (route is a plain path like `/channels/{id}/messages`) | rate-limited (1/s per plugin, 5/s overall, Discord's own limits honoured); warn the user in the plugin's description if it does bulk work |
+| `RestAPI` calls you make | `host.rest(method, route, body)` (route is a plain path like `/channels/{id}/messages`) | rate-limited (5 per 5 s per plugin, 5/s overall, Discord's own limits honoured; a refusal says `retry in X s`, treat it like a 429); warn the user in the plugin's description if it does bulk work |
 | uploading a file (`sendMessage` with attachments, `CloudUpload`) | `host.rest_files("POST", "/channels/{id}/messages", payload, &[FilePart {..}])` | multipart like the client; same limits as `rest` |
 | `fetch` to an outside site | `host.fetch(request)` (HTTPS, 5 MB answer cap, no redirects followed) | the host must be listed under `fetch = [...]` in the manifest |
 | Gateway sends (presence, voice state) | `Event::Send { op, payload }`, `host.emit_send(op, payload)` | op 3 presence, op 4 voice state |
 | `DataStore` / `Settings.plugins.X.store` | `host.kv_get` / `host.kv_set` | small JSON values, per plugin |
 | `showNotification` / `Toasts` | `host.notify(title, body)` | rate-limited by the host |
+| `setTimeout` / `await sleep(ms)` / `setInterval` | `host.schedule(ms, tag)`, then handle `Event::Dispatch { name: TIMER_EVENT }` (`d.tag`); `host.cancel_schedule(tag)` to stop | never sleep inside `on_event`; keep the loop's state in the plugin and do one step per timer |
 | `sendBotMessage` | `Host::emit_dispatch` with a local `MESSAGE_CREATE` (a message only the user sees) | `crates/phoecord-plugins/src/commands.rs` |
 | `UserStore.getCurrentUser()` | `host.self_id()` | more account facts: `host.guild_emojis`, `host.channel_guild` |
 | React components, context menus, chat bar buttons | Phase 2 UI hooks *(2)*; until then a `/phoecord` command or a setting | |

@@ -10,8 +10,8 @@
 //! What it writes: one `PATCH /users/@me/guilds/{id}/settings` per new server, only while the plugin
 //! is on, with the fields Vencord sets: `muted`, `suppress_everyone`, `suppress_roles`,
 //! `mute_scheduled_events`, `notify_highlights`, and `message_notifications` unless it is the
-//! "server default" choice. Vencord sends two calls; they are merged here because the host allows
-//! one Discord call per second per plugin. A server is handled once (remembered in the plugin's
+//! "server default" choice. Vencord sends two calls; they are merged here to stay within the host's
+//! per-plugin Discord call budget (5 per 5 s). A server is handled once (remembered in the plugin's
 //! store); a failed call is logged and not repeated by itself.
 //!
 //! Settings (`[plugins.new_guild_settings]`), names and defaults as in Vencord: `guild` (true,

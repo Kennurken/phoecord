@@ -14,7 +14,7 @@
 //! The `around` form is used because `GET /channels/{id}/messages/{id}` is closed to user accounts.
 //!
 //! Limits: `max_per_message` lookups per message (default 3), `max_per_minute` in total (default
-//! 30); the host allows one Discord call per second per plugin, and the first refusal ends the
+//! 30); the host allows 5 Discord calls per 5 s per plugin, and the first refusal ends the
 //! lookups of that message. A small in-memory cache (100 messages) answers repeated replies.
 //!
 //! Switching it on: `[plugins.valid_reply] enabled = true`, or `/phoecord toggle valid_reply`.
