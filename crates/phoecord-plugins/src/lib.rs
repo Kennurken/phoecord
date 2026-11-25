@@ -9,10 +9,13 @@ use phoecord_core::Plugin;
 
 pub mod anonymise_file_names;
 pub mod anti_rickroll;
+pub mod auto_dnd_while_playing;
 pub mod better_sessions;
 pub mod clear_urls;
 pub mod commands;
 pub mod custom_commands;
+pub mod custom_idle;
+pub mod custom_rpc;
 pub mod experiments;
 pub mod fake_deafen;
 pub mod fake_deafen_detector;
@@ -21,12 +24,14 @@ pub mod follow_user;
 pub mod friend_invites;
 pub mod game_activity_toggle;
 pub mod i_love_spam;
+pub mod ignore_activities;
 pub mod implicit_relationships;
 pub mod local_dev_badges;
 pub mod member_count;
 pub mod message_latency;
 pub mod message_link_embeds;
 pub mod message_logger;
+pub mod music_rich_presence;
 pub mod mutual_group_dms;
 pub mod new_guild_settings;
 pub mod no_blocked_messages;
@@ -36,6 +41,7 @@ pub mod override_forum_defaults;
 pub mod pause_invites_forever;
 pub mod petpet;
 pub mod platform_indicators;
+pub mod presence;
 pub mod quest_master;
 pub mod read_all_notifications;
 pub mod relationship_notifier;
@@ -91,6 +97,26 @@ pub const I18N: &[(&str, &str, &str)] = &[
         include_str!("../i18n/ru/custom_commands.ftl"),
     ),
     (
+        "custom_idle",
+        "en",
+        include_str!("../i18n/en/custom_idle.ftl"),
+    ),
+    (
+        "custom_idle",
+        "ru",
+        include_str!("../i18n/ru/custom_idle.ftl"),
+    ),
+    (
+        "custom_rpc",
+        "en",
+        include_str!("../i18n/en/custom_rpc.ftl"),
+    ),
+    (
+        "custom_rpc",
+        "ru",
+        include_str!("../i18n/ru/custom_rpc.ftl"),
+    ),
+    (
         "follow_user",
         "en",
         include_str!("../i18n/en/follow_user.ftl"),
@@ -111,6 +137,28 @@ pub const I18N: &[(&str, &str, &str)] = &[
         include_str!("../i18n/ru/friend_invites.ftl"),
     ),
     (
+        "ignore_activities",
+        "en",
+        include_str!("../i18n/en/ignore_activities.ftl"),
+    ),
+    (
+        "ignore_activities",
+        "ru",
+        include_str!("../i18n/ru/ignore_activities.ftl"),
+    ),
+    ("petpet", "en", include_str!("../i18n/en/petpet.ftl")),
+    ("petpet", "ru", include_str!("../i18n/ru/petpet.ftl")),
+    (
+        "quest_master",
+        "en",
+        include_str!("../i18n/en/quest_master.ftl"),
+    ),
+    (
+        "quest_master",
+        "ru",
+        include_str!("../i18n/ru/quest_master.ftl"),
+    ),
+    (
         "relationship_notifier",
         "en",
         include_str!("../i18n/en/relationship_notifier.ftl"),
@@ -119,6 +167,28 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "relationship_notifier",
         "ru",
         include_str!("../i18n/ru/relationship_notifier.ftl"),
+    ),
+    ("rmcord", "en", include_str!("../i18n/en/rmcord.ftl")),
+    ("rmcord", "ru", include_str!("../i18n/ru/rmcord.ftl")),
+    (
+        "server_info",
+        "en",
+        include_str!("../i18n/en/server_info.ftl"),
+    ),
+    (
+        "server_info",
+        "ru",
+        include_str!("../i18n/ru/server_info.ftl"),
+    ),
+    (
+        "silent_delete",
+        "en",
+        include_str!("../i18n/en/silent_delete.ftl"),
+    ),
+    (
+        "silent_delete",
+        "ru",
+        include_str!("../i18n/ru/silent_delete.ftl"),
     ),
     (
         "spotify_share_commands",
@@ -161,40 +231,6 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "voice_chat_utilities",
         "ru",
         include_str!("../i18n/ru/voice_chat_utilities.ftl"),
-    ),
-    ("rmcord", "en", include_str!("../i18n/en/rmcord.ftl")),
-    ("rmcord", "ru", include_str!("../i18n/ru/rmcord.ftl")),
-    (
-        "server_info",
-        "en",
-        include_str!("../i18n/en/server_info.ftl"),
-    ),
-    (
-        "server_info",
-        "ru",
-        include_str!("../i18n/ru/server_info.ftl"),
-    ),
-    (
-        "silent_delete",
-        "en",
-        include_str!("../i18n/en/silent_delete.ftl"),
-    ),
-    (
-        "silent_delete",
-        "ru",
-        include_str!("../i18n/ru/silent_delete.ftl"),
-    ),
-    ("petpet", "en", include_str!("../i18n/en/petpet.ftl")),
-    ("petpet", "ru", include_str!("../i18n/ru/petpet.ftl")),
-    (
-        "quest_master",
-        "en",
-        include_str!("../i18n/en/quest_master.ftl"),
-    ),
-    (
-        "quest_master",
-        "ru",
-        include_str!("../i18n/ru/quest_master.ftl"),
     ),
 ];
 
@@ -274,11 +310,21 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let unsuppress_embeds_command = unsuppress_embeds.command();
     let friend_invites = friend_invites::FriendInvites::new();
     let friend_invites_commands = friend_invites.commands();
+    // Stage 1.2.13 presence plugins (off by default).
+    let music_rich_presence = music_rich_presence::MusicRichPresence::new();
+    let custom_rpc = custom_rpc::CustomRpc::new();
+    let custom_rpc_command = custom_rpc.command();
+    let custom_idle = custom_idle::CustomIdle::new();
+    let custom_idle_command = custom_idle.command();
+    let ignore_activities = ignore_activities::IgnoreActivities::new();
+    let ignore_activities_commands = ignore_activities.commands();
+    let auto_dnd_while_playing = auto_dnd_while_playing::AutoDndWhilePlaying::new();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(silent_typing::SilentTyping::new()),
         Box::new(clear_urls::ClearUrls::new()),
         Box::new(unindent::Unindent::new()),
+        Box::new(auto_dnd_while_playing),
         Box::new(game_activity_toggle::GameActivityToggle::new()),
         Box::new(relationship_notifier::RelationshipNotifier::new()),
         Box::new(fake_nitro::FakeNitro::new()),
@@ -321,6 +367,10 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(quest_master),
         Box::new(friend_invites),
         Box::new(unsuppress_embeds),
+        Box::new(custom_rpc),
+        Box::new(music_rich_presence),
+        Box::new(custom_idle),
+        Box::new(ignore_activities),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
@@ -373,6 +423,11 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     for c in friend_invites_commands {
         commands = commands.with(c);
     }
+    for c in ignore_activities_commands {
+        commands = commands.with(c);
+    }
+    commands = commands.with(custom_idle_command);
+    commands = commands.with(custom_rpc_command);
     plugins.push(Box::new(commands));
     plugins
 }
