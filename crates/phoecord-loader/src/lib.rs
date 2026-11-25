@@ -22,6 +22,7 @@
 
 pub mod aob;
 pub mod ipc;
+pub mod locators;
 pub mod log;
 pub mod pe;
 pub mod signatures;
