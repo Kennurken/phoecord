@@ -444,6 +444,18 @@ Found in the 1.4.6 re-check on 24.11: `ca.pem` had been recreated after it was t
 
 **Done when:** pushing tag `v0.5.0` produces a GitHub release with binaries and checksums.
 
+### 1.4.10. macOS check of the 0.5.1 fixes (Kennurken)
+
+On a real Mac (Apple Silicon, macOS 13+), with the `.dmg` of the next release or of the `Package` workflow: the app opens with "unidentified developer" and Open Anyway (not "damaged"); install from the window; "Open Discord" starts Discord, its updater finishes, and `~/Library/Application Support/phoecord/launch.log` has no `Operation not permitted` or `installer.db` line; the client works through the proxy; Uninstall in the window, then removing the app, leaves no CA in the keychain and no launchd entry.
+
+**Done when:** every step above passes, written in the ledger with the macOS version and the build.
+
+### 1.4.11. Antivirus submissions per release (Kennurken)
+
+After every release, submit the release's Windows files (`PhoeCord_<v>_x64-setup.exe`, both `.msi`, `phoecord.exe` and `version.dll` from the CLI archive) to the Microsoft Defender file submission as "incorrectly detected" (software developer), and note the submission ids in the ledger. Start with v0.5.0.
+
+**Done when:** v0.5.0's files are submitted and the step is in `docs/GOVERNANCE.md` "Releases" under Kennurken's name.
+
 ## Stage 1.5. DLL sideloading prototype
 
 ### 1.5.1. Export forwarding (Nanda)
@@ -512,6 +524,12 @@ Found in 1.5.7 on 24.11 (Discord Canary 1.0.1355): Electron starts 7 processes, 
 - Detect the build from the image already mapped in memory (`GetModuleHandleW(null)` + the PE headers), not from the file.
 
 **Done when:** the log shows one worker per client start, and build detection takes under 20 ms.
+
+### 1.5.9. Loader check inside Discord Canary (Kennurken)
+
+On Windows with Discord Canary, from the next release or a `main` build: put `version.dll` in the newest `app-x.y.z` (`phoecord setup --loader --channel canary`), start `phoecord launch --channel canary`, use the client for 10 minutes, quit. Check: `loader.log` has one `client build` line per start (no worker in child processes, 1.5.8), the `.text` hash equals the file's (the in-memory hash matches), detection takes under 20 ms, and the proxy log shows `loader connected: build …` (IPC, 1.5.5); no crash; `phoecord uninstall` removes the DLL.
+
+**Done when:** every check passes, written in the ledger with the Canary build.
 
 ## Stage 1.6. GPUI (Zed) research
 

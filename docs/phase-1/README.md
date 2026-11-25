@@ -41,7 +41,7 @@ none
 | | Nanda | Contributors |
 |:---|:---|:---|
 | Area | core, Plugin API, proxy, CA and trust, loader, installer, runtime, releases, review and merging | plugins, SDK examples, tests and fixtures, translations, docs, research |
-| Tasks | 1.0.1, 1.0.2, 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5, 1.1.6, 1.1.7, 1.1.8, 1.1.10, 1.1.12, 1.1.13, 1.2.3, 1.2.4, 1.2.5, 1.2.6, 1.2.8, 1.2.10, 1.2.11, 1.3.1, 1.3.2, 1.3.3, 1.3.4, 1.3.5, 1.3.8, 1.4.1, 1.4.2, 1.4.4, 1.4.6, 1.4.7, 1.4.8, 1.4.9, 1.5.1, 1.5.2, 1.5.3, 1.5.4, 1.5.5, 1.5.7, 1.5.8, 1.6.1, 1.6.2, 1.6.3, 1.6.4, 1.6.5, 1.7.1, 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.3.9, 1.3.10, 1.3.11 (open: 1.3.9, 1.3.10, 1.3.11) | 1.2.1, 1.2.2, 1.2.7, 1.2.12, 1.2.13 (matvee; all done); 1.1.11, 1.2.9, 1.2.15, 1.3.6 (buslan07; open: 1.2.15, 1.3.6); 1.2.16, 1.2.18, 1.2.19, 1.4.3, 1.4.5, 1.5.6 (Kennurken; all done); 1.1.9, 1.2.14, 1.2.17, 1.3.7 (open to anyone; open) |
+| Tasks | 1.0.1, 1.0.2, 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5, 1.1.6, 1.1.7, 1.1.8, 1.1.10, 1.1.12, 1.1.13, 1.2.3, 1.2.4, 1.2.5, 1.2.6, 1.2.8, 1.2.10, 1.2.11, 1.3.1, 1.3.2, 1.3.3, 1.3.4, 1.3.5, 1.3.8, 1.4.1, 1.4.2, 1.4.4, 1.4.6, 1.4.7, 1.4.8, 1.4.9, 1.5.1, 1.5.2, 1.5.3, 1.5.4, 1.5.5, 1.5.7, 1.5.8, 1.6.1, 1.6.2, 1.6.3, 1.6.4, 1.6.5, 1.7.1, 1.7.2, 1.7.3, 1.7.4, 1.7.5, 1.3.9, 1.3.10, 1.3.11 (open: 1.3.9, 1.3.10, 1.3.11) | 1.2.1, 1.2.2, 1.2.7, 1.2.12, 1.2.13 (matvee; all done); 1.1.11, 1.2.9, 1.2.15, 1.3.6 (buslan07; open: 1.2.15, 1.3.6); 1.2.16, 1.2.18, 1.2.19, 1.4.3, 1.4.5, 1.5.6, 1.4.10, 1.4.11, 1.5.9 (Kennurken; open: 1.4.10, 1.4.11, 1.5.9); 1.1.9, 1.2.14, 1.2.17, 1.3.7 (open to anyone; open) |
 
 Plugin API changes (`phoecord-core::plugin`) are made by Nanda only: contributor plugins are written against an API that is already merged.
 
@@ -105,6 +105,8 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **1.4.7** 🔴 | Terms of use (`TERMS.md`, English and Russian) that must be accepted before install, in the GUI and in `phoecord setup` | Nanda | ✅ 23.11, PR #38; text approved by the owner (the GUI screen is part of 1.4.3) |
 | **1.4.8** 🔴 | Fixes from the Windows check (1.4.6): `uninstall` removes a CA made by any command and stops a running proxy; `launch --channel stable/ptb/canary` (no silent default to Stable); `launch` reuses a running proxy; a Start-menu shortcut that starts the client through the proxy, so autostart is useful | Nanda | ✅ 24.11, PR #52 (all five fixed with tests; the Windows re-check is part of 1.4.6) |
 | **1.4.9** 🔴 | `setup` trusts the CA it will actually use: compare the certificate's fingerprint with the trust store instead of trusting the `install.log` line, so a CA recreated between runs is trusted again (found in the 1.4.6 re-check: Canary restarted in a loop) | Nanda | ✅ 24.11, PR #62 (fingerprint in install.log, real trust-store check on 3 OSes, `run`/`launch` warn; manual Windows re-check after the release) |
+| **1.4.10** 🔴 | macOS check of the 0.5.1 fixes on a real Mac: no "damaged", Discord starts and updates through PhoeCord, clean uninstall | Kennurken | ⏳ |
+| **1.4.11** 🟡 | Antivirus submissions per release (Microsoft Defender), starting with v0.5.0 | Kennurken | ⏳ |
 | **1.5.1** 🔴 | `version.dll`: export forwarding | Nanda | ✅ 23.11, PR #10 |
 | **1.5.2** 🔴 | `DllMain` and the worker thread | Nanda | ✅ 23.11, PR #10 |
 | **1.5.3** 🔴 | Client version detection and `signatures/*.toml` | Nanda | ✅ 23.11, PR #10 |
@@ -113,6 +115,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **1.5.6** 🟡 | Reinstall after a Discord update | Kennurken | ✅ 25.11, PR #68 (`setup --loader`, reinstall on `run`/`launch`; tests on fake Windows folders; real Windows check after the release) |
 | **1.5.7** 🔴 | Verify on 3 client versions | Nanda | ✅ 24.11 on Canary 1.0.1355 (loaded in all 7 processes, build detected, no crash). After the release: the 10-minute run on 3 consecutive client versions |
 | **1.5.8** 🟡 | Loader cost: act only in the main client process (skip `--type=` child processes) and hash `.text` from the mapped image instead of reading the whole exe (224 MB, about 140 ms in each of 7 processes) | Nanda | ✅ 25.11, PR #73 (no worker in `--type=` child processes, build detected from the mapped image; the owner's Canary check of the hash and the timing is after the release) |
+| **1.5.9** 🔴 | Loader check inside Discord Canary: one worker per start, in-memory hash equals the file's, under 20 ms, `loader connected` in the proxy log, clean uninstall | Kennurken | ⏳ |
 | **1.6.1** 🔴 | A map of GPUI | Nanda | ✅ 23.11, PR #12 |
 | **1.6.2** 🔴 | GPUI reference build | Nanda | ✅ 23.11, PR #12 |
 | **1.6.3** 🟡 | What of GPUI is visible in a release binary | Nanda | ✅ 23.11, PR #12 |

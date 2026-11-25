@@ -8,7 +8,7 @@ Visual plugins and panels are in scope, not only network ones: every 🎨 plugin
 
 **On by default:** `no_track` only, as in Vencord. Everything else is off until the user turns it on.
 
-**Language:** a plugin's notifications and `/phoecord` answers speak the user's language (English or Russian) through `Host::t` and the plugin's own `.ftl` bundle; how a plugin adds strings is in [`PORTING_PLUGINS.md`](PORTING_PLUGINS.md) §3.3. Translated so far: the `/phoecord` command itself (`plugins`, `toggle`, the "plugin is off" answer), RelationshipNotifier, BetterSessions (alert and `/phoecord sessions`) and VcNarrator (notification title; the message templates are the user's). The other plugins' `/phoecord` answers are still English.
+**Language:** a plugin's notifications and `/phoecord` answers speak the user's language (English or Russian) through `Host::t` and the plugin's own `.ftl` bundle; how a plugin adds strings is in [`PORTING_PLUGINS.md`](PORTING_PLUGINS.md) §3.3. Translated so far: the `/phoecord` command itself (`plugins`, `toggle`, the "plugin is off" answer), RelationshipNotifier, BetterSessions (alert and `/phoecord sessions`) and VcNarrator (notification title; the message templates are the user's). The other plugins' `/phoecord` answers stay English: translating them is not planned (owner's ruling, 2026-11-25).
 
 | Layer | What it means | When | Count |
 |:---|:---|:---|---:|
