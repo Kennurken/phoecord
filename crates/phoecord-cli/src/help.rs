@@ -39,7 +39,7 @@ pub fn localize(mut cmd: Command, l: &Localizer) -> Command {
         .mut_arg("lang", |a| a.help(l.t("cli-arg-lang")).help_heading(opts));
     for name in names {
         let about = l.t(&format!("cmd-{name}"));
-        let template = template.clone();
+
         let args_heading = leak(l.t("cli-help-arguments"));
         cmd = cmd.mut_subcommand(&name, |s| {
             let mut s = s.about(about).help_template(template.clone());
@@ -71,34 +71,48 @@ pub fn localize(mut cmd: Command, l: &Localizer) -> Command {
                     }
                 });
             }
-            // Nested subcommands (`dev console`): `cmd-<parent>-<child>` and
-            // `cli-arg-<parent>-<child>-<arg>`.
-            let children: Vec<String> = s
-                .get_subcommands()
-                .map(|c| c.get_name().to_string())
-                .collect();
-            for child in children {
-                let prefix = format!("{name}-{child}");
-                s = s.mut_subcommand(&child, |c| {
-                    let mut c = c
-                        .about(l.t(&format!("cmd-{prefix}")))
-                        .help_template(template.clone());
-                    let ids: Vec<String> =
-                        c.get_arguments().map(|a| a.get_id().to_string()).collect();
-                    for id in ids {
-                        let key = format!("cli-arg-{prefix}-{id}");
-                        c = c.mut_arg(&id, |a| {
-                            let a = a.help_heading(opts);
-                            match l.try_t(&key) {
-                                Some(text) => a.help(text),
-                                None => a,
-                            }
-                        });
+            nested(s, &name, l, &template, opts, args_heading)
+        });
+    }
+    cmd
+}
+
+/// Second-level commands (`phoecord dev watch`): the about line is `cmd-<parent>-<child>`, an
+/// argument's help is `cli-arg-<parent>-<child>-<arg id>`; whatever has no key keeps its English.
+fn nested(
+    mut cmd: Command,
+    parent: &str,
+    l: &Localizer,
+    template: &str,
+    opts: &'static str,
+    args_heading: &'static str,
+) -> Command {
+    let children: Vec<String> = cmd
+        .get_subcommands()
+        .map(|c| c.get_name().to_string())
+        .collect();
+    for child in children {
+        cmd = cmd.mut_subcommand(&child, |c| {
+            let mut c = c.help_template(template.to_string());
+            if let Some(about) = l.try_t(&format!("cmd-{parent}-{child}")) {
+                c = c.about(about);
+            }
+            let ids: Vec<String> = c.get_arguments().map(|a| a.get_id().to_string()).collect();
+            for id in ids {
+                c = c.mut_arg(&id, |a| {
+                    let heading = if a.is_positional() {
+                        args_heading
+                    } else {
+                        opts
+                    };
+                    let a = a.help_heading(heading);
+                    match l.try_t(&format!("cli-arg-{parent}-{child}-{id}")) {
+                        Some(text) => a.help(text),
+                        None => a,
                     }
-                    c
                 });
             }
-            s
+            c
         });
     }
     cmd

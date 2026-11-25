@@ -5,6 +5,7 @@
 
 pub mod package;
 pub mod wasm;
+pub mod watch;
 
 use phoecord_core::{Event, EventKind, Host, Manifest, Plugin, Val, Verdict};
 use std::collections::HashSet;

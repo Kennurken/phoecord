@@ -41,7 +41,8 @@
 //! holds the plugin's own messages. `Host::t` reads them in the user's language, falling back to
 //! English and then to the key. They load with the package and again on every hot reload.
 //!
-//! A [`PackagePlugin`] watches its files and swaps in a changed package between events.
+//! A [`PackagePlugin`] swaps in a changed package between events; [`PackageSet::sync`] (woken by
+//! [`crate::watch`] notifications) reloads it at once.
 
 use crate::wasm::{Setup, WasmPlugin, WasmRuntime};
 use phoecord_core::plugin::API_VERSION;
@@ -462,7 +463,7 @@ impl PackagePlugin {
         self.current.read().unwrap().is_disabled()
     }
 
-    /// Swap in the package if its files changed. A broken new version leaves the old one running.
+    /// Swap in the package if its files changed (lazily: at most once per check interval).
     fn refresh(&self) {
         {
             let mut w = self.watch.lock().unwrap();
@@ -470,9 +471,21 @@ impl PackagePlugin {
                 return;
             }
             w.checked = Instant::now();
+        }
+        if let Some(line) = self.reload_if_changed() {
+            self.problems.lock().unwrap().push(line);
+        }
+    }
+
+    /// Swap in the package now if its files changed, whatever the check interval. Returns the
+    /// line to log: the package was reloaded, or it changed but the old version keeps running.
+    /// `None` when nothing changed. A broken new version leaves the old one running.
+    pub fn reload_if_changed(&self) -> Option<String> {
+        {
+            let mut w = self.watch.lock().unwrap();
             let now = stamp(&self.dir);
             if now == w.seen {
-                return;
+                return None;
             }
             w.seen = now;
         }
@@ -482,11 +495,10 @@ impl PackagePlugin {
                     s.replace_plugin(&self.manifest.id, &new.i18n);
                 }
                 *self.current.write().unwrap() = new.plugin;
-                let mut problems = self.problems.lock().unwrap();
-                problems.extend(new.problems);
-                problems.push(format!("plugin {} reloaded", self.manifest.id));
+                self.problems.lock().unwrap().extend(new.problems);
+                Some(format!("plugin {} reloaded", self.manifest.id))
             }
-            Err(e) => self.problems.lock().unwrap().push(format!(
+            Err(e) => Some(format!(
                 "plugin {} was changed on disk but not reloaded (the old version keeps running): {e}",
                 self.manifest.id
             )),
@@ -561,6 +573,9 @@ pub struct PackageSet {
     failed: HashMap<String, Stamp>,
     /// Receives the strings of every package this set loads.
     strings: Option<Arc<PluginStrings>>,
+    /// The packages this set loaded, by id, so a change on disk reloads them at once instead of
+    /// at their next event.
+    loaded: HashMap<String, Arc<PackagePlugin>>,
 }
 
 impl PackageSet {
@@ -570,7 +585,13 @@ impl PackageSet {
             root,
             failed: HashMap::new(),
             strings: None,
+            loaded: HashMap::new(),
         }
+    }
+
+    /// The folder holding the packages.
+    pub fn root(&self) -> &Path {
+        &self.root
     }
 
     /// Publish the `i18n/<lang>.ftl` files of loaded packages to `strings`, and remove them when
@@ -625,6 +646,11 @@ impl PackageSet {
         for (dir, name) in dirs.iter().zip(&present) {
             if let Some(p) = running.iter().find(|p| &p.manifest().id == name) {
                 next.push(p.clone());
+                if let Some(typed) = self.loaded.get(name)
+                    && let Some(line) = typed.reload_if_changed()
+                {
+                    logs.push(line);
+                }
                 continue;
             }
             let now = stamp(dir);
@@ -635,7 +661,9 @@ impl PackageSet {
                 Ok(p) => {
                     self.failed.remove(name);
                     logs.push(format!("plugin {name} loaded from {}", dir.display()));
-                    next.push(Arc::new(p));
+                    let p = Arc::new(p);
+                    self.loaded.insert(name.clone(), p.clone());
+                    next.push(p);
                 }
                 Err(e) => {
                     self.failed.insert(name.clone(), now);
@@ -644,6 +672,7 @@ impl PackageSet {
             }
         }
         self.failed.retain(|name, _| present.contains(name));
+        self.loaded.retain(|name, _| present.contains(name));
         for p in &running {
             if !present.contains(&p.manifest().id) {
                 if let Some(s) = &self.strings {
