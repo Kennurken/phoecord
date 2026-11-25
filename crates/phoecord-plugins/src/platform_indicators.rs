@@ -1,10 +1,10 @@
 //! PlatformIndicators: which devices a user is online on (Vencord: PlatformIndicators).
 //!
 //! Ported from Vencord `src/plugins/platformIndicators/index.tsx` (GPL-3.0-or-later, Copyright (c)
-//! 2023 Vendicated and contributors; authors Nuckyz, TheSun, Vendicated and others). Vencord
-//! draws a desktop, mobile or web icon next to a name from the presence's `client_status`. Here
-//! the same field is collected from `READY` (`presences`, `merged_presences`), `GUILD_CREATE`
-//! (`presences`) and `PRESENCE_UPDATE`, and shown by a command. Traffic is never changed.
+//! 2023 Vendicated and contributors; authors kemo, TheSun, Nuckyz, Ven). Vencord draws a desktop,
+//! mobile or web icon next to a name from the presence's `client_status`. Here the same field is
+//! collected from `READY` (`presences`, `merged_presences`), `GUILD_CREATE` (`presences`) and
+//! `PRESENCE_UPDATE`, and shown by a command. Traffic is never changed.
 //!
 //! Switching it on: `[plugins.platform_indicators] enabled = true`, or
 //! `/phoecord toggle platform_indicators`. Then `/phoecord platforms [user]` lists who is online

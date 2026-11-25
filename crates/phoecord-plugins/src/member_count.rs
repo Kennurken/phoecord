@@ -1,9 +1,9 @@
 //! MemberCount: online, total and voice member counts (Vencord: MemberCount).
 //!
 //! Ported from Vencord `src/plugins/memberCount/index.tsx` (GPL-3.0-or-later, Copyright (c) 2023
-//! Vendicated and contributors; authors Ven, Nuckyz, Vendicated and others). Vencord shows
-//! "online / total members" above the member list and a voice count above the voice channel
-//! list. Here the numbers are collected per server and shown by a command:
+//! Vendicated and contributors; authors Ven, Commandtechno, Apexo). Vencord shows "online / total
+//! members" above the member list and a voice count above the voice channel list. Here the numbers
+//! are collected per server and shown by a command:
 //! - total: `member_count` of `GUILD_CREATE`, kept current by `GUILD_MEMBER_ADD` / `REMOVE`;
 //! - online: `approximate_presence_count` when the server sends it, otherwise the number of
 //!   members seen online in `GUILD_CREATE` `presences` and `PRESENCE_UPDATE`. Large servers send

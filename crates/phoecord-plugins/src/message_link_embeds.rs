@@ -1,14 +1,14 @@
 //! MessageLinkEmbeds: previews of linked Discord messages (data part).
 //!
 //! Ported from Vencord `src/plugins/messageLinkEmbeds/index.tsx` (GPL-3.0-or-later, Copyright (c)
-//! 2022 Vendicated and contributors; authors TheSun, Ven, RyanCaoDev, LouisTHEBOSS, Nuckyz,
-//! Vendicated). Vencord renders the linked message inside the client with its own message
-//! component. PhoeCord has no message component to borrow yet, so the data part attaches an
-//! ordinary rich **embed** to the message that contains the link: author name and avatar, the text
-//! (cut to 600 characters, or "[no content, N attachments]"), the first image attachment, the
-//! original timestamp, and a footer with the channel and message ids. Every client draws that
-//! without changes. It is the same thing Vencord's "automod embed" mode shows. The richer
-//! look (message background colour, the real message component) comes in Phase 2.
+//! 2022 Vendicated and contributors; authors TheSun, Ven, RyanCaoDev). Vencord renders the linked
+//! message inside the client with its own message component. PhoeCord has no message component to
+//! borrow yet, so the data part attaches an ordinary rich **embed** to the message that contains
+//! the link: author name and avatar, the text (cut to 600 characters, or "[no content, N
+//! attachments]"), the first image attachment, the original timestamp, and a footer with the
+//! channel and message ids. Every client draws that without changes. It is the same thing Vencord's
+//! "automod embed" mode shows. The richer look (message background colour, the real message
+//! component) comes in Phase 2.
 //!
 //! How it works: a message (new, edited, or a page of history) is scanned for
 //! `https://discord.com/channels/{guild|@me}/{channel}/{message}` links (also `ptb.`, `canary.`

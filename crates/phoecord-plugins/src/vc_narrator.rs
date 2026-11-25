@@ -1,10 +1,10 @@
 //! VcNarrator: announce voice joins and leaves (Vencord: VcNarrator).
 //!
 //! Ported from Vencord `src/plugins/vcNarrator/index.tsx` (GPL-3.0-or-later, Copyright (c) 2023
-//! Vendicated and contributors; authors Ven and others). Vencord speaks "X joined", "X left",
-//! "X moved to Y" (and mute/deafen changes) for the voice channel you are in, using the system's
-//! text to speech. The proxy has no text to speech: here each message is sent as a desktop
-//! notification (`Host::notify`) instead, so nothing is spoken. Traffic is never changed.
+//! Vendicated and contributors; authors Ven). Vencord speaks "X joined", "X left", "X moved to Y"
+//! (and mute/deafen changes) for the voice channel you are in, using the system's text to speech.
+//! The proxy has no text to speech: here each message is sent as a desktop notification
+//! (`Host::notify`) instead, so nothing is spoken. Traffic is never changed.
 //!
 //! Switching it on: `[plugins.vc_narrator] enabled = true`, or `/phoecord toggle vc_narrator`.
 //! Only changes in the voice channel you are currently in are announced, plus your own moves

@@ -1,9 +1,10 @@
 //! Experiments: Discord experiments and developer features (Vencord: Experiments).
 //!
 //! Ported from Vencord `src/plugins/experiments/index.tsx` (GPL-3.0-or-later, Copyright (c) 2022
-//! Vendicated and contributors). Vencord patches the client so `isStaff` is true: that opens the
-//! hidden "Experiments" and "Developer options" settings pages and the staff-only menus (setting
-//! `enableIsStaff`). The experiment assignments themselves are ordinary data Discord sends.
+//! Vendicated and contributors; authors Megu, Ven, Nickyux, BanTheNons, Nuckyz). Vencord patches
+//! the client so `isStaff` is true: that opens the hidden "Experiments" and "Developer options"
+//! settings pages and the staff-only menus (setting `enableIsStaff`). The experiment assignments
+//! themselves are ordinary data Discord sends.
 //!
 //! What this port does (data part):
 //! - It reads the experiment assignments from `READY` (`experiments`, `guild_experiments`) and

@@ -1,11 +1,11 @@
 //! TypingIndicator: who is typing, per channel (Vencord: TypingIndicator).
 //!
 //! Ported from Vencord `src/plugins/typingIndicator/index.tsx` (GPL-3.0-or-later, Copyright (c)
-//! 2022 Vendicated and contributors; authors Nuckyz, fawn, Vendicated). Vencord shows a dots and
+//! 2022 Vendicated and contributors; authors Nuckyz, fawn, Sqaaakoi). Vencord shows a dots and
 //! avatars indicator on channels and servers that have someone typing. Here the gateway's
 //! `TYPING_START` events are tracked per channel and shown by a command. A user counts as typing
-//! for 10 seconds after the event (as the client does), or until their message arrives.
-//! Your own typing is ignored. Traffic is never changed.
+//! for 10 seconds after the event (as the client does), or until their message arrives. Your own
+//! typing is ignored. Traffic is never changed.
 //!
 //! Switching it on: `[plugins.typing_indicator] enabled = true`, or
 //! `/phoecord toggle typing_indicator`. Then `/phoecord typing` lists who is typing where.

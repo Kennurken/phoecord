@@ -1,10 +1,9 @@
 //! UserVoiceShow: show who is in voice (Vencord: UserVoiceShow).
 //!
-//! Ported from Vencord `src/plugins/userVoiceShow/index.tsx` (GPL-3.0-or-later, Copyright (c)
-//! 2024 Vendicated and contributors; authors LordElias, Vendicated and others). Vencord adds a
-//! "in voice channel" badge to the member list, user popout and profile. Here voice states are
-//! collected from `READY`, `GUILD_CREATE` and `VOICE_STATE_UPDATE` and shown by a command.
-//! Traffic is never changed.
+//! Ported from Vencord `src/plugins/userVoiceShow/index.tsx` (GPL-3.0-or-later, Copyright (c) 2024
+//! Vendicated and contributors; authors Nuckyz, LordElias). Vencord adds a "in voice channel" badge
+//! to the member list, user popout and profile. Here voice states are collected from `READY`,
+//! `GUILD_CREATE` and `VOICE_STATE_UPDATE` and shown by a command. Traffic is never changed.
 //!
 //! Switching it on: `[plugins.user_voice_show] enabled = true`, or
 //! `/phoecord toggle user_voice_show`. Then `/phoecord voice [user]` lists every voice channel

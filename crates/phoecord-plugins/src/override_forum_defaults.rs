@@ -1,6 +1,6 @@
 //! OverrideForumDefaults: your own default forum layout and sort order.
 //!
-//! Ported from Vencord `src/plugins/overrideForumDefaults/index.ts` (GPL-3.0-or-later, Copyright
+//! Ported from Vencord `src/plugins/overrideForumDefaults/index.tsx` (GPL-3.0-or-later, Copyright
 //! (c) 2024 Vendicated and contributors; author Inbestigator). Vencord replaces the client's
 //! `getDefaultLayout()` and `getDefaultSortOrder()`; per-channel choices you make in the client
 //! still win. Here the same default is written into the channel objects the client receives:

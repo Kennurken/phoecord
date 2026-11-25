@@ -1,11 +1,11 @@
 //! ShowHiddenThings: show hidden and moderator-only things (Vencord: ShowHiddenThings).
 //!
 //! Ported from Vencord `src/plugins/showHiddenThings/index.ts` (GPL-3.0-or-later, Copyright (c)
-//! 2022 Vendicated and contributors). Vencord patches the client
-//! so that things Discord shows only to moderators or only in some places become visible to
-//! everyone: member timeouts (`showTimeouts`), the "invites paused" state of a server
-//! (`showInvitesPaused`), the moderator view of a member (`showModView`) and the discovery search
-//! filters (`disableDiscoveryFilters`, `disableDisallowedDiscoveryFilters`).
+//! 2022 Vendicated and contributors; authors Dolfies). Vencord patches the client so that things
+//! Discord shows only to moderators or only in some places become visible to everyone: member
+//! timeouts (`showTimeouts`), the "invites paused" state of a server (`showInvitesPaused`), the
+//! moderator view of a member (`showModView`) and the discovery search filters
+//! (`disableDiscoveryFilters`, `disableDisallowedDiscoveryFilters`).
 //!
 //! Most of that data already reaches the client; the client just hides it. This port collects it
 //! from the gateway and shows it with a command, without changing any traffic:

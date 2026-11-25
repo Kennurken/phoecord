@@ -1,10 +1,10 @@
 //! ShowHiddenChannels: show channels you cannot open (Vencord: ShowHiddenChannels).
 //!
 //! Ported from Vencord `src/plugins/showHiddenChannels/index.tsx` (GPL-3.0-or-later, Copyright (c)
-//! 2022 Vendicated and contributors; authors BigDuck, AverageReagans, D3SOX, Ven, Nuckyz,
-//! Nickyux, dzshn). Vencord patches the client's permission check so channels without
-//! `VIEW_CHANNEL` stay in the channel list (with a lock icon) and open a "this channel is hidden"
-//! page. Discord still sends those channels to the client; the client only filters them out.
+//! 2022 Vendicated and contributors; authors BigDuck, AverageReactEnjoyer, D3SOX, Ven, Nuckyz,
+//! Nickyux, Rini). Vencord patches the client's permission check so channels without `VIEW_CHANNEL`
+//! stay in the channel list (with a lock icon) and open a "this channel is hidden" page. Discord
+//! still sends those channels to the client; the client only filters them out.
 //!
 //! What this port does (data part):
 //! - It watches `READY`, `GUILD_CREATE`, `GUILD_UPDATE`, `CHANNEL_*`, `GUILD_ROLE_*` and
