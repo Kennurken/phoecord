@@ -30,11 +30,17 @@ use live::LiveGateways;
 use phoecord_core::Val;
 use phoecord_plugin_runtime::Chain;
 use phoecord_plugin_runtime::package::PackageSet;
+use phoecord_plugin_runtime::watch::{DebouncedWatcher, is_package_file};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
 use tokio::sync::{broadcast, watch};
+
+/// Quiet time after the last file change before a package is reloaded.
+const PACKAGE_DEBOUNCE: Duration = Duration::from_millis(50);
+/// With notifications on, scan `plugins/` anyway every this many 2 s ticks (30 s).
+const PACKAGE_SAFETY_SCAN: u32 = 15;
 
 #[derive(Default)]
 pub struct Stats {
@@ -62,6 +68,11 @@ pub struct Proxy {
     pub live: LiveGateways,
     /// Whether the timer driver runs (it is started once, by [`Proxy::spawn_timers`]).
     timers_started: AtomicBool,
+    /// Woken by file-system notifications when `data/plugins/` changes (see [`Proxy::watch_packages`]).
+    package_wake: Arc<tokio::sync::Notify>,
+    /// The notification watcher on `data/plugins/`; `None` until started or when the system
+    /// refuses (the slow scan of [`Proxy::spawn_reloader`] then covers the folder).
+    package_watcher: std::sync::Mutex<Option<DebouncedWatcher>>,
     /// Decode (and re-encode) the gateway even when no plugin needs it (self-test).
     pub force_decode: bool,
     pub stats: Stats,
@@ -111,6 +122,8 @@ impl Proxy {
             locals: broadcast::channel(64).0,
             live: LiveGateways::default(),
             timers_started: AtomicBool::new(false),
+            package_wake: Arc::new(tokio::sync::Notify::new()),
+            package_watcher: std::sync::Mutex::new(None),
             force_decode,
             stats: Stats::default(),
         }))
@@ -129,9 +142,36 @@ impl Proxy {
     /// Follow `data/plugins/` with `packages`: load what is new now and on every later
     /// [`Proxy::sync_packages`].
     pub fn watch_packages(&self, packages: PackageSet) {
+        self.start_package_watcher(packages.root());
         if self.engine.watch_packages(packages) {
             self.reloads.send_modify(|n| *n += 1);
         }
+    }
+
+    /// Watch `root` with file-system notifications: a change to a package wakes the reloader at
+    /// once. If that fails the reloader scans the folder every 2 s instead.
+    fn start_package_watcher(&self, root: &std::path::Path) {
+        let _ = std::fs::create_dir_all(root);
+        let wake = self.package_wake.clone();
+        let base = root.to_path_buf();
+        let started = DebouncedWatcher::start(
+            root,
+            PACKAGE_DEBOUNCE,
+            move |p| is_package_file(&base, p),
+            move |_| wake.notify_one(),
+        );
+        match started {
+            Ok(w) => *self.package_watcher.lock().unwrap() = Some(w),
+            Err(e) => tracing::warn!("plugin folder notifications are off, scanning instead: {e}"),
+        }
+    }
+
+    fn package_watcher_healthy(&self) -> bool {
+        self.package_watcher
+            .lock()
+            .unwrap()
+            .as_ref()
+            .is_some_and(DebouncedWatcher::is_healthy)
     }
 
     /// Load new packages and unload removed ones, then switch the chain to what the config
@@ -144,16 +184,25 @@ impl Proxy {
         }
     }
 
-    /// Re-read config.toml whenever it changes (checked every 2 s, together with the `plugins/` folder). A broken file keeps the old config.
+    /// Re-read config.toml whenever it changes (checked every 2 s; `plugins/` is followed by file-system notifications, with a scan as fallback). A broken file keeps the old config.
     pub fn spawn_reloader(self: &Arc<Self>) {
         let proxy = self.clone();
         tokio::spawn(async move {
             let mtime = |p: &std::path::Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
             let mut last: Option<SystemTime> = mtime(&proxy.paths.config);
+            let mut since_scan = 0u32;
             loop {
-                tokio::time::sleep(Duration::from_secs(2)).await;
-                let p = proxy.clone();
-                let _ = tokio::task::spawn_blocking(move || p.sync_packages()).await;
+                let woken = tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(2)) => false,
+                    _ = proxy.package_wake.notified() => true,
+                };
+                since_scan += 1;
+                // With working notifications the folder scan is only a safety net.
+                if woken || !proxy.package_watcher_healthy() || since_scan >= PACKAGE_SAFETY_SCAN {
+                    since_scan = 0;
+                    let p = proxy.clone();
+                    let _ = tokio::task::spawn_blocking(move || p.sync_packages()).await;
+                }
                 let now = mtime(&proxy.paths.config);
                 if now == last {
                     continue;

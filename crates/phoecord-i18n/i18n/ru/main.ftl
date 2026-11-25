@@ -457,3 +457,20 @@ cli-loader-failed = не удалось поставить загрузчик д
 cli-loader-unsupported = Загрузчик работает только в Windows; ничего не установлено.
 cli-loader-skipped = Загрузчик не установлен: { $why }
 cli-loader-check-failed = не удалось проверить загрузчик: { $why }
+
+# phoecord dev watch (задача 1.3.10)
+cmd-dev = Инструменты для авторов плагинов
+cmd-dev-watch = Пересобирать плагин при изменении исходников и горячо перезагружать его в запущенном прокси
+cli-arg-dev-watch-source = Папка с исходниками плагина (с Cargo.toml и plugin.toml)
+cli-arg-dev-watch-plugins_dir = Ставить в эту папку вместо папки plugins в папке данных
+cli-arg-dev-watch-once = Собрать и установить один раз и выйти
+dev-err-source = не удаётся открыть папку с исходниками плагина { $path }
+dev-err-manifest = plugin.toml плагина отсутствует или неверен
+dev-err-watch = не удаётся следить за изменениями в папке с исходниками
+dev-err-build = сборка не удалась
+dev-watching = Слежу за плагином { $id }; сборки ставятся в { $path }
+dev-waiting = Жду изменений (Ctrl+C — остановить)
+dev-building = Сборка для wasm32-wasip2 ...
+dev-build-failed = сборка не удалась: { $why }
+dev-installed = Установлено (сборка { $build } мс, копирование { $copy } мс); запущенный PhoeCord перезагрузит плагин сам
+dev-install-failed = не удалось установить сборку: { $why }

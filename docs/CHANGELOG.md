@@ -6,6 +6,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
+- 1.3.10: fast hot reload. A changed, added or removed `plugin.wasm`, `plugin.toml` or `i18n/*.ftl` in `plugins/` is picked up at once through file-system notifications (50 ms debounce) instead of the 2 s scan; if notifications fail, the 2 s scan is back. `phoecord dev watch <plugin source folder>` builds the plugin for `wasm32-wasip2`, installs it into `plugins/<id>/` and rebuilds on every source change (`--plugins-dir`, `--once`). Replacing `plugin.wasm` of `examples/plugins/clear_urls` is live in the proxy in 117–154 ms (Windows, release).
 - 1.3.6: the plugin SDK. `phoecord-plugin-sdk` re-exports the guest bindings and adds a `Plugin` trait, the `#[phoecord::plugin]` attribute and `Tree` / `Outcome` helpers; `examples/hello-plugin` logs every `MESSAGE_CREATE` and has its own CI job.
 - 1.2.15: `dearrow` (calmer YouTube embed titles from DeArrow; its thumbnails with `replaceElements = 0`) and `fix_images_quality` (original image attachments with `originalImagesInChat`), both off by default. GifProviderSwitcher is blocked on query strings in plugin routes.
 - 1.2.14 (first half): `no_profile_themes` and `fake_profile_themes`, off by default. The first removes other people's Nitro profile theme colours; the second reads colours hidden in a bio as invisible text and applies them (marking the profile as Nitro, as Vencord does; setting `nitroFirst`). USRBG and Decor (banner and decoration images on Discord's CDN) are not done yet.

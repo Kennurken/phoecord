@@ -452,3 +452,20 @@ cli-loader-failed = loader for Discord { $channel } could not be put in place: {
 cli-loader-unsupported = The loader is Windows-only; nothing was installed.
 cli-loader-skipped = No loader installed: { $why }
 cli-loader-check-failed = could not check the loader: { $why }
+
+# phoecord dev watch (task 1.3.10)
+cmd-dev = Tools for plugin authors
+cmd-dev-watch = Rebuild a plugin when its sources change and hot-reload it in the running proxy
+cli-arg-dev-watch-source = The plugin's source folder (with Cargo.toml and plugin.toml)
+cli-arg-dev-watch-plugins_dir = Install into this folder instead of the plugins folder of the data folder
+cli-arg-dev-watch-once = Build and install once, then exit
+dev-err-source = cannot open the plugin source folder { $path }
+dev-err-manifest = the plugin's plugin.toml is missing or invalid
+dev-err-watch = cannot watch the source folder for changes
+dev-err-build = the build failed
+dev-watching = Watching plugin { $id }; builds are installed into { $path }
+dev-waiting = Waiting for changes (Ctrl+C to stop)
+dev-building = Building for wasm32-wasip2 ...
+dev-build-failed = build failed: { $why }
+dev-installed = Installed (build { $build } ms, copy { $copy } ms); the running PhoeCord reloads it by itself
+dev-install-failed = could not install the build: { $why }
