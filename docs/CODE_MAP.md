@@ -207,6 +207,8 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/pipe.rs` | Windows named pipe: `PipeServer` (user-only DACL from the user's SID, `PIPE_REJECT_REMOTE_CLIENTS`, first instance), `connect`, `send_all`, `current_user_sid` | All the IPC `unsafe` lives here, each block with `// SAFETY:`; no work under the loader lock (only the worker calls it) |
 | `src/pe.rs`, `src/version.rs` | PE parsing (file or mapped image: `Pe::parse_mapped`, `Pe::image_size`), file version resource, `.text` SHA-256 (`detect` for a file, `detect_mapped` for memory, same hash), `is_child_process` | Pure, tested on every OS; the hash must stay equal for file and image, `signatures/*.toml` depend on it |
 | `src/signatures.rs` | `SignatureSet::load_dir`, `select`, `resolve_all` (`find_unique` + `rip`) | Format documented in `signatures/README.md` |
+| `src/locators/mod.rs` | `Found<T>`, `LocatorError`, `Located<T>`; `exactly_one`, `winner`; `Image` (`.text`, `.rdata`, `.pdata` by RVA: `from_pe`, `find_bytes`, `find_str`, `function_of`) | Pure, mock sections in tests; never fall back to an offset from another build |
+| `src/locators/index.rs` | `CallIndex::build`: `call rel32` to function starts and RIP-relative `lea` / `mov` into `.text` / `.rdata`; `calls_to`, `refs_to`, `callers`, `loaders` | A byte scan, not a decoder: targets are checked, and locators should intersect several facts |
 | `src/hook.rs` | Inline detours (`retour`), installed with other threads suspended, `uninstall_all` | Hooks must be removed before `FreeLibrary` |
 | `examples/host.rs` | Throwaway exe that loads `version.dll` from its folder for manual checks | |
 
