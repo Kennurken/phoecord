@@ -22,7 +22,7 @@
 //! Not ported: the button itself (Phase 2).
 
 use crate::commands::{FnCmd, Subcommand};
-use crate::state::Shared;
+use crate::state::{Shared, dispatch_data};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::HashMap;
@@ -270,7 +270,9 @@ impl Plugin for ReadAllNotificationsButton {
 
     fn on_event(&self, host: &mut dyn Host, event: Event<'_>) -> Verdict {
         if let Event::Dispatch { name, payload, .. } = event {
-            self.reads.lock().observe(name, payload, host.self_id());
+            self.reads
+                .lock()
+                .observe(name, dispatch_data(payload), host.self_id());
         }
         Verdict::Pass
     }
@@ -317,6 +319,19 @@ mod tests {
         let out = p.command().run(&mut h, &Args { options: vec![] });
         assert!(out.starts_with("Nothing unread"));
         assert_eq!(h.rest_calls.len(), 1);
+    }
+
+    #[test]
+    fn unread_channels_are_acked_from_a_real_gateway_frame() {
+        use phoecord_plugin_runtime::Chain;
+        let p = ReadAllNotificationsButton::new();
+        let cmd = p.command();
+        let chain = Chain::new(vec![Box::new(p)]);
+        let mut h = Rec::default().answer("POST", "/read-states/ack-bulk", 204, "{}");
+        let mut frame = j(&format!(r#"{{"op":0,"t":"READY","s":1,"d":{READY}}}"#));
+        chain.dispatch(&mut h, "READY", &mut frame, &mut Vec::new());
+        let out = cmd.run(&mut h, &Args { options: vec![] });
+        assert_eq!(out, "Marked 1 channels as read.");
     }
 
     #[test]
