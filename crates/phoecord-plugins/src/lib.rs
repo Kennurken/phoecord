@@ -49,6 +49,7 @@ pub mod presence;
 pub mod quest_master;
 pub mod read_all_notifications;
 pub mod relationship_notifier;
+pub mod review_db;
 pub mod rmcord;
 pub mod send_timestamps;
 pub mod server_info;
@@ -173,6 +174,8 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "ru",
         include_str!("../i18n/ru/relationship_notifier.ftl"),
     ),
+    ("review_db", "en", include_str!("../i18n/en/review_db.ftl")),
+    ("review_db", "ru", include_str!("../i18n/ru/review_db.ftl")),
     ("rmcord", "en", include_str!("../i18n/en/rmcord.ftl")),
     ("rmcord", "ru", include_str!("../i18n/ru/rmcord.ftl")),
     (
@@ -327,6 +330,8 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let ignore_activities_commands = ignore_activities.commands();
     let auto_dnd_while_playing = auto_dnd_while_playing::AutoDndWhilePlaying::new();
     // Stage 1.2.17 plugins (off by default).
+    let review_db = review_db::ReviewDb::new();
+    let review_db_command = review_db.command();
     let translate = translate::Translate::new();
     let translate_commands = translate.commands();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
@@ -380,6 +385,7 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(rmcord),
         Box::new(silent_delete),
         Box::new(quest_master),
+        Box::new(review_db),
         Box::new(translate),
         Box::new(friend_invites),
         Box::new(unsuppress_embeds),
@@ -447,6 +453,7 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     for c in translate_commands {
         commands = commands.with(c);
     }
+    commands = commands.with(review_db_command);
     plugins.push(Box::new(commands));
     plugins
 }

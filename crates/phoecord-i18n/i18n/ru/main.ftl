@@ -114,6 +114,7 @@ plugin-desc-relationship_notifier = Сообщает, когда вас убра
 plugin-desc-silent_typing = Индикатор набора текста никогда не отправляется
 plugin-desc-clear_urls = Убирает параметры отслеживания из ссылок, которые вы отправляете
 plugin-desc-unindent = Убирает общий отступ в блоках кода, которые вы отправляете
+plugin-desc-review_db = Показывает отзывы о пользователе: /phoecord reviews
 plugin-desc-translate = Переводит сообщения и, по желанию, всё, что вы отправляете
 plugin-desc-dearrow = Спокойные заголовки и превью YouTube в сообщениях (DeArrow)
 plugin-desc-fix_images_quality = Загружает вложенные изображения в исходном качестве
