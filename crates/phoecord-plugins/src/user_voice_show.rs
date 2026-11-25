@@ -14,7 +14,7 @@
 //! has not seen a `GUILD_CREATE` for are not listed.
 
 use crate::commands::{Args, FnCmd, Subcommand};
-use crate::state::{Guilds, Shared, Users, VoiceStates, is_one_of};
+use crate::state::{Guilds, Shared, Users, VoiceStates, dispatch_data, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::BTreeMap;
@@ -176,7 +176,7 @@ impl Plugin for UserVoiceShow {
         if let Event::Dispatch { name, payload, .. } = event
             && wanted(name)
         {
-            self.state.lock().observe(name, payload);
+            self.state.lock().observe(name, dispatch_data(payload));
         }
         Verdict::Pass
     }
@@ -239,6 +239,31 @@ mod tests {
             cmd.run(&mut h, &args(Some("bob")))
                 .contains("not in a voice")
         );
+    }
+
+    #[test]
+    fn lists_voice_from_real_gateway_frames() {
+        let plugin = UserVoiceShow::new();
+        let cmd = plugin.command();
+        let chain = Chain::new(vec![Box::new(plugin)]);
+        let mut h = Cfg::default();
+        feed(
+            &chain,
+            &mut h,
+            "GUILD_CREATE",
+            r#"{"op":0,"t":"GUILD_CREATE","s":1,"d":{"id":"1","name":"Alpha",
+               "channels":[{"id":"12","name":"Lounge","type":2}],
+               "voice_states":[{"user_id":"7","channel_id":"12"}]}}"#,
+        );
+        feed(
+            &chain,
+            &mut h,
+            "VOICE_STATE_UPDATE",
+            r#"{"op":0,"t":"VOICE_STATE_UPDATE","s":2,"d":{"guild_id":"1","user_id":"8","channel_id":"12",
+               "member":{"user":{"id":"8","username":"bob"}}}}"#,
+        );
+        let all = cmd.run(&mut h, &args(None));
+        assert!(all.contains("Alpha / #Lounge (2): <@7>, bob"), "{all}");
     }
 
     #[test]
