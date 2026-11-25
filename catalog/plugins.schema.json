@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Nanda070/phoecord/main/catalog/plugins.schema.json",
+  "title": "PhoeCord plugin catalog",
+  "description": "The index of community WASM plugins. Entries are added by pull request; see catalog/README.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plugins"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema": { "const": 1 },
+    "plugins": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "author", "description", "version", "download", "sha256", "rights"],
+      "properties": {
+        "id": {
+          "description": "The id in the package's plugin.toml.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "author": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "version": {
+          "description": "Semantic version; the same as in the package's plugin.toml.",
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+        },
+        "download": {
+          "description": "HTTPS link to the .zip with plugin.toml and plugin.wasm. Use a link to a fixed release file, never to a branch.",
+          "type": "string",
+          "pattern": "^https://[^\\s/][^\\s]*$"
+        },
+        "sha256": {
+          "description": "Lower-case hex SHA-256 of the downloaded .zip.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "rights": {
+          "description": "The rights plugin.toml asks for; it may not ask for more.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["kv", "notify", "emit_send", "guilds", "fetch", "rest", "emit_dispatch", "plugins", "data"]
+          }
+        }
+      }
+    }
+  }
+}

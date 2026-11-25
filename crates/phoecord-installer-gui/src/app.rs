@@ -124,6 +124,8 @@ pub struct App {
     pub config: Config,
     pub search: String,
     pub plugin_busy: bool,
+    /// The community catalog (`tabs/catalog.rs`).
+    pub catalog: crate::tabs::catalog::State,
     /// "Open Discord" was clicked and its first seconds are being watched.
     pub launching: bool,
     /// Rows collapsing before their package is removed.
@@ -198,6 +200,7 @@ impl App {
             config,
             search: String::new(),
             plugin_busy: false,
+            catalog: Default::default(),
             launching: false,
             leaving: HashSet::new(),
             upstream_msg: None,
@@ -215,6 +218,7 @@ impl App {
 
     pub fn reload_plugins(&mut self) {
         self.packages = self.store.list();
+        self.catalog.refresh_marks(&self.packages);
         if let Ok(c) = Config::load(&self.store.config) {
             self.config = c;
         }
@@ -308,6 +312,10 @@ impl App {
             E::NotHttps => self.tr.t("gui-pkg-err-https"),
             E::Download(why) => self.tr.f("gui-pkg-err-download", &[("why", why)]),
             E::Io(why) => self.tr.f("gui-pkg-err-io", &[("why", why)]),
+            E::Index(why) => self.tr.f("gui-pkg-err-index", &[("why", why)]),
+            E::NotInCatalog(_) => self.tr.t("gui-pkg-err-not-in-catalog"),
+            E::HashMismatch => self.tr.t("gui-pkg-err-hash"),
+            E::CatalogMismatch(why) => self.tr.f("gui-pkg-err-catalog-mismatch", &[("why", why)]),
         }
     }
 
@@ -408,6 +416,11 @@ impl App {
                         self.leaving.remove(&id);
                         let t = self.tr.f("gui-toast-plugin-removed", &[("name", &name)]);
                         self.toast(ctx, t, Tone::Neutral);
+                    }
+                    packages::Msg::Index(r) => {
+                        // The error's words are shown in the list.
+                        let r = r.map(|i| *i).map_err(|e| self.package_error(&e));
+                        self.catalog.loaded(r);
                     }
                     packages::Msg::Installed(Err(e)) | packages::Msg::Removed(Err(e)) => {
                         self.leaving.clear();

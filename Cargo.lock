@@ -3198,6 +3198,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
+name = "phoecord-catalog"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "phoecord-plugin-runtime",
+ "phoecord-proxy",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "toml 0.9.12+spec-1.1.0",
+ "ureq",
+ "zip",
+]
+
+[[package]]
 name = "phoecord-cli"
 version = "0.5.0"
 dependencies = [
@@ -3208,6 +3225,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "phoecord-catalog",
  "phoecord-core",
  "phoecord-i18n",
  "phoecord-installer",
@@ -3216,6 +3234,7 @@ dependencies = [
  "phoecord-proxy",
  "rustls",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-rustls",
  "tokio-tungstenite",
@@ -3264,6 +3283,7 @@ dependencies = [
  "dirs",
  "eframe",
  "egui-phosphor",
+ "phoecord-catalog",
  "phoecord-core",
  "phoecord-i18n",
  "phoecord-installer",
@@ -3273,10 +3293,7 @@ dependencies = [
  "rfd",
  "serde",
  "tempfile",
- "toml 0.9.12+spec-1.1.0",
- "ureq",
  "winresource",
- "zip",
 ]
 
 [[package]]

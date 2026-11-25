@@ -56,6 +56,7 @@ mod tests {
         let mut keys = Vec::new();
         for src in [
             include_str!("app.rs"),
+            include_str!("tabs/catalog.rs"),
             include_str!("tabs/install.rs"),
             include_str!("tabs/plugins.rs"),
             include_str!("tabs/settings.rs"),

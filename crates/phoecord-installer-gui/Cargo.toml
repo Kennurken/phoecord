@@ -17,6 +17,7 @@ path = "src/main.rs"
 winresource.workspace = true
 
 [dependencies]
+phoecord-catalog = { path = "../phoecord-catalog" }
 phoecord-core.workspace = true
 phoecord-i18n = { path = "../phoecord-i18n" }
 phoecord-installer = { path = "../phoecord-installer" }
@@ -28,10 +29,7 @@ dirs.workspace = true
 eframe = { version = "0.33", default-features = false, features = ["accesskit", "default_fonts", "glow", "persistence", "wayland", "x11"] }
 egui-phosphor = "0.11"
 serde.workspace = true
-toml = "0.9"
 rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
-ureq = { version = "3", default-features = false, features = ["rustls"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 tempfile = "3"

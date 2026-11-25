@@ -1,0 +1,5 @@
+{
+  "$schema": "./plugins.schema.json",
+  "schema": 1,
+  "plugins": []
+}
