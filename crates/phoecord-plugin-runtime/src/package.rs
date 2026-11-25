@@ -580,6 +580,30 @@ impl PackageSet {
         self
     }
 
+    /// Reload the package `id` from its folder now, whether its files changed or not (the dev
+    /// console). The new version replaces the running one in the chain; if it fails to load, the
+    /// old one keeps running and the error is returned.
+    pub fn reload(&mut self, chain: &crate::Chain, id: &str) -> Result<(), String> {
+        if !chain.is_dynamic(id) {
+            return Err(format!("{id} is not a WASM package"));
+        }
+        let dir = self.root.join(id);
+        let plugin = PackagePlugin::load_with(&self.runtime, &dir, self.strings.clone())?;
+        if plugin.manifest().id != id {
+            return Err(format!(
+                "the package in {} now has the id {}: restart PhoeCord to rename a plugin",
+                dir.display(),
+                plugin.manifest().id
+            ));
+        }
+        self.failed.remove(id);
+        if chain.swap_dynamic(Arc::new(plugin)) {
+            Ok(())
+        } else {
+            Err(format!("{id} was unloaded meanwhile"))
+        }
+    }
+
     /// Load new packages and drop removed ones. Returns the lines to log, empty when nothing
     /// changed. A broken package never affects the plugins that are running.
     pub fn sync(&mut self, chain: &crate::Chain) -> Vec<String> {

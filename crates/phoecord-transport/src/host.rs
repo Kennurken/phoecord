@@ -184,6 +184,11 @@ impl KvStore {
         self.cache.get_mut(id).unwrap()
     }
 
+    /// A copy of every key of `id`.
+    pub fn dump(&mut self, id: &str) -> serde_json::Map<String, serde_json::Value> {
+        self.map(id).clone()
+    }
+
     pub fn get(&mut self, id: &str, key: &str) -> Option<Val> {
         self.map(id).get(key).cloned().map(Val::from_json)
     }
@@ -242,6 +247,8 @@ pub struct Shared {
     notifier: Notifier,
     /// Pending plugin timers (`Host::schedule`), fired by the proxy's timer driver.
     pub timers: Arc<Timers>,
+    /// What the dev console is attached to (task 1.3.9): log lines, plugin runs, replayable events.
+    pub dev: Arc<crate::dev::DevBus>,
     /// The plugins' own strings (`Host::t`): built-in bundles and the `i18n/` of WASM packages.
     pub strings: Arc<PluginStrings>,
     /// `--lang`, the first source of the language `Host::t` answers in.
@@ -274,6 +281,26 @@ impl Shared {
 }
 
 impl Shared {
+    /// Write `enabled` for plugin `id` into `config.toml` (what `Host::set_plugin_enabled` and the
+    /// dev console do). The caller applies the new config.
+    pub fn persist_enabled(&self, id: &str, on: bool) -> Result<(), String> {
+        let path = &self.config_path;
+        if path.as_os_str().is_empty() {
+            return Err("no config file".into());
+        }
+        let _guard = self.config_lock.lock().unwrap();
+        let mut cfg = Config::load(path).map_err(|e| format!("{e:#}"))?;
+        cfg.set_enabled(id, on).map_err(|e| format!("{e:#}"))?;
+        cfg.save(path).map_err(|e| format!("{e:#}"))
+    }
+
+    /// Everything in `id`'s `kv.json`.
+    pub fn kv_dump(&self, id: &str) -> serde_json::Value {
+        serde_json::Value::Object(self.kv.lock().unwrap().dump(id))
+    }
+}
+
+impl Shared {
     pub fn new(plugins_dir: PathBuf) -> Shared {
         Shared::with_notifier(plugins_dir, Box::new(desktop_notify))
     }
@@ -302,6 +329,7 @@ impl Shared {
             rest_limit: Mutex::new(RateLimiter::new(PLUGIN_REST_BURST, PLUGIN_REST_WINDOW)),
             notifier,
             timers: Arc::new(Timers::default()),
+            dev: Arc::new(crate::dev::DevBus::default()),
             strings: Arc::new(PluginStrings::new()),
             lang_flag: RwLock::new(None),
             os_lang: OnceLock::new(),
@@ -387,6 +415,7 @@ impl Host for ProxyHost<'_> {
 
     fn log(&mut self, message: &str) {
         tracing::info!(plugin = %self.plugin, "{message}");
+        self.shared.dev.log(&self.plugin, message);
     }
 
     fn t(&self, key: &str, args: &[(&str, &str)]) -> String {
@@ -417,14 +446,7 @@ impl Host for ProxyHost<'_> {
     }
 
     fn set_plugin_enabled(&mut self, id: &str, on: bool) -> Result<(), String> {
-        let path = &self.shared.config_path;
-        if path.as_os_str().is_empty() {
-            return Err("no config file".into());
-        }
-        let _guard = self.shared.config_lock.lock().unwrap();
-        let mut cfg = Config::load(path).map_err(|e| format!("{e:#}"))?;
-        cfg.set_enabled(id, on).map_err(|e| format!("{e:#}"))?;
-        cfg.save(path).map_err(|e| format!("{e:#}"))
+        self.shared.persist_enabled(id, on)
     }
 
     fn guild_emojis(&self, guild_id: u64) -> Vec<u64> {

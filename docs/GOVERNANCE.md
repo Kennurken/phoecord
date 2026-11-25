@@ -25,6 +25,7 @@ Copyright holder: **Cheterin Group** (see [`NOTICE`](../NOTICE)). License: GPL-3
 | Secret | Where | Who holds it | Who uses it |
 |:---|:---|:---|:---|
 | Local CA key (`ca.key`) of each user | The user's own PhoeCord data folder, owner-only permissions | Each user, never the project | The user's proxy |
+| Dev console token (`dev-token`) | The user's own PhoeCord data folder, new at every proxy start, owner-only permissions on Unix | Each user, never the project | `phoecord dev console` against the user's own proxy (loopback only) |
 | GitHub repository admin | GitHub account `Nanda070` | Nanda | Repository settings, secrets, releases |
 | The user's Discord session header (`Authorization`) | In the proxy's memory only, never on disk | Each user, never the project | `Host::rest` (30 min TTL, dropped on 401) |
 | GitHub Actions secrets | Repository settings → Secrets; none yet | Nanda | CI |

@@ -37,6 +37,7 @@ Write down right away: when it started (UTC), Discord client and version, PhoeCo
 |:---|:---|
 | A Gateway plugin does nothing | Gateway plugins start on reconnect: press Ctrl+R in Discord |
 | Config change ignored | Look for `config not reloaded` in the log: the TOML has an error |
+| `phoecord dev console` cannot attach | "No dev token": the proxy is not running (start `phoecord run`). "refused the dev token": the proxy was restarted after the console opened; open it again. The console shows only events a plugin runs, and `replay` only events seen while it was attached |
 | A WASM plugin is disabled | (1.3) It hit a time or memory limit or panicked: the log names the plugin |
 
 ## 3. After a Discord update

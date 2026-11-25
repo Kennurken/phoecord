@@ -73,6 +73,7 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/lib.rs` | `Engine`: owns `Chain`, `Shared` and the live `Config`; `on_request`, `on_response`, `on_dispatch`, `on_send`, `chain_queued`, `fire_timer`, `apply`, `sync_packages`; result types `RequestOutcome`, `DispatchResult`, `SendResult`, `Effects` | No network or async types here: the loader must be able to link it. Keep the order of effects (locals, then frames) |
 | `src/host.rs` | `ProxyHost` and `Shared` (KV, rate limits, notifications, account, timers, strings), the `Network` trait a transport implements for `Host::rest` / `Host::fetch`, `NoNetwork` | Host state must be bound to the plugin currently running in `Chain`; the `upstream` string is passed through unparsed |
 | `src/config.rs`, `src/account.rs` | Live plugin configuration and account state available to plugins | Config reload must re-enable the chain and preserve the last live state |
+| `src/dev.rs` | `DevBus` (1.3.9): log lines and per-plugin run records for an attached console, and the last event of each kind for `replay` (nothing copied while nobody is attached); `impl Engine`: `plugin_list`, `toggle_plugin`, `reload_plugin`, `plugin_settings`, `plugin_kv`, `replay` (dry run) | Payloads are cloned only when `DevBus::active()`; replay discards queued sends and locals |
 | `src/timers.rs` | `Timers`: the store of plugin timers from `Host::schedule` (50 ms min, 24 h max, 64 per plugin, memory only), `timer_payload` | The clock is the transport's: it calls `next_due` / `take_due` and `Engine::fire_timer` |
 
 ### `phoecord-proxy`
@@ -91,6 +92,8 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/hostnet.rs` | `Net` (the proxy's `Network` for the engine): the client's session headers kept in memory only (30 min TTL, dropped on 401), `Host::rest` to the client's own Discord API host with route checks, per-plugin 1/s + global 5/s caps and Discord's rate-limit buckets; `Host::rest_files` (multipart upload, 10 files, 25 MB); `Host::fetch` to allow-listed HTTPS hosts (5 MB cap, no redirects, no credentials, raw `bytes` for non-JSON answers); a small dedicated runtime so plugin calls never block the proxy | Never log or persist the session headers; `Debug` is redacted |
 | `src/timers.rs` | The `drive` task: sleeps until the earliest plugin timer and fires it through `Proxy::fire_timer` (store: `phoecord-transport::timers`) | Holds only a `Weak<Proxy>` |
 | `src/ipc.rs` | The proxy's end of the loader IPC (1.5.5): `spawn` (pipe server thread on Windows, no-op elsewhere), `serve_connection` (any `BufRead`/`Write`), `ConfigSettings` (`[loader]` in `config.toml`) | Settings are only the `[loader]` table, scalar values; garbage drops the connection; at most 8 connections |
+| `src/dev.rs` | The dev console endpoint (1.3.9) under `/__phoecord/dev` on the proxy listener: `issue_token` (`dev-token` in the data folder, new per start), `route` (loopback peer, then bearer token, then `GET /stream` NDJSON and `POST /command`) | Both checks stay in `route`; a wrong peer is refused before the body is read |
+| `tests/dev_console.rs` | Real listener, raw HTTP: token and peer rejection, event stream, toggle, reload, replay, settings and KV | |
 | `src/live.rs` | `LiveGateways`: registry of bridged gateway connections; sends queued outside a frame go to the newest one at once | A `LiveGuard` unregisters on drop |
 | `tests/hostnet.rs` | Loopback fake Discord and outside servers: capture/reuse, refusals, rate limits, allow-list, caps, a `Chain` test | |
 
@@ -98,9 +101,9 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 
 | File | What | Easy to break |
 |:---|:---|:---|
-| `src/lib.rs` | `Chain` (built-in segment, then a dynamic segment swapped by `replace_dynamic`; first `Drop`/`Reply` stops), `Outcome`, `NullHost` for tests | The stop rule is part of the API semantics; the lock is never held while a plugin runs |
+| `src/lib.rs` | `Chain` (`set_observer` for the dev console, `run_to` for one plugin, `swap_dynamic`; built-in segment, then a dynamic segment swapped by `replace_dynamic`; first `Drop`/`Reply` stops), `Outcome`, `NullHost` for tests | The stop rule is part of the API semantics; the lock is never held while a plugin runs |
 | `src/wasm.rs` | `WasmRuntime` (engine + epoch clock), `WasmLimits`, `WasmPlugin`, `Right`, `Setup`, `tree` ↔ `Val` | Guest trees are untrusted: keep the bounds, depth and single-use checks |
-| `src/package.rs` | `plugin.toml` format and rights table (documented at the top), `PackagePlugin` with reload, `load_dir`, `PackageSet::sync` (load new folders, unload removed ones); `i18n/<lang>.ftl` of a package go to `PluginStrings` on load and reload (`PackageSet::with_strings`) | A broken new version must leave the old one running; the `.ftl` files are part of the reload stamp |
+| `src/package.rs` | `plugin.toml` format and rights table (documented at the top), `PackagePlugin` with reload, `load_dir`, `PackageSet::sync` (load new folders, unload removed ones), `PackageSet::reload` (forced reload of one package, the old one stays if the new one fails); `i18n/<lang>.ftl` of a package go to `PluginStrings` on load and reload (`PackageSet::with_strings`) | A broken new version must leave the old one running; the `.ftl` files are part of the reload stamp |
 | `tests/guest/` | A separate workspace: the test guest, built for `wasm32-wasip2` by the tests (CI installs the target) | Slow-event tests use a zero soft limit so they do not depend on machine speed |
 | `tests/strings.rs` | `Host::t` for packages: a string from the package's own `.ftl`, English fallback, hot reload of an edited `.ftl`, unload | Uses the guest's `STRINGS` dispatch |
 | `tests/clear_urls_wasm.rs` | Builds `examples/plugins/clear_urls`, loads it as a package (also into a running chain) and checks it behaves like the native plugin | Needs the `wasm32-wasip2` target |
@@ -258,6 +261,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `src/main.rs` | Commands: `run`, `launch`, `setup` (installer `install()`), `uninstall` (installer `uninstall_all()`), `trust`, `untrust`, `plugins`, `enable`, `disable`, `toggle`, `log`, `selftest`, `paths`; `run` loads WASM packages | `plugins`/`enable` know built-ins only, not WASM packages; every user-facing string comes from `crates/phoecord-i18n/i18n/{en,ru}/main.ftl`; `setup` asks to accept `TERMS.md` first (`--accept-terms` skips the prompt); `setup --loader` installs the loader DLL, and `run`/`launch` call `ensure_loader` first |
 | `src/help.rs` | `--help` built at runtime from the `Localizer` (clap needs static strings, so the help is rebuilt per language); `lang_from_args` reads `--lang` before clap runs | A new subcommand or flag needs `cmd-*` / `cli-arg-*` keys in both `.ftl` files |
 | `src/log.rs`, `src/selftest.rs` | `phoecord log` output, `phoecord selftest` | |
+| `src/dev/mod.rs`, `src/dev/console.rs` | `phoecord dev console` (1.3.9): attaches with the token from `dev-token`, prints the stream (`--filter`, `--plugin`), runs `toggle` / `reload` / `settings` / `kv` / `replay` typed on stdin. Other `dev` subcommands get their own file here | Strings through `cli-dev-*` keys; nested help keys are `cmd-dev-<sub>` and `cli-arg-dev-<sub>-<arg>` (`help.rs`) |
 
 ## 4. Scripts
 
@@ -293,6 +297,7 @@ Planned in 1.1; the table is filled as each item lands.
 | `PHOECORD_LOG` | env | `phoecord=info` | logging |
 | `PHOECORD_NO_NOTIFY` | env | unset | `Host::notify` |
 | `ca.pem`, `ca.key` | data folder | created on first run | `phoecord-proxy::ca` |
+| `dev-token` | data folder | written at every proxy start | `phoecord-proxy::dev`, read by `phoecord dev console` |
 | `plugins/<id>/kv.json` | data folder | empty map | `Host::kv_*` |
 | `plugins/message_logger/messages.jsonl` | data folder | created when `write_log` is on | `message_logger`, `phoecord log` |
 | `install.log` | data folder | created by the installer | `phoecord-installer` rollback |

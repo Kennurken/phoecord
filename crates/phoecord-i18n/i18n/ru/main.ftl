@@ -457,3 +457,40 @@ cli-loader-failed = не удалось поставить загрузчик д
 cli-loader-unsupported = Загрузчик работает только в Windows; ничего не установлено.
 cli-loader-skipped = Загрузчик не установлен: { $why }
 cli-loader-check-failed = не удалось проверить загрузчик: { $why }
+
+# phoecord dev console (1.3.9)
+cmd-dev = Инструменты для авторов плагинов
+cmd-dev-console = Подключиться к работающему прокси: живые логи плагинов, события, вердикты и время, с командами включить, перезагрузить и повторить
+cli-arg-dev-console-filter = Показывать только события, в названии или маршруте которых есть этот текст (например MESSAGE_CREATE или /channels)
+cli-arg-dev-console-plugin = Показывать только записи журнала и события этого плагина
+cli-dev-err-no-token = Нет токена отладки в { $path }. Сначала запустите прокси (`phoecord run`), потом снова откройте консоль.
+cli-dev-err-connect = Не удалось связаться с прокси по адресу { $listen }: { $why }. Запущен ли `phoecord run`?
+cli-dev-err-token = Прокси отклонил токен отладки. Скорее всего, он был перезапущен: откройте консоль снова.
+cli-dev-err-status = Прокси ответил { $status }.
+cli-dev-attached = Подключено к PhoeCord { $version } по адресу { $listen }, плагинов: { $count }. Введите `help`, чтобы увидеть команды, `quit`, чтобы выйти.
+cli-dev-detached = Прокси закрыл соединение.
+cli-dev-state-on = вкл
+cli-dev-state-off = выкл
+cli-dev-state-crashed = сбой
+cli-dev-source-builtin = встроенный
+cli-dev-source-package = пакет
+cli-dev-toggled = Плагин { $plugin }: { $state }.
+cli-dev-reloaded = Плагин { $plugin } перезагружен.
+cli-dev-replayed = Событие { $event } повторено в { $plugin }: { $verdict } (не доставлено: { $sends } отправок и { $locals } локальных пакетов).
+cli-dev-filter-set = Показываются только события с "{ $filter }".
+cli-dev-filter-cleared = Показываются все события.
+cli-dev-plugin-set = Показывается только плагин { $plugin }.
+cli-dev-plugin-cleared = Показываются все плагины.
+cli-dev-usage = Использование: { $usage }
+cli-dev-unknown-command = Неизвестная команда "{ $name }". Введите `help`.
+cli-dev-help =
+    plugins                     список плагинов и их состояние
+    toggle <plugin>             включить или выключить плагин (сохраняется в config.toml)
+    reload <plugin>             сейчас перезагрузить WASM-пакет из его папки
+    settings <plugin>           показать раздел плагина в config.toml
+    kv <plugin>                 показать данные плагина в хранилище ключ-значение
+    events                      события, которые можно повторить
+    replay <event> <plugin>     прогнать последнее такое событие через один плагин (без последствий)
+    filter [text]               показывать события, в названии или маршруте которых есть текст (без текста: все)
+    plugin [id]                 показывать только этот плагин (без id: все)
+    help, quit

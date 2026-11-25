@@ -2,6 +2,7 @@
 //!
 //! Every user-facing string comes from the `.ftl` bundles of `phoecord-i18n` through one `Localizer`.
 
+mod dev;
 mod help;
 mod log;
 mod selftest;
@@ -105,6 +106,10 @@ enum Cmd {
     },
     Selftest,
     Paths,
+    Dev {
+        #[command(subcommand)]
+        cmd: dev::DevCmd,
+    },
 }
 
 /// A message with `{ $name }` variables, from `(name, value)` pairs.
@@ -232,6 +237,7 @@ fn dispatch(cli: Cli, paths: Paths, resolved: &Resolved, l10n: &Localizer) -> Re
         Cmd::Toggle { name } => switch(&paths, &name, None, l10n),
         Cmd::Log { n } => log::run(&paths, n, l10n),
         Cmd::ImportVencord { path } => import_vencord(&paths, path, l10n),
+        Cmd::Dev { cmd } => dev::run(cmd, &paths, l10n),
         Cmd::Selftest => runtime()?.block_on(selftest::run(paths, l10n)),
         Cmd::Paths => {
             for (key, p) in [

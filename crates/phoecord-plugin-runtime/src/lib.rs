@@ -10,6 +10,20 @@ use phoecord_core::{Event, EventKind, Host, Manifest, Plugin, Val, Verdict};
 use std::collections::HashSet;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
+
+/// One plugin's run of one event, handed to the chain's observer (the dev console).
+pub struct RunRecord<'a> {
+    pub plugin: &'a str,
+    pub kind: &'a EventKind<'a>,
+    /// `pass`, `changed`, `drop`, `reply <status>` or `panic`.
+    pub verdict: std::borrow::Cow<'a, str>,
+    pub elapsed: Duration,
+}
+
+/// Called after every plugin run while set with [`Chain::set_observer`]. Must be quick: it runs on
+/// the traffic path.
+pub type Observer = Arc<dyn Fn(&RunRecord<'_>) + Send + Sync>;
 
 /// Plugins in the order they run. Order matters: the first `Drop` or `Reply` wins.
 ///
@@ -26,6 +40,8 @@ pub struct Chain {
     /// `None` = every plugin is enabled.
     enabled: RwLock<Option<HashSet<String>>>,
     crashed: RwLock<HashSet<String>>,
+    /// Told about every plugin run (the dev console); `None` costs one lock read per event.
+    observer: RwLock<Option<Observer>>,
 }
 
 /// What the chain decided, folded over all plugins.
@@ -84,6 +100,38 @@ impl Chain {
         }
         *self.dynamic.write().unwrap() = kept;
         skipped
+    }
+
+    /// Watch every plugin run (kind, verdict, time taken). `None` stops watching.
+    pub fn set_observer(&self, observer: Option<Observer>) {
+        *self.observer.write().unwrap() = observer;
+    }
+
+    /// Whether `id` is in the dynamic segment (a WASM package) and not built in.
+    pub fn is_dynamic(&self, id: &str) -> bool {
+        self.dynamic
+            .read()
+            .unwrap()
+            .iter()
+            .any(|p| p.manifest().id == id)
+    }
+
+    /// Put `plugin` in the place of the dynamic plugin with the same id. `false` when there is none.
+    pub fn swap_dynamic(&self, plugin: Arc<dyn Plugin>) -> bool {
+        let mut dynamic = self.dynamic.write().unwrap();
+        let id = plugin.manifest().id.clone();
+        match dynamic.iter_mut().find(|p| p.manifest().id == id) {
+            Some(slot) => {
+                *slot = plugin;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Whether `id` was disabled for the session by a panic.
+    pub fn is_crashed(&self, id: &str) -> bool {
+        self.crashed.read().unwrap().contains(id)
     }
 
     pub fn ids(&self) -> Vec<String> {
@@ -163,10 +211,28 @@ impl Chain {
         mut call: impl FnMut(&dyn Plugin, &mut dyn Host) -> Verdict,
     ) -> Outcome {
         let mut changed = false;
+        let observer = self.observer.read().unwrap().clone();
         for p in plugins.iter().map(Arc::as_ref).filter(|p| p.wants(kind)) {
             host.begin_plugin(&p.manifest().id);
             host.set_fetch_hosts(&p.manifest().fetch);
-            let verdict = match catch_unwind(AssertUnwindSafe(|| call(p, host))) {
+            let started = observer.as_ref().map(|_| Instant::now());
+            let result = catch_unwind(AssertUnwindSafe(|| call(p, host)));
+            if let (Some(obs), Some(started)) = (&observer, started) {
+                let verdict = match &result {
+                    Ok(Verdict::Pass) => "pass".into(),
+                    Ok(Verdict::Changed) => "changed".into(),
+                    Ok(Verdict::Drop) => "drop".into(),
+                    Ok(Verdict::Reply { status, .. }) => format!("reply {status}").into(),
+                    Err(_) => "panic".into(),
+                };
+                obs(&RunRecord {
+                    plugin: &p.manifest().id,
+                    kind,
+                    verdict,
+                    elapsed: started.elapsed(),
+                });
+            }
+            let verdict = match result {
                 Ok(v) => v,
                 Err(_) => {
                     let id = p.manifest().id.clone();
@@ -270,10 +336,29 @@ impl Chain {
         })
     }
 
-    /// A gateway dispatch for one plugin only (a timer it scheduled, see
-    /// [`phoecord_core::TIMER_EVENT`]), with the same rules as the whole chain: the plugin must be
+    /// One event for one plugin only, with the same rules as the whole chain: the plugin must be
     /// enabled, not crashed and want the event; `begin_plugin` scopes the host to it and a panic
     /// disables it. `None` when the plugin did not run (unknown, off, crashed or not interested).
+    pub fn run_to(
+        &self,
+        plugin_id: &str,
+        host: &mut dyn Host,
+        kind: &EventKind,
+        call: impl FnMut(&dyn Plugin, &mut dyn Host) -> Verdict,
+    ) -> Option<Outcome> {
+        let target: Vec<Arc<dyn Plugin>> = self
+            .active()
+            .into_iter()
+            .filter(|p| p.manifest().id == plugin_id && p.wants(kind))
+            .collect();
+        if target.is_empty() {
+            return None;
+        }
+        Some(self.run_on(&target, host, kind, call))
+    }
+
+    /// A gateway dispatch for one plugin only (a timer it scheduled, see
+    /// [`phoecord_core::TIMER_EVENT`]); see [`Chain::run_to`].
     pub fn dispatch_to(
         &self,
         host: &mut dyn Host,
@@ -282,16 +367,7 @@ impl Chain {
         payload: &mut Val,
         extra: &mut Vec<Val>,
     ) -> Option<Outcome> {
-        let kind = EventKind::Dispatch { name };
-        let target: Vec<Arc<dyn Plugin>> = self
-            .active()
-            .into_iter()
-            .filter(|p| p.manifest().id == plugin_id && p.wants(&kind))
-            .collect();
-        if target.is_empty() {
-            return None;
-        }
-        Some(self.run_on(&target, host, &kind, |p, h| {
+        self.run_to(plugin_id, host, &EventKind::Dispatch { name }, |p, h| {
             p.on_event(
                 h,
                 Event::Dispatch {
@@ -300,7 +376,7 @@ impl Chain {
                     extra,
                 },
             )
-        }))
+        })
     }
 }
 
@@ -510,6 +586,37 @@ mod tests {
             chain.dispatch_to(&mut h, "nobody", t, &mut p, &mut extra),
             None
         );
+    }
+
+    #[test]
+    fn the_observer_hears_every_run_with_its_verdict() {
+        use std::sync::Mutex;
+        let chain = Chain::new(vec![
+            fixed("a", Verdict::Changed),
+            fixed("b", Verdict::Drop),
+            fixed("c", Verdict::Pass),
+        ]);
+        let seen: Arc<Mutex<Vec<(String, String, String)>>> = Arc::default();
+        let sink = seen.clone();
+        chain.set_observer(Some(Arc::new(move |r: &RunRecord<'_>| {
+            sink.lock().unwrap().push((
+                r.plugin.to_string(),
+                format!("{:?}", r.kind),
+                r.verdict.to_string(),
+            ));
+        })));
+        let mut h = NullHost::default();
+        chain.rest_request(&mut h, "GET", "/x", None);
+        let seen = seen.lock().unwrap().clone();
+        assert_eq!(
+            seen.iter()
+                .map(|(p, _, v)| (p.as_str(), v.as_str()))
+                .collect::<Vec<_>>(),
+            vec![("a", "changed"), ("b", "drop")],
+            "the plugin after a Drop never runs"
+        );
+        assert!(seen[0].1.contains("RestRequest"));
+        chain.set_observer(None);
     }
 
     #[test]

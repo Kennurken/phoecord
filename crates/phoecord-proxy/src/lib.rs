@@ -7,6 +7,7 @@
 
 pub mod ca;
 pub mod codec;
+pub mod dev;
 pub mod egress;
 pub mod gateway;
 pub mod hostnet;
@@ -65,6 +66,8 @@ pub struct Proxy {
     /// Decode (and re-encode) the gateway even when no plugin needs it (self-test).
     pub force_decode: bool,
     pub stats: Stats,
+    /// The dev console's token for this start (also in `dev-token` in the data folder).
+    pub dev_token: String,
 }
 
 impl Deref for Proxy {
@@ -100,6 +103,7 @@ impl Proxy {
         let net = Arc::new(Net::new());
         let mut shared = Shared::with_network(paths.data.join("plugins"), net.clone());
         shared.config_path = paths.config.clone();
+        let dev_token = dev::issue_token(&paths.data)?;
         Ok(Arc::new(Proxy {
             paths,
             engine: Engine::new(chain, shared, cfg),
@@ -113,6 +117,7 @@ impl Proxy {
             timers_started: AtomicBool::new(false),
             force_decode,
             stats: Stats::default(),
+            dev_token,
         }))
     }
 

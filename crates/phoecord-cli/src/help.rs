@@ -42,7 +42,7 @@ pub fn localize(mut cmd: Command, l: &Localizer) -> Command {
         let template = template.clone();
         let args_heading = leak(l.t("cli-help-arguments"));
         cmd = cmd.mut_subcommand(&name, |s| {
-            let mut s = s.about(about).help_template(template);
+            let mut s = s.about(about).help_template(template.clone());
             let ids: Vec<String> = s.get_arguments().map(|a| a.get_id().to_string()).collect();
             for id in ids {
                 s = s.mut_arg(&id, |a| {
@@ -69,6 +69,33 @@ pub fn localize(mut cmd: Command, l: &Localizer) -> Command {
                     } else {
                         a
                     }
+                });
+            }
+            // Nested subcommands (`dev console`): `cmd-<parent>-<child>` and
+            // `cli-arg-<parent>-<child>-<arg>`.
+            let children: Vec<String> = s
+                .get_subcommands()
+                .map(|c| c.get_name().to_string())
+                .collect();
+            for child in children {
+                let prefix = format!("{name}-{child}");
+                s = s.mut_subcommand(&child, |c| {
+                    let mut c = c
+                        .about(l.t(&format!("cmd-{prefix}")))
+                        .help_template(template.clone());
+                    let ids: Vec<String> =
+                        c.get_arguments().map(|a| a.get_id().to_string()).collect();
+                    for id in ids {
+                        let key = format!("cli-arg-{prefix}-{id}");
+                        c = c.mut_arg(&id, |a| {
+                            let a = a.help_heading(opts);
+                            match l.try_t(&key) {
+                                Some(text) => a.help(text),
+                                None => a,
+                            }
+                        });
+                    }
+                    c
                 });
             }
             s

@@ -93,7 +93,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **1.3.6** 🟡 | SDK: bindings, macro, `examples/hello-plugin` | buslan07 | ✅ 25.11, PR #96 (SDK with `Plugin` trait, `#[phoecord::plugin]` in `phoecord-plugin-sdk-macros`, `examples/hello-plugin` built in CI; not run against a live client) |
 | **1.3.7** 🟡 | TypeScript plugin template | matvee | ⏳ |
 | **1.3.8** 🔴 | `clear_urls` as a WASM plugin | Nanda | ✅ 23.11, PR #48 (`examples/plugins/clear_urls`, 79 KB, loads without a restart) |
-| **1.3.9** 🟡 | Plugin dev console: live plugin logs, events and verdicts, toggle, reload, replay (`phoecord dev console`) | Nanda | ⏳ |
+| **1.3.9** 🟡 | Plugin dev console: live plugin logs, events and verdicts, toggle, reload, replay (`phoecord dev console`) | Nanda | ✅ 25.11 (PR pending: endpoint under `/__phoecord/dev` on the proxy listener, loopback + per-start token `dev-token`; `phoecord dev console` with filter, toggle, reload, settings, KV, replay as a dry run. Tested against a real listener; not tried with a live Discord client, the token file's owner-only ACL on Windows is the profile folder's default and not checked, replay needs the event to have been seen while attached) |
 | **1.3.10** 🟡 | Fast hot reload: file notifications instead of the 2 s scan, `phoecord dev watch` builds and reloads a plugin | Nanda | ⏳ |
 | **1.3.11** 🟡 | Plugin catalog: an index of community plugins with hashes, install and update from the CLI and the installer window | Nanda | ⏳ |
 | **1.4.1** 🔴 | Client discovery on 3 OSes | Nanda | ✅ 23.11, PR #23 (library; real machines not checked) |

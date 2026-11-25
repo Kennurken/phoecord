@@ -452,3 +452,40 @@ cli-loader-failed = loader for Discord { $channel } could not be put in place: {
 cli-loader-unsupported = The loader is Windows-only; nothing was installed.
 cli-loader-skipped = No loader installed: { $why }
 cli-loader-check-failed = could not check the loader: { $why }
+
+# phoecord dev console (1.3.9)
+cmd-dev = Tools for plugin authors
+cmd-dev-console = Attach to the running proxy: live plugin logs, events, verdicts and timings, with commands to toggle, reload and replay
+cli-arg-dev-console-filter = Show only events whose name or route contains this text (for example MESSAGE_CREATE or /channels)
+cli-arg-dev-console-plugin = Show only this plugin's log lines and events
+cli-dev-err-no-token = No dev token at { $path }. Start the proxy first (`phoecord run`), then open the console again.
+cli-dev-err-connect = Could not reach the proxy at { $listen }: { $why }. Is `phoecord run` running?
+cli-dev-err-token = The proxy refused the dev token. It was probably restarted: open the console again.
+cli-dev-err-status = The proxy answered { $status }.
+cli-dev-attached = Attached to PhoeCord { $version } at { $listen }, { $count } plugins. Type `help` for commands, `quit` to leave.
+cli-dev-detached = The proxy closed the connection.
+cli-dev-state-on = on
+cli-dev-state-off = off
+cli-dev-state-crashed = crashed
+cli-dev-source-builtin = builtin
+cli-dev-source-package = package
+cli-dev-toggled = Plugin { $plugin } is now { $state }.
+cli-dev-reloaded = Plugin { $plugin } reloaded.
+cli-dev-replayed = Replayed { $event } into { $plugin }: { $verdict } ({ $sends } sends and { $locals } local payloads were not delivered).
+cli-dev-filter-set = Showing only events matching "{ $filter }".
+cli-dev-filter-cleared = Showing all events.
+cli-dev-plugin-set = Showing only plugin { $plugin }.
+cli-dev-plugin-cleared = Showing all plugins.
+cli-dev-usage = Usage: { $usage }
+cli-dev-unknown-command = Unknown command "{ $name }". Type `help`.
+cli-dev-help =
+    plugins                     list plugins and whether they are on
+    toggle <plugin>             switch a plugin on or off (saved in config.toml)
+    reload <plugin>             reload a WASM package from its folder now
+    settings <plugin>           show the plugin's section of config.toml
+    kv <plugin>                 show the plugin's stored key/value data
+    events                      list the events that can be replayed
+    replay <event> <plugin>     run the last such event into one plugin only (a dry run)
+    filter [text]               show only events whose name or route contains the text (no text: all)
+    plugin [id]                 show only this plugin (no id: all)
+    help, quit

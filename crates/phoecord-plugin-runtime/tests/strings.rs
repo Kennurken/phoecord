@@ -179,3 +179,41 @@ fn an_oversized_ftl_is_skipped_and_reported() {
         host.inner.logs
     );
 }
+
+#[test]
+fn a_forced_reload_takes_effect_at_once_and_a_broken_package_keeps_the_old_one() {
+    let root = TempDir::new();
+    let dir = write_package(&root.0, "greeter", 1, "events = [\"dispatch\"]");
+    write_ftl(&dir, "en", EN);
+    let strings = Arc::new(PluginStrings::new());
+    let chain = Chain::default();
+    let mut set = PackageSet::new(common::runtime(), root.0.clone()).with_strings(strings.clone());
+    set.sync(&chain);
+
+    write_ftl(
+        &dir,
+        "en",
+        "greeting = Howdy, { $who }!\nonly-en = still English\n",
+    );
+    set.reload(&chain, "greeter").unwrap();
+    assert_eq!(
+        asked(&chain, &mut StringsHost::new(&strings, "en")),
+        "Howdy, Мир!|still English",
+        "no event and no wait were needed"
+    );
+
+    std::fs::write(dir.join("plugin.wasm"), b"not a component").unwrap();
+    let err = set.reload(&chain, "greeter").unwrap_err();
+    assert!(!err.is_empty());
+    assert_eq!(
+        asked(&chain, &mut StringsHost::new(&strings, "en")),
+        "Howdy, Мир!|still English",
+        "the old version keeps running"
+    );
+
+    assert!(
+        set.reload(&chain, "nobody")
+            .unwrap_err()
+            .contains("not a WASM package")
+    );
+}

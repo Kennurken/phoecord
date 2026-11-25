@@ -60,8 +60,11 @@ pub async fn serve(app: Arc<Proxy>, listener: TcpListener) -> Result<()> {
 async fn front(
     app: Arc<Proxy>,
     req: Request<Incoming>,
-    _peer: SocketAddr,
+    peer: SocketAddr,
 ) -> Result<Response<Body>, Infallible> {
+    if req.uri().authority().is_none() && crate::dev::is_dev_path(req.uri().path()) {
+        return Ok(crate::dev::handle(app, req, peer).await);
+    }
     if req.method() == Method::GET
         && req.uri().authority().is_none()
         && req.uri().path() == IDENTITY_PATH

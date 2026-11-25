@@ -24,6 +24,7 @@
 
 pub mod account;
 pub mod config;
+pub mod dev;
 pub mod host;
 pub mod timers;
 
@@ -80,7 +81,7 @@ pub struct Engine {
     pub chain: Chain,
     config: RwLock<Arc<Config>>,
     /// Keeps the chain's dynamic segment in step with `data/plugins/` (WASM packages).
-    packages: Mutex<Option<PackageSet>>,
+    pub(crate) packages: Mutex<Option<PackageSet>>,
 }
 
 impl Engine {
@@ -93,6 +94,12 @@ impl Engine {
             packages: Mutex::new(None),
         };
         engine.apply(cfg);
+        // The dev console (1.3.9) hears about every plugin run; with nobody attached this is a
+        // timestamp and an atomic load.
+        let bus = engine.shared.dev.clone();
+        engine.chain.set_observer(Some(Arc::new(move |r| {
+            bus.run(r.kind, r.plugin, &r.verdict, r.elapsed);
+        })));
         engine
     }
 
@@ -164,6 +171,15 @@ impl Engine {
     ) -> (RequestOutcome, Effects) {
         let cfg = self.cfg();
         self.shared
+            .dev
+            .remember("rest_request", format!("{method} {route}"), || {
+                dev::Replay::RestRequest {
+                    method: method.to_string(),
+                    route: route.to_string(),
+                    body: body.clone(),
+                }
+            });
+        self.shared
             .account
             .lock()
             .unwrap()
@@ -200,6 +216,16 @@ impl Engine {
         body: &mut Val,
     ) -> (bool, Effects) {
         let cfg = self.cfg();
+        self.shared
+            .dev
+            .remember("rest_response", format!("{method} {route}"), || {
+                dev::Replay::RestResponse {
+                    method: method.to_string(),
+                    route: route.to_string(),
+                    status,
+                    body: body.clone(),
+                }
+            });
         let mut host = ProxyHost::new(&self.shared, &cfg);
         let outcome = self
             .chain
@@ -226,6 +252,12 @@ impl Engine {
                 sends: Vec::new(),
             };
         };
+        self.shared
+            .dev
+            .remember("dispatch", name.clone(), || dev::Replay::Dispatch {
+                name: name.clone(),
+                payload: payload.clone(),
+            });
         if let Some(d) = payload.get("d") {
             self.shared.account.lock().unwrap().track(&name, d);
         }
@@ -259,6 +291,12 @@ impl Engine {
                 locals: Vec::new(),
             };
         };
+        self.shared
+            .dev
+            .remember("send", format!("op {op}"), || dev::Replay::Send {
+                op,
+                payload: payload.clone(),
+            });
         let mut host = ProxyHost::new(&self.shared, &cfg);
         let outcome = self.chain.send(&mut host, op, payload);
         SendResult {
