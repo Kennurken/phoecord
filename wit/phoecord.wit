@@ -192,6 +192,13 @@ interface host {
     /// A string of the plugin's own `i18n/<lang>.ftl` in the user's language, with `args` filled
     /// into its `{ $name }` placeholders. Falls back to English, then to `key`. Always allowed.
     t: func(key: string, args: list<tuple<string, string>>) -> string;
+    /// Ask for a `PHOECORD_TIMER` dispatch (`{"op":0,"t":"PHOECORD_TIMER","d":{"tag":<tag>}}`) in
+    /// about `after-ms` milliseconds, delivered to this plugin only while it is enabled and its
+    /// `events` and `wants` let `PHOECORD_TIMER` through. Under 50 ms is raised to 50 ms, over 24 h
+    /// is an error, at most 64 timers may be pending. Always allowed.
+    schedule: func(after-ms: u64, tag: string) -> result<_, string>;
+    /// Cancel this plugin's pending timers with this tag. Always allowed.
+    cancel-schedule: func(tag: string);
 }
 
 world plugin {

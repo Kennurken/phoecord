@@ -67,6 +67,35 @@ fn well_behaved_guest_works_in_the_chain_like_a_native_plugin() {
     );
 }
 
+#[test]
+fn a_guest_can_schedule_and_cancel_timers() {
+    let chain = chain_of(guest());
+    let mut host = NullHost::default();
+    let out = chain.dispatch(&mut host, "SCHEDULE", &mut Val::map(), &mut vec![]);
+    assert_eq!(
+        out,
+        Outcome::Replied {
+            by: "test_guest".into(),
+            status: 200,
+            body: None
+        }
+    );
+    assert_eq!(
+        host.scheduled,
+        vec![(1000, "tick".to_string()), (200, "tock".to_string())]
+    );
+    // The due timer comes back to this plugin alone as a dispatch.
+    let out = chain.dispatch_to(
+        &mut host,
+        "test_guest",
+        phoecord_core::TIMER_EVENT,
+        &mut Val::map(),
+        &mut vec![],
+    );
+    assert_eq!(out, Some(Outcome::Untouched));
+    assert_eq!(host.logs, vec!["timer fired".to_string()]);
+}
+
 mod limits {
     use super::*;
     use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Verdict};
