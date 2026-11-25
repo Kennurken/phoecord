@@ -114,7 +114,7 @@ impl Proxy {
         let net = Arc::new(Net::new());
         let mut shared = Shared::with_network(paths.data.join("plugins"), net.clone());
         shared.config_path = paths.config.clone();
-        let dev_token = dev::issue_token(&paths.data)?;
+        let dev_token = dev::new_token()?;
         Ok(Arc::new(Proxy {
             paths,
             engine: Engine::new(chain, shared, cfg),
@@ -132,6 +132,12 @@ impl Proxy {
             stats: Stats::default(),
             dev_token,
         }))
+    }
+
+    /// Write this proxy's dev console token to `dev-token` in the data folder, so
+    /// `phoecord dev console` can attach. Call it for the proxy that serves the client only.
+    pub fn publish_dev_token(&self) -> Result<()> {
+        dev::write_token(&self.paths.data, &self.dev_token)
     }
 
     /// The `upstream` proxy from the live config; `None` means connect directly.

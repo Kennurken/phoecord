@@ -118,12 +118,14 @@ impl Chain {
     }
 
     /// Put `plugin` in the place of the dynamic plugin with the same id. `false` when there is none.
+    /// The new code gets a fresh start: if the old one was disabled by a panic, the id runs again.
     pub fn swap_dynamic(&self, plugin: Arc<dyn Plugin>) -> bool {
         let mut dynamic = self.dynamic.write().unwrap();
         let id = plugin.manifest().id.clone();
         match dynamic.iter_mut().find(|p| p.manifest().id == id) {
             Some(slot) => {
                 *slot = plugin;
+                self.crashed.write().unwrap().remove(&id);
                 true
             }
             None => false,
@@ -633,6 +635,22 @@ mod tests {
         assert_eq!(
             chain.dispatch_to(&mut h, "bad", "X", &mut p, &mut extra),
             None
+        );
+    }
+
+    #[test]
+    fn swapping_in_new_code_lifts_the_crash() {
+        let mut h = NullHost::default();
+        let chain = Chain::default();
+        chain.replace_dynamic(vec![Arc::new(Panics(manifest("pkg")))]);
+        let (mut p, mut extra) = (Val::map(), Vec::new());
+        chain.dispatch_to(&mut h, "pkg", "X", &mut p, &mut extra);
+        assert!(chain.is_crashed("pkg"));
+        assert!(chain.swap_dynamic(Arc::from(fixed("pkg", Verdict::Changed))));
+        assert!(!chain.is_crashed("pkg"), "the fixed code runs again");
+        assert_eq!(
+            chain.dispatch_to(&mut h, "pkg", "X", &mut p, &mut extra),
+            Some(Outcome::Changed)
         );
     }
 

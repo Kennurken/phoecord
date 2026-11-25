@@ -71,6 +71,7 @@ async fn rig(name: &str) -> Rig {
     let config = paths.config.clone();
     let chain = Chain::new(vec![Box::new(Probe::new())]);
     let proxy = Proxy::new(paths, cfg, chain, false).unwrap();
+    proxy.publish_dev_token().unwrap();
     let listener = server::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(server::serve(proxy.clone(), listener));
@@ -210,6 +211,26 @@ async fn the_token_is_written_to_the_data_folder_and_required() {
     assert_eq!(code, 401);
     // A wrong token does not attach: nothing is copied for it.
     assert!(!r.proxy.shared.dev.active());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_second_proxy_on_the_same_data_folder_keeps_the_token_file() {
+    // `phoecord selftest` builds its own Proxy on the user's data folder while `phoecord run`
+    // may be serving: the running proxy's token must stay in `dev-token`.
+    let r = rig("second").await;
+    let other = Proxy::new(
+        Paths {
+            config: r.config.clone(),
+            data: r.proxy.paths.data.clone(),
+        },
+        Config::default(),
+        Chain::default(),
+        true,
+    )
+    .unwrap();
+    assert_ne!(other.dev_token, r.token);
+    let file = std::fs::read_to_string(dev::token_path(&r.proxy.paths.data)).unwrap();
+    assert_eq!(file, r.token);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

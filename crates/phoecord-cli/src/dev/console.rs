@@ -555,6 +555,7 @@ mod tests {
             false,
         )
         .unwrap();
+        proxy.publish_dev_token().unwrap();
         let listener = server::bind("127.0.0.1:0").await.unwrap();
         let listen = listener.local_addr().unwrap().to_string();
         tokio::spawn(server::serve(proxy.clone(), listener));

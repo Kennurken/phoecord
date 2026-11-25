@@ -385,6 +385,7 @@ async fn run(
         None => None,
     };
     let proxy = Proxy::new(paths, cfg, chain(), false)?;
+    proxy.publish_dev_token()?;
     proxy.shared.set_language_flag(lang_flag);
     phoecord_plugins::register_strings(&proxy.shared.strings);
     if let Some(w) = ca_warning(&proxy.paths.data.join("ca.pem"), l10n) {

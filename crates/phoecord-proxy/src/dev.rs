@@ -50,18 +50,23 @@ pub fn token_path(data: &Path) -> PathBuf {
     data.join(TOKEN_FILE)
 }
 
-/// Make a new token and write it to the data folder (owner-only on Unix; on Windows the user's
-/// profile folder is already private to the user).
-pub fn issue_token(data: &Path) -> Result<String> {
+/// Make a new random token (kept in memory; [`write_token`] publishes it).
+pub fn new_token() -> Result<String> {
     use ring::rand::{SecureRandom, SystemRandom};
     let mut bytes = [0u8; 32];
     SystemRandom::new()
         .fill(&mut bytes)
         .map_err(|_| anyhow::anyhow!("no random numbers for the dev token"))?;
-    let token: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// Write `token` to the data folder (owner-only on Unix; on Windows the user's profile folder is
+/// already private to the user). Only the proxy that serves the user's client does this: a
+/// short-lived proxy on the same data folder (`phoecord selftest`) must not replace the token of
+/// the running one.
+pub fn write_token(data: &Path, token: &str) -> Result<()> {
     std::fs::create_dir_all(data)?;
-    write_private(&token_path(data), token.as_bytes()).context("writing dev-token")?;
-    Ok(token)
+    write_private(&token_path(data), token.as_bytes()).context("writing dev-token")
 }
 
 fn write_private(path: &Path, data: &[u8]) -> std::io::Result<()> {
