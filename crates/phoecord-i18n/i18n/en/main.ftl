@@ -131,6 +131,7 @@ plugin-desc-fake_deafen_detector = Flag members who speak while shown as muted o
 plugin-desc-follow_user = Follow a user from voice channel to voice channel
 plugin-desc-anti_rickroll = Find rickroll links in messages
 plugin-desc-local_dev_badges = Show staff and developer badges on your own profile, locally only
+plugin-desc-voice_chat_utilities = Move, mute, deafen or disconnect everyone in a voice channel
 
 # CLI: log
 cli-log-empty = nothing logged yet ({ $path })

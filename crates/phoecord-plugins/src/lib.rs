@@ -47,6 +47,7 @@ pub mod user_voice_show;
 pub mod valid_reply;
 pub mod valid_user;
 pub mod vc_narrator;
+pub mod voice_chat_utilities;
 pub mod who_reacted;
 
 #[cfg(test)]
@@ -97,6 +98,16 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "vc_narrator",
         "ru",
         include_str!("../i18n/ru/vc_narrator.ftl"),
+    ),
+    (
+        "voice_chat_utilities",
+        "en",
+        include_str!("../i18n/en/voice_chat_utilities.ftl"),
+    ),
+    (
+        "voice_chat_utilities",
+        "ru",
+        include_str!("../i18n/ru/voice_chat_utilities.ftl"),
     ),
 ];
 
@@ -153,6 +164,8 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let follow_user_commands = follow_user.commands();
     let anti_rickroll = anti_rickroll::AntiRickroll::new();
     let anti_rickroll_command = anti_rickroll.command();
+    let voice_chat_utilities = voice_chat_utilities::VoiceChatUtilities::new();
+    let voice_chat_utilities_command = voice_chat_utilities.command();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(silent_typing::SilentTyping::new()),
@@ -193,6 +206,7 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(follow_user),
         Box::new(anti_rickroll),
         Box::new(local_dev_badges::LocalDevBadges::new()),
+        Box::new(voice_chat_utilities),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
@@ -222,7 +236,8 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         .with(experiments_command)
         .with(fake_deafen_command)
         .with(fake_deafen_detector_command)
-        .with(anti_rickroll_command);
+        .with(anti_rickroll_command)
+        .with(voice_chat_utilities_command);
     for c in follow_user_commands {
         commands = commands.with(c);
     }
