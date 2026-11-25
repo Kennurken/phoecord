@@ -242,6 +242,12 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 
 **Done when:** changing a `.toml` file and restarting Discord picks up the new signature without a new loader binary. The hot-fix workflow is documented.
 
+### 2.2.11. Loader check inside Discord Canary (ken)
+
+Was task 1.5.9. On Windows with Discord Canary, from the next release or a `main` build: put `version.dll` in the newest `app-x.y.z` (`phoecord setup --loader --channel canary`), start `phoecord launch --channel canary`, use the client for 10 minutes, quit. Check: `loader.log` has one `client build` line per start (no worker in child processes, 1.5.8), the `.text` hash equals the file's, detection takes under 20 ms, and the proxy log shows `loader connected: build …`; no crash; `phoecord uninstall` removes the DLL.
+
+**Done when:** every check passes, written in the ledger with the Canary build.
+
 ## Stage 2.3. UI hooks and theme engine
 
 ### 2.3.1. Theme engine (matvee)
@@ -400,3 +406,9 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 - GitHub Release with binaries and changelog.
 
 **Done when:** `v1.0.0` is tagged, release binaries are published, and `CHANGELOG.md` and `README.md` are updated.
+
+### 2.4.8. macOS check of the 0.5.1 fixes (ken)
+
+Was task 1.4.10. On a real Mac (Apple Silicon, macOS 13+), with the `.dmg` of the next release or of the `Package` workflow: the app opens with "unidentified developer" and Open Anyway (not "damaged"); install from the window; "Open Discord" starts Discord, its updater finishes, and `~/Library/Application Support/phoecord/launch.log` has no `Operation not permitted` or `installer.db` line; the client works through the proxy; Uninstall in the window, then removing the app, leaves no CA in the keychain and no launchd entry.
+
+**Done when:** every step above passes, written in the ledger with the macOS version and the build.

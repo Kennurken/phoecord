@@ -39,7 +39,7 @@ At the end of Phase 2, PhoeCord v1.0 ships on Desktop Phoenix (Windows first) an
 
 ### Open Phase 1 tasks (running in parallel)
 
-1.1.9, 1.2.14 (USRBG/Decor blocked), 1.2.15 (GifProviderSwitcher blocked), 1.2.17, 1.3.7, 1.4.10, 1.4.11, 1.5.9. These do not block Phase 2.
+1.1.9, 1.2.14 (USRBG/Decor blocked), 1.2.15 (GifProviderSwitcher blocked). 1.4.10 and 1.5.9 moved into Phase 2 as 2.4.8 and 2.2.11. These do not block Phase 2.
 
 ## 3. What Phase 2 adds
 

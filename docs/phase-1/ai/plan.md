@@ -248,7 +248,7 @@ Every row of [`docs/PLUGINS.md`](../../PLUGINS.md) whose "Where" column names a 
 | 1.2.14 Profiles | `RestResponse` rewriting of profile responses; `Host::fetch` for USRBG and Decor | buslan07 |
 | 1.2.15 External services | `Host::fetch` (DeArrow API, Tenor/Giphy) | buslan07 |
 | 1.2.16 Data parts | `Host::rest` (ValidUser, ValidReply, NewGuildSettings); `Dispatch` `extra` payloads | Kennurken |
-| 1.2.17 Translate etc. | `Host::fetch` (translation backend, ReviewDB API); XSOverlay over a local UDP right | matvee |
+| 1.2.17 Translate etc. | `Host::fetch` (translation backend, ReviewDB API); XSOverlay dropped (ruling, 2026-11-26) | matvee |
 | 1.2.18 Hidden things | `Dispatch` `READY` / `GUILD_CREATE` rewriting; experiment assignments | Kennurken |
 | 1.2.19 Userplugins | `Host::rest` with the rate limiter (VoiceChatUtilities, rmcord); `Send` op 4 (FakeDeafen, FollowUser) | Kennurken |
 
@@ -446,11 +446,15 @@ Found in the 1.4.6 re-check on 24.11: `ca.pem` had been recreated after it was t
 
 ### 1.4.10. macOS check of the 0.5.1 fixes (Kennurken)
 
+> **Moved to Phase 2 as 2.4.8** (owner's ruling, 2026-11-26).
+
 On a real Mac (Apple Silicon, macOS 13+), with the `.dmg` of the next release or of the `Package` workflow: the app opens with "unidentified developer" and Open Anyway (not "damaged"); install from the window; "Open Discord" starts Discord, its updater finishes, and `~/Library/Application Support/phoecord/launch.log` has no `Operation not permitted` or `installer.db` line; the client works through the proxy; Uninstall in the window, then removing the app, leaves no CA in the keychain and no launchd entry.
 
 **Done when:** every step above passes, written in the ledger with the macOS version and the build.
 
 ### 1.4.11. Antivirus submissions per release (Kennurken)
+
+> **Cancelled** (owner's ruling, 2026-11-26).
 
 After every release, submit the release's Windows files (`PhoeCord_<v>_x64-setup.exe`, both `.msi`, `phoecord.exe` and `version.dll` from the CLI archive) to the Microsoft Defender file submission as "incorrectly detected" (software developer), and note the submission ids in the ledger. Start with v0.5.0.
 
@@ -526,6 +530,8 @@ Found in 1.5.7 on 24.11 (Discord Canary 1.0.1355): Electron starts 7 processes, 
 **Done when:** the log shows one worker per client start, and build detection takes under 20 ms.
 
 ### 1.5.9. Loader check inside Discord Canary (Kennurken)
+
+> **Moved to Phase 2 as 2.2.11** (owner's ruling, 2026-11-26).
 
 On Windows with Discord Canary, from the next release or a `main` build: put `version.dll` in the newest `app-x.y.z` (`phoecord setup --loader --channel canary`), start `phoecord launch --channel canary`, use the client for 10 minutes, quit. Check: `loader.log` has one `client build` line per start (no worker in child processes, 1.5.8), the `.text` hash equals the file's (the in-memory hash matches), detection takes under 20 ms, and the proxy log shows `loader connected: build …` (IPC, 1.5.5); no crash; `phoecord uninstall` removes the DLL.
 

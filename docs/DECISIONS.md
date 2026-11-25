@@ -6,7 +6,7 @@ in its plan's `ai/ledger.md` first, then rerun the script.
 
 ## Phase 1. Before the Phoenix Canary public beta
 
-Source: `docs/phase-1/ai/ledger.md`, decisions: 46.
+Source: `docs/phase-1/ai/ledger.md`, decisions: 50.
 
 - Ruling: the repository is public on Nanda070's account (owner Nanda, 2026-11-23, "Public" (translated)) — why: open-source MIT project — risk: everything pushed is published at once; secrets rules in AGENTS.md and SECRETS.md
 - Ruling: the copyright holder is Cheterin Group, next to the retained upstream MIT copyright line (owner Nanda, 2026-11-23, "Copyright in LICENSE" (translated)) — why: project ownership — risk: none
@@ -54,6 +54,10 @@ Source: `docs/phase-1/ai/ledger.md`, decisions: 46.
 - Ruling: the remaining plugins' notifications and `/phoecord` answers are not translated; only the plugins already translated in 1.7.4 speak Russian (owner Nanda, 2026-11-25, "переводы плагинов не нужны" (translated: "plugin translations are not needed")) — why: the owner's priority — risk: Russian users see English plugin answers
 - Ruling: Kennurken takes the post-release checks: the macOS check of the 0.5.1 fixes (1.4.10), the loader check inside Discord Canary (1.5.9) and the antivirus submissions per release (1.4.11) (owner Nanda, 2026-11-25, "Исправление macOS на кена, загрузчик и отправка тоже на кена" (translated: "the macOS fix check to Ken, the loader and the submissions to Ken too")) — why: Kennurken has a Mac and runs the releases — risk: none
 - Ruling: PRs #97, #98, #99 (1.3.9-1.3.11) and their review fixes go straight into main without a PR, the PR branches are deleted, and CI is not waited for: a failure is fixed afterwards (owner Nanda, 2026-11-25, "все фиксы сразу в main без PR, другие ветки удаляй, ci не жди фиксанем если упадет" (translated: "all fixes straight into main without a PR, delete the other branches, don't wait for CI, we'll fix it if it fails")) — why: the three tasks overlap and were reviewed together — risk: main can be red until a follow-up fix; nobody else reviewed the fixes
+- Ruling: task 1.4.11 (Microsoft Defender submissions per release) is cancelled (owner Nanda, 2026-11-26, "1 4 11 отмени // 1.4.10 и 1.5.9 перенси в phase 2 // 1.2.17 XS закрой, 2 оставь запрет" (translated: "cancel 1.4.11 // move 1.4.10 and 1.5.9 to phase 2 // 1.2.17: close XS; item 2: keep the ban")) — why: the owner's call — risk: Defender may flag the unsigned release files and nobody is assigned to report it
+- Ruling: tasks 1.4.10 and 1.5.9 move to Phase 2 as 2.4.8 and 2.2.11, same person and same "done when" (owner Nanda, 2026-11-26, "1 4 11 отмени // 1.4.10 и 1.5.9 перенси в phase 2 // 1.2.17 XS закрой, 2 оставь запрет" (translated: "cancel 1.4.11 // move 1.4.10 and 1.5.9 to phase 2 // 1.2.17: close XS; item 2: keep the ban")) — why: the owner's call — risk: the 0.5.1 macOS fixes and the loader in Discord Canary stay unverified until then
+- Ruling: XSOverlay is dropped, no local UDP or WebSocket right is added and 1.2.17 closes without it (owner Nanda, 2026-11-26, "Не делать" (translated: "do not do it"), the answer to what "XS закрой" meant) — why: the owner's call — risk: no VR notifications
+- Ruling: `fetch_with` keeps refusing credential headers, so DeepL and Kagi stay on the Google fallback and ReviewDB stays read only (owner Nanda, 2026-11-26, "1 4 11 отмени // 1.4.10 и 1.5.9 перенси в phase 2 // 1.2.17 XS закрой, 2 оставь запрет" (translated: "cancel 1.4.11 // move 1.4.10 and 1.5.9 to phase 2 // 1.2.17: close XS; item 2: keep the ban")) — why: the owner's call; the host keeps credential headers out of plugin requests — risk: parity with Vencord stays incomplete in these three places
 
 ## Phase 2. Phoenix Canary release
 

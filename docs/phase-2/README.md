@@ -6,7 +6,7 @@ The work plan from Phoenix Canary to v1.0, written 25.11.2026 at Nanda's request
 
 ## Status
 
-26.11.2026. PR #104 (ken) is in `main`: first results for 2.1.3 and 2.1.4, and the degradation plan `phoecord_loader::plan` (preparation for 2.2.7 and 2.3.7, not wired); open for Nanda: the 2.1.8 ruling input (system proxy and trusted CA work, no hook needed). Nanda: 2.1.2 done; 2.1.5 and 2.1.6 in progress (findings in [`research/phoenix-recon.md`](../research/phoenix-recon.md), GPUI lifecycle notes in [`re/gpui-lifecycle.md`](../re/gpui-lifecycle.md)); 2.2.2 and 2.2.3 have their structure, no detours yet; 2.2.1 not marked started. Part 1 of 2.2.5 (PR #103) and 2.3.1 (PR #102) is in `main`. Next for Nanda: a transport-sliced dump (closes the open half of 2.1.5), then 2.1.7. Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` are two separate types and should become one (2.2.2 with 2.2.5). Phase 1 open tasks running in parallel: 1.1.9, 1.2.14 (partial), 1.2.15 (partial), 1.2.17 (partial), 1.4.10, 1.4.11, 1.5.9.
+26.11.2026. PR #104 (ken) is in `main`: first results for 2.1.3 and 2.1.4, and the degradation plan `phoecord_loader::plan` (preparation for 2.2.7 and 2.3.7, not wired); open for Nanda: the 2.1.8 ruling input (system proxy and trusted CA work, no hook needed). Nanda: 2.1.2 done; 2.1.5 and 2.1.6 in progress (findings in [`research/phoenix-recon.md`](../research/phoenix-recon.md), GPUI lifecycle notes in [`re/gpui-lifecycle.md`](../re/gpui-lifecycle.md)); 2.2.2 and 2.2.3 have their structure, no detours yet; 2.2.1 not marked started. Part 1 of 2.2.5 (PR #103) and 2.3.1 (PR #102) is in `main`. Next for Nanda: a transport-sliced dump (closes the open half of 2.1.5), then 2.1.7. Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` are two separate types and should become one (2.2.2 with 2.2.5). Phase 1 open tasks running in parallel: 1.1.9, 1.2.14 (partial), 1.2.15 (partial). 1.2.17 is closed, 1.4.11 is cancelled, 1.4.10 is now 2.4.8 and 1.5.9 is now 2.2.11.
 
 ## What we get
 
@@ -53,7 +53,7 @@ New decisions for Phase 2 (made when the research answers them):
 | | Nanda | ken | buslan | matvee |
 |:---|:---|:---|:---|:---|
 | Area | core RE (binary, hooks), decisions, Plugin API, security, release, review and merging | proxy, transport, wire format, degradation | discovery, tooling, installer, signatures | RE support, locators, UI hooks, theme engine |
-| Tasks | 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1, 2.2.2, 2.2.3; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.4, 2.2.7; 2.3.7 | 2.1.1; 2.2.6, 2.2.8, 2.2.9, 2.2.10; 2.4.5 | 2.1.9; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
+| Tasks | 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1, 2.2.2, 2.2.3; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.8 | 2.1.1; 2.2.6, 2.2.8, 2.2.9, 2.2.10; 2.4.5 | 2.1.9; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
 
 Unassigned contributor tasks: 2.3.2 (themes), 2.3.5, 2.3.6; 2.4.1, 2.4.2, 2.4.4.
 
@@ -91,6 +91,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.2.8** 🔴 | Phoenix installer: loader placement (or injection), reconcile after Phoenix updates, uninstall | buslan | ⏳ |
 | **2.2.9** 🔴 | Every signature verified unique on two adjacent builds | buslan | ⏳ |
 | **2.2.10** 🟡 | Signature updates without rebuilding the loader; hot-fix path for TOML AOB entries | buslan | ⏳ |
+| **2.2.11** 🔴 | Loader check inside Discord Canary (was 1.5.9): one worker per start, in-memory hash equals the file's, under 20 ms, `loader connected` in the proxy log, clean uninstall | ken | ⏳ |
 
 ### Stage 2.3. UI hooks and theme engine · `0.9`
 
@@ -115,6 +116,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.4.5** 🔴 | Installer 1.0 for Windows; macOS and Linux with the network layer | buslan | ⏳ |
 | **2.4.6** 🔴 | Security audit of the CA, the proxy and the loader | Nanda | ⏳ |
 | **2.4.7** 🔴 | v1.0 release: binaries, `SHA256SUMS`, `docs/CHANGELOG.md` | Nanda | ⏳ |
+| **2.4.8** 🔴 | macOS check of the 0.5.1 fixes on a real Mac (was 1.4.10): no "damaged", Discord starts and updates through PhoeCord, clean uninstall | ken | ⏳ |
 
 Order: 2.1 → 2.2 → 2.3 → 2.4. Stage 2.1 must finish before 2.2 starts (the loading path, proxy reach and binary findings feed every hook). Stages 2.2 and 2.3 can overlap once the first hooks land (2.2.2–2.2.3). Stage 2.4 starts after 2.3.7 (degradation verified).
 

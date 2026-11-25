@@ -12,14 +12,14 @@ Visual plugins and panels are in scope, not only network ones: every 🎨 plugin
 
 | Layer | What it means | When | Count |
 |:---|:---|:---|---:|
-| 🌐 Network | Done fully in the proxy; works on today's Discord and on Phoenix | Phase 1 (stage 1.2) | 40 |
+| 🌐 Network | Done fully in the proxy; works on today's Discord and on Phoenix | Phase 1 (stage 1.2) | 39 |
 | 🌐 + 🎨 | Data part in the proxy now (or a `/phoecord` command), on-screen part with UI hooks | Phase 1 + Phase 2 | 29 |
 | 🎨 UI | Needs hooks into the client's own code | Phase 2 (from stage 2.3) | 88 |
 | 🖌️ Theme | Done by the theme engine (palette, spacing) | Phase 2 (stage 2.3) | 3 |
 | ♻️ Replaced | PhoeCord provides it natively in another form | as noted | 6 |
-| ⛔ N/A | Web-only, DevTools-only, Vencord internals or out of scope | never | 17 |
+| ⛔ N/A | Web-only, DevTools-only, Vencord internals or out of scope | never | 18 |
 
-Total: 169 Vencord plugins, 4 Vencord core modules, 10 userplugins. Phase 1 ships **69** of them, fully or in their network part.
+Total: 169 Vencord plugins, 4 Vencord core modules, 10 userplugins. Phase 1 ships **68** of them, fully or in their network part.
 
 Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine, and the 30 most-used 🎨 plugins (ROADMAP 2.4). **v1.x** = the rest of 🎨 until parity.
 
@@ -143,7 +143,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | ReplyTimestamp | Timestamp on reply previews | 🎨 UI | 2 |
 | RevealAllSpoilers | Reveal all spoilers in a message | 🎨 UI | 2 |
 | ReverseImageSearch | Reverse image search in menus | 🎨 UI | 2 |
-| ReviewDB | Reviews on user profiles | 🌐 + 🎨 | done: data — `/phoecord reviews` (read only) / 2 (profile section; writing needs a token header) |
+| ReviewDB | Reviews on user profiles | 🌐 + 🎨 | done: data — `/phoecord reviews` (read only) / 2 (profile section). Writing is out: it needs a token header, which stays refused |
 | RoleColorEverywhere | Top role colour everywhere | 🎨 UI | 2 |
 | SecretRingToneEnabler | Always the secret ringtone | 🎨 UI | 2 |
 | SendTimestamps | Send timestamps with shortcuts | 🌐 Network | done (the picker button is Phase 2) |
@@ -195,7 +195,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | WebScreenShare | Screen share options on web | ⛔ N/A | browser only |
 | WebScreenShareFixes | Screen share bitrate on web | ⛔ N/A | web only |
 | WhoReacted | Avatars of who reacted | 🌐 + 🎨 | done: data — `/phoecord reactions <channel> <message> [emoji]` / 2 (avatars) |
-| XSOverlay | Notifications to XSOverlay in VR | 🌐 Network | 1.2.17, blocked: needs a local UDP or WebSocket right |
+| XSOverlay | Notifications to XSOverlay in VR | ⛔ N/A | out of scope: needs a local UDP or WebSocket right (owner's ruling, 2026-11-26) |
 
 ## Vencord core modules
 
