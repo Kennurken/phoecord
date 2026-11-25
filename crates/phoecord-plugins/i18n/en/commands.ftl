@@ -29,3 +29,17 @@ anti_rickroll-none = No rickroll links seen yet.
 anti_rickroll-header = Messages with rickroll links: { $count }
 anti_rickroll-line-known = { $channel } message { $message }: `{ $url }` is a known rickroll.
 anti_rickroll-line-custom = { $channel } message { $message }: `{ $url }` matches one of your filters for rickrolls.
+
+# VoiceChatUtilities: `/phoecord vcu`.
+voice_chat_utilities-started = Started { $action } for { $count } member(s) of <#{ $channel }>.
+voice_chat_utilities-stopped = Stopped { $count } running job(s).
+voice_chat_utilities-idle = No voice channel action is running.
+voice_chat_utilities-status-line = { $action } in <#{ $channel }>: { $done } of { $count } done.
+voice_chat_utilities-bad-action = Unknown action `{ $action }`. Use disconnect, mute, unmute, deafen, undeafen, move, stop or status.
+voice_chat_utilities-need-channel = Give the voice channel as an id or a mention.
+voice_chat_utilities-unknown-channel = Channel `{ $channel }` is not known.
+voice_chat_utilities-not-voice = <#{ $channel }> is not a voice or stage channel.
+voice_chat_utilities-need-target = Move needs a target voice channel.
+voice_chat_utilities-bad-target = `{ $channel }` is not another voice channel of the same guild.
+voice_chat_utilities-empty = Nobody is in <#{ $channel }>.
+voice_chat_utilities-nobody = Nobody but you is in <#{ $channel }>.
