@@ -27,8 +27,8 @@
 //! Not ported: the context menu item, the header icon and tooltip, toasts as on-screen toasts
 //! (UI, Phase 2); the CONNECT and MOVE_MEMBERS permission checks (the host exposes no
 //! permissions: CONNECT is assumed, MOVE_MEMBERS is assumed missing); the choice made with the
-//! command is not written back to `followUserId`. A `/phoecord` command cannot queue gateway
-//! sends, so what a command asks for runs with the next heartbeat or voice dispatch.
+//! command is not written back to `followUserId`. The commands
+//! queue their op 4 themselves and it goes out at once.
 
 use crate::commands::{Args, FnCmd, Subcommand};
 use crate::state::{Shared, VoiceChange, VoiceStates, is_one_of};
@@ -39,18 +39,8 @@ use std::collections::HashMap;
 const PLUGIN_ID: &str = "follow_user";
 /// Gateway op 4: voice state update.
 const VOICE_STATE_UPDATE: i64 = 4;
-/// Gateway op 1: heartbeat. Runs what a command asked for when nothing else does.
-const HEARTBEAT: i64 = 1;
 /// Dispatches that carry a channel's `user_limit`.
 const CHANNEL_EVENTS: &[&str] = &["CHANNEL_CREATE", "CHANNEL_UPDATE", "CHANNEL_DELETE"];
-
-#[derive(Clone, Copy, PartialEq)]
-enum Pending {
-    /// `/phoecord follow <user>`: the script's `toggleFollow`, which joins when `executeOnFollow`.
-    OnFollow,
-    /// `/phoecord follow`: the header icon's click, always joins.
-    Manual,
-}
 
 #[derive(Default)]
 struct State {
@@ -62,7 +52,6 @@ struct State {
     deaf: bool,
     /// The target chosen with a command; `Some("")` means unfollowed. `None` = use the setting.
     target: Option<String>,
-    pending: Option<Pending>,
 }
 
 /// A user id from `123` or `<@123>` / `<@!123>`.
@@ -190,17 +179,6 @@ impl State {
         }
     }
 
-    /// Runs what a `/phoecord` command asked for.
-    fn flush(&mut self, host: &mut dyn Host) {
-        match self.pending.take() {
-            Some(Pending::OnFollow) if flag(&*host, "executeOnFollow", true) => {
-                self.trigger_now(host)
-            }
-            Some(Pending::Manual) => self.trigger_now(host),
-            _ => {}
-        }
-    }
-
     /// The script's `VOICE_STATE_UPDATES` handler for one change.
     fn voice_change(&mut self, host: &mut dyn Host, change: VoiceChange) {
         if flag(&*host, "onlyManualTrigger", false) {
@@ -283,13 +261,15 @@ impl FollowUser {
                 let mut st = on.lock();
                 match args.get("user").map(str::trim).filter(|s| !s.is_empty()) {
                     None => {
-                        st.pending = Some(Pending::Manual);
+                        st.trigger_now(host);
                         host.t("follow_user-trigger", &[])
                     }
                     Some(raw) => match parse_user(raw) {
                         Some(id) => {
                             st.target = Some(id.to_string());
-                            st.pending = Some(Pending::OnFollow);
+                            if flag(&*host, "executeOnFollow", true) {
+                                st.trigger_now(host);
+                            }
                             host.t("follow_user-following", &[("id", &id.to_string())])
                         }
                         None => host.t("follow_user-bad-user", &[("user", raw)]),
@@ -311,7 +291,6 @@ impl FollowUser {
             move |host, _: &Args| {
                 let mut st = off.lock();
                 st.target = Some(String::new());
-                st.pending = None;
                 host.t("follow_user-unfollowed", &[])
             },
         )
@@ -338,7 +317,7 @@ impl Plugin for FollowUser {
     fn wants(&self, event: &EventKind) -> bool {
         match event {
             EventKind::Dispatch { name } => wanted(name),
-            EventKind::Send { op } => *op == VOICE_STATE_UPDATE || *op == HEARTBEAT,
+            EventKind::Send { op } => *op == VOICE_STATE_UPDATE,
             _ => false,
         }
     }
@@ -357,7 +336,6 @@ impl Plugin for FollowUser {
                 if let Some(change) = change {
                     st.voice_change(host, change);
                 }
-                st.flush(host);
             }
             Event::Send {
                 op: VOICE_STATE_UPDATE,
@@ -368,9 +346,7 @@ impl Plugin for FollowUser {
                     st.mute = d.get("self_mute").and_then(Val::as_bool) == Some(true);
                     st.deaf = d.get("self_deaf").and_then(Val::as_bool) == Some(true);
                 }
-                st.flush(host);
             }
-            Event::Send { op: HEARTBEAT, .. } => self.state.lock().flush(host),
             _ => {}
         }
         Verdict::Pass
@@ -525,17 +501,29 @@ mod tests {
         };
         voice(&chain, &mut h2, 8, Some(20));
         cmds[0].run(&mut h2, &args(Some("<@!8>")));
-        assert!(h2.sent.is_empty(), "commands cannot queue sends themselves");
-        chain.send(&mut h2, 1, &mut j(r#"{"op":1,"d":3}"#));
-        assert!(joined(&h2, "20"));
+        assert!(joined(&h2, "20"), "the command queues its op 4 itself");
+        assert_eq!(h2.sent.len(), 1);
         // Cleared: the target no longer counts, even though the setting names one.
         cmds[1].run(&mut h, &args(None));
         voice(&chain, &mut h, BOB, Some(20));
         assert!(h.sent.is_empty());
         // Manual trigger with no user, nothing followed: nothing happens.
         cmds[0].run(&mut h, &args(None));
-        chain.send(&mut h, 1, &mut j(r#"{"op":1,"d":3}"#));
         assert!(h.sent.is_empty());
+        // Manual trigger with a target in voice joins at once, even with executeOnFollow off.
+        let mut off = Rec {
+            self_id: Some(ME),
+            ..Rec::default()
+        }
+        .with("executeOnFollow", Val::Bool(false));
+        voice(&chain, &mut off, 8, Some(20));
+        cmds[0].run(&mut off, &args(Some("8")));
+        assert!(
+            off.sent.is_empty(),
+            "executeOnFollow off: following does not join"
+        );
+        cmds[0].run(&mut off, &args(None));
+        assert!(joined(&off, "20"));
     }
 
     #[test]
