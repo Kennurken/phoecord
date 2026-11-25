@@ -38,7 +38,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | BetterRoleContext | Copy colour, edit role, view icon in role menus | 🎨 UI | 2 |
 | BetterRoleDot | Copy role colour on click; dot and colour together | 🎨 UI | 2 |
 | BetterSearch | Extra message search options | 🎨 UI | 2 |
-| BetterSessions | Exact timestamps and names for sessions, new-session alerts | 🌐 + 🎨 | 1.2.16 / 2 |
+| BetterSessions | Exact timestamps and names for sessions, new-session alerts | 🌐 + 🎨 | done: data — new-session alerts, `/phoecord sessions` / 2 (names, badge, icons) |
 | BetterSettings | Faster settings menu | 🎨 UI | 2 |
 | BetterUploadButton | Single-click upload, right-click menu | 🎨 UI | 2 |
 | BetterYouTubeEmbeds | No ads and no UMG blocks in YouTube embeds | 🎨 UI | 2 |
@@ -65,7 +65,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | DisableCallIdle | Never kicked from idle DM calls | 🎨 UI | 2 |
 | DisableDeepLinks | Stop web deep links | ⛔ N/A | web only |
 | DontRoundMyTimestamps | Round relative timestamps down | 🎨 UI | 2 |
-| Experiments | Discord experiments and dev features | 🌐 + 🎨 | 1.2.18 / 2 |
+| Experiments | Discord experiments and dev features | 🌐 + 🎨 | done: data — `/phoecord experiments`; optional STAFF flag `enableIsStaff` (off, ban risk) / 2 (dev menu, settings page) |
 | ExpressionManager | Clone, edit, delete emoji and stickers | 🎨 UI | 2 |
 | F8Break | Pause on F8 with DevTools | ⛔ N/A | DevTools only |
 | FakeNitro | Fake emoji and stickers, Nitro themes, Nitro stream quality | 🌐 Network | done: emoji; stickers, stream 1.2.5 |
@@ -87,22 +87,22 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | ImageFilename | Image file name on hover | 🎨 UI | 2 |
 | ImageLink | Never hide image links | 🎨 UI | 2 (the client decides from the embed type; no wire field keeps the link) |
 | ImageZoom | Scroll to zoom images | 🎨 UI | 2 |
-| ImplicitRelationships | Implicit relationships in Friends | 🌐 + 🎨 | 1.2.16 / 2 |
+| ImplicitRelationships | Implicit relationships in Friends | 🌐 + 🎨 | done: data — `/phoecord implicit` / 2 (Friends tab) |
 | IrcColors | Unique username colours | 🎨 UI | 2 |
 | JumpToTop | Jump to the first message | 🎨 UI | 2 |
 | KeepCurrentChannel | Return to the last channel after reload | 🎨 UI | 2 |
 | LoadingQuotes | Custom loading quotes | 🎨 UI | 2 |
-| MemberCount | Online, total and voice member counts | 🌐 + 🎨 | 1.2.16 / 2 |
+| MemberCount | Online, total and voice member counts | 🌐 + 🎨 | done: data — `/phoecord members` / 2 (counters in lists) |
 | MentionAvatars | Avatars and role icons in mentions | 🎨 UI | 2 |
 | MessageClickActions | Click to delete, double-click to edit or reply | 🎨 UI | 2 |
-| MessageLatency | Mark messages that were slow to send | 🌐 + 🎨 | 1.2.16 / 2 |
-| MessageLinkEmbeds | Previews of linked messages | 🌐 + 🎨 | 1.2.16 / 2 |
+| MessageLatency | Mark messages that were slow to send | 🌐 + 🎨 | done: data — `/phoecord latency` / 2 (indicator) |
+| MessageLinkEmbeds | Previews of linked messages | 🌐 + 🎨 | done: data — a rich embed per linked message, `/phoecord linkembeds` / 2 (message component) |
 | MessageLogger | Keep deleted and edited messages | 🌐 + 🎨 | done: data / 2.3 |
 | MoreQuickReactions | More quick reactions | 🎨 UI | 2 |
 | MusicRichPresence | Last.fm and ListenBrainz Rich Presence | 🌐 Network | 1.2.13 |
 | MutedServersActivityBadge | Activity badge on muted servers | 🎨 UI | 2 |
-| MutualGroupDMs | Mutual group DMs on profiles | 🌐 + 🎨 | 1.2.16 / 2 |
-| NewGuildSettings | Auto-mute and set up servers you join | 🌐 Network | 1.2.16 |
+| MutualGroupDMs | Mutual group DMs on profiles | 🌐 + 🎨 | done: data — `/phoecord mutualgdms <user>` / 2 (profile tab) |
+| NewGuildSettings | Auto-mute and set up servers you join | 🌐 Network | done: new servers get your mute/suppress settings, `/phoecord newguildsettings` |
 | NoBlockedMessages | Hide blocked users' messages completely | 🌐 Network | done (history filtering is opt-in: `filter_history`) |
 | NoDevtoolsWarning | Hide the DevTools warning | ⛔ N/A | DevTools only |
 | NoF1 | Disable the F1 help key | 🎨 UI | 2 |
@@ -122,20 +122,20 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | oneko | A cat that follows the mouse | 🎨 UI | 2 |
 | OnePingPerDM | One ping per DM sender until read | 🎨 UI | 2 |
 | OpenInApp | Open links in their apps | 🎨 UI | 2 |
-| OverrideForumDefaults | Your own forum layout and sort | 🌐 Network | 1.2.16 |
-| PauseInvitesForever | Pause invites indefinitely | 🌐 + 🎨 | 1.2.16 / 2 |
+| OverrideForumDefaults | Your own forum layout and sort | 🌐 Network | done: default forum layout and sort rewritten in payloads |
+| PauseInvitesForever | Pause invites indefinitely | 🌐 + 🎨 | done: data — `/phoecord pauseinvites` / 2 (invite dialog link) |
 | PermissionFreeWill | No client-side permission limits | 🎨 UI | 2 |
 | PermissionsViewer | View user, channel and role permissions | 🎨 UI | 2 |
 | petpet | /petpet headpat GIF command | 🌐 Network | 1.2.12 |
 | PictureInPicture | Picture-in-picture for videos | 🎨 UI | 2 |
 | PinDMs | Pin DMs to the top | 🎨 UI | 2 |
 | PlainFolderIcon | Plain folder icons | 🎨 UI | 2 |
-| PlatformIndicators | Desktop, mobile, web indicators | 🌐 + 🎨 | 1.2.16 / 2 |
+| PlatformIndicators | Desktop, mobile, web indicators | 🌐 + 🎨 | done: data — `/phoecord platforms` / 2 (icons) |
 | PreviewMessage | Preview a message before sending | 🎨 UI | 2 |
 | QuickMention | Quick mention button | 🎨 UI | 2 |
 | QuickReply | Reply and edit with keybinds | 🎨 UI | 2 |
 | ReactErrorDecoder | Readable React errors | ⛔ N/A | React only |
-| ReadAllNotificationsButton | Read all notifications at once | 🌐 + 🎨 | 1.2.16 / 2 |
+| ReadAllNotificationsButton | Read all notifications at once | 🌐 + 🎨 | done: data — `/phoecord readall` / 2 (button) |
 | RelationshipNotifier | Notify when someone removes you | 🌐 Network | done |
 | ReplaceGoogleSearch | Other search engines in menus | 🎨 UI | 2 |
 | ReplyTimestamp | Timestamp on reply previews | 🎨 UI | 2 |
@@ -150,8 +150,8 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | ShikiCodeblocks | VS Code-style code blocks | 🎨 UI | 2 |
 | ShowAllMessageButtons | Always show all message buttons | 🎨 UI | 2 |
 | ShowConnections | Connected accounts in popouts | 🎨 UI | 2 |
-| ShowHiddenChannels | Show channels you cannot open | 🌐 + 🎨 | 1.2.18 / 2 |
-| ShowHiddenThings | Show hidden and moderator-only things | 🌐 + 🎨 | 1.2.18 / 2 |
+| ShowHiddenChannels | Show channels you cannot open | 🌐 + 🎨 | done: data — `/phoecord hidden`; optional READY rewrite `rewrite_payload` (off, ban risk) / 2 (lock icon, hidden page) |
+| ShowHiddenThings | Show hidden and moderator-only things | 🌐 + 🎨 | done: data — timeouts and paused invites, `/phoecord hiddenthings` / 2 (icons, mod view) |
 | ShowMeYourName | Usernames next to nicknames | 🎨 UI | 2 |
 | ShowTimeoutDuration | How long a timeout lasts | 🎨 UI | 2 |
 | SilentMessageToggle | Button for silent messages | 🌐 + 🎨 | done: data and `/phoecord silent` / 2 (chat bar button) |
@@ -167,17 +167,17 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | TextReplace | Replace text in your messages by rules | 🌐 Network | done |
 | ThemeAttributes | Data attributes for CSS themes | ♻️ Replaced | theme engine (no CSS in Phoenix) |
 | Translate | Translate messages | 🌐 + 🎨 | 1.2.17 / 2 |
-| TypingIndicator | Who is typing, per channel | 🌐 + 🎨 | 1.2.16 / 2 |
+| TypingIndicator | Who is typing, per channel | 🌐 + 🎨 | done: data — `/phoecord typing` / 2 (dots and avatars) |
 | TypingTweaks | Avatars and role colours in typing | 🎨 UI | 2 |
 | Unindent | Trim indentation in code blocks | 🌐 Network | 1.2.2 |
 | UnlockedAvatarZoom | More zoom when cropping avatars | 🎨 UI | 2 |
 | UnsuppressEmbeds | Unsuppress embeds | 🌐 + 🎨 | 1.2.12 / 2 |
 | UserMessagesPronouns | Pronouns in chat | 🎨 UI | 2 |
-| UserVoiceShow | Show who is in voice | 🌐 + 🎨 | 1.2.16 / 2 |
+| UserVoiceShow | Show who is in voice | 🌐 + 🎨 | done: data — `/phoecord voice` / 2 (badge, profile section) |
 | USRBG | Community banners without Nitro | 🌐 Network | 1.2.14 |
-| ValidReply | Fix 'message could not be loaded' in replies | 🌐 Network | 1.2.16 |
-| ValidUser | Fix @unknown-user mentions | 🌐 Network | 1.2.16 |
-| VcNarrator | Announce voice joins and leaves | 🌐 + 🎨 | 1.2.16 / 2 |
+| ValidReply | Fix 'message could not be loaded' in replies | 🌐 Network | done: missing `referenced_message` filled from the page or one lookup |
+| ValidUser | Fix @unknown-user mentions | 🌐 Network | done: unknown mentioned users looked up (`GET /users/{id}`) and added to the message |
+| VcNarrator | Announce voice joins and leaves | 🌐 + 🎨 | done: data — desktop notifications, no speech / 2 (TTS, test button) |
 | VencordToolbox | Quick actions button | ♻️ Replaced | PhoeCord toolbox in the client (2.3) |
 | VesktopPatches | Vesktop patches | ⛔ N/A | Vesktop only |
 | ViewIcons | Click avatars and banners to view them | 🎨 UI | 2 |
@@ -192,7 +192,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | WebRichPresence (arRPC) | Rich Presence on web | ⛔ N/A | web only |
 | WebScreenShare | Screen share options on web | ⛔ N/A | browser only |
 | WebScreenShareFixes | Screen share bitrate on web | ⛔ N/A | web only |
-| WhoReacted | Avatars of who reacted | 🌐 + 🎨 | 1.2.16 / 2 |
+| WhoReacted | Avatars of who reacted | 🌐 + 🎨 | done: data — `/phoecord reactions <channel> <message> [emoji]` / 2 (avatars) |
 | XSOverlay | Notifications to XSOverlay in VR | 🌐 Network | 1.2.17 |
 
 ## Vencord core modules

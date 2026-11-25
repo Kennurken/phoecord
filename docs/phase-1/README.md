@@ -81,9 +81,9 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **1.2.13** 🟡 | Presence: CustomRPC, MusicRichPresence, IgnoreActivities, AutoDNDWhilePlaying, CustomIdle | anyone | ⏳ |
 | **1.2.14** 🟡 | Profiles: NoProfileThemes, FakeProfileThemes, USRBG, Decor (data part) | anyone | ⏳ |
 | **1.2.15** 🟡 | External services: Dearrow, GifProviderSwitcher, FixImagesQuality | anyone | ⏳ |
-| **1.2.16** 🟡 | Data parts of UI plugins: ValidUser, ValidReply, NewGuildSettings, OverrideForumDefaults, MessageLinkEmbeds, PlatformIndicators, TypingIndicator, MemberCount, MutualGroupDMs, WhoReacted, and the other 🌐 + 🎨 rows of `docs/PLUGINS.md` marked 1.2.16 | Kennurken | ⏳ |
+| **1.2.16** 🟡 | Data parts of UI plugins: ValidUser, ValidReply, NewGuildSettings, OverrideForumDefaults, MessageLinkEmbeds, PlatformIndicators, TypingIndicator, MemberCount, MutualGroupDMs, WhoReacted, and the other 🌐 + 🎨 rows of `docs/PLUGINS.md` marked 1.2.16 | Kennurken | 🔎 in review (17 data parts, `/phoecord` commands; synthetic payload tests, no live account check yet) |
 | **1.2.17** 🟡 | Translate, ReviewDB, VoiceMessages (data part), XSOverlay | anyone | ⏳ |
-| **1.2.18** 🟢 | ShowHiddenChannels, ShowHiddenThings, Experiments (data part) | Kennurken | ⏳ |
+| **1.2.18** 🟢 | ShowHiddenChannels, ShowHiddenThings, Experiments (data part) | Kennurken | 🔎 in review (3 data parts; READY rewrites behind extra settings, off) |
 | **1.2.19** 🟡 | Owner's userplugins: SilentDelete, FakeDeafen, FakeDeafenDetector, localDevBadges, FollowUser, VoiceChatUtilities, rmcord, AntiRickroll (network parts) | Nanda | ⏳ |
 | **1.3.1** 🔴 | `wit/phoecord.wit` | Nanda | ✅ 23.11, PR #24 |
 | **1.3.2** 🔴 | WASM backend for `Chain` on wasmtime | Nanda | ✅ 23.11, PR #24 |

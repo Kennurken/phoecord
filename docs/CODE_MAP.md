@@ -112,7 +112,28 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/send_timestamps.rs` | SendTimestamps: `` `12:34` `` → `<t:unix:t>`; local offset from the `time` crate, `utc_offset_minutes` fallback on Unix | DST: the next occurrence is computed per calendar day |
 | `src/anonymise_file_names.rs` | AnonymiseFileNames: renames `files[].filename` in `POST /channels/{id}/attachments` and the matching `attachments[].filename` in the message | Files inside a multipart message body are not renamed (the proxy never rewrites multipart) |
 | `src/silent_message_toggle.rs` | SilentMessageToggle: `flags \|= 1<<12` on outgoing messages; `/phoecord silent [on\|off]` | The toggle is in memory and starts off |
-| `src/testutil.rs` | Test helpers shared by the plugin tests | |
+| `src/valid_user.rs` | ValidUser: adds unknown mentioned users to `mentions` via `GET /users/{id}`; per-message and per-minute lookup budgets | Off by default |
+| `src/valid_reply.rs` | ValidReply: fills a missing `referenced_message` from the history page or `GET /channels/{id}/messages?around=` | Off by default |
+| `src/message_link_embeds.rs` | MessageLinkEmbeds: attaches a rich embed per linked message; `/phoecord linkembeds` | Off by default |
+| `src/new_guild_settings.rs` | NewGuildSettings: one `PATCH /users/@me/guilds/{id}/settings` for a server joined after READY; `/phoecord newguildsettings` | Writes to Discord: once per server, tracked in kv |
+| `src/override_forum_defaults.rs` | OverrideForumDefaults: rewrites `default_forum_layout` / `default_sort_order` in gateway and REST payloads | Off by default |
+| `src/pause_invites_forever.rs` | PauseInvitesForever: `/phoecord pauseinvites` adds/removes `INVITES_DISABLED` in guild `features` | Writes to Discord only on the command |
+| `src/read_all_notifications.rs` | ReadAllNotificationsButton: tracks read states; `/phoecord readall` acks up to 100 channels in one `ack-bulk` | Only acks channels that already have a read state |
+| `src/platform_indicators.rs` | PlatformIndicators: `client_status` per user from presences; `/phoecord platforms` | Read-only: always returns `Pass` |
+| `src/typing_indicator.rs` | TypingIndicator: TYPING_START per channel with 10 s expiry; `/phoecord typing` | Read-only: always returns `Pass` |
+| `src/user_voice_show.rs` | UserVoiceShow: voice states by server and channel; `/phoecord voice` | Read-only: always returns `Pass` |
+| `src/vc_narrator.rs` | VcNarrator: `notify` on joins, leaves, moves, mute/deafen in your voice channel; Vencord message templates | Read-only: always returns `Pass` |
+| `src/member_count.rs` | MemberCount: total, online and voice counts per server; `/phoecord members` | Read-only: always returns `Pass` |
+| `src/better_sessions.rs` | BetterSessions: `GET /auth/sessions` on READY, command and an interval checked on traffic; known ids in kv; `/phoecord sessions` | Read-only: always returns `Pass` |
+| `src/implicit_relationships.rs` | ImplicitRelationships: `GET /users/@me/affinities/users` minus relationships; `/phoecord implicit` | Read-only: always returns `Pass` |
+| `src/mutual_group_dms.rs` | MutualGroupDMs: group DMs (type 3) and recipients from READY and CHANNEL_*; `/phoecord mutualgdms` | Read-only: always returns `Pass` |
+| `src/who_reacted.rs` | WhoReacted: `/phoecord reactions` lists reactions or up to 100 reactors via REST | Read-only: always returns `Pass` |
+| `src/message_latency.rs` | MessageLatency: nonce vs id snowflake delay per MESSAGE_CREATE (Vencord's rules); `/phoecord latency` | Read-only: always returns `Pass` |
+| `src/show_hidden_channels.rs` | ShowHiddenChannels: computes VIEW_CHANNEL from roles and overwrites; `/phoecord hidden`; optional READY rewrite | `rewrite_payload` and its READY rewrite stay off by default (ban-prone) |
+| `src/show_hidden_things.rs` | ShowHiddenThings: member timeouts, paused invites and DMs, community features; `/phoecord hiddenthings` | Read-only: always returns `Pass` |
+| `src/experiments.rs` | Experiments: experiment assignments from READY and `GET /experiments`; `/phoecord experiments`; optional STAFF flag | `enableIsStaff` stays off by default (ban-prone) |
+| `src/state.rs` | Shared gateway-state trackers for data parts: `Shared<T>`, `Guilds`, `VoiceStates`/`VoiceChange`, bounded `Users` and `Ring<T>` | Trackers keep ids, names and counts only |
+| `src/testutil.rs` | Test helpers shared by the plugin tests: `Cfg`, recording `Rec` with scripted `rest`, `j` | |
 | `src/game_activity_toggle.rs` | GameActivityToggle: removes "Playing" activities from op 3 presence updates | The proxy re-sends the last presence on toggle |
 | `src/relationship_notifier.rs` | RelationshipNotifier: `notify` on unfriend, server and group removal; your own actions in the last 60 s are ignored | Own-action memory must match the REST routes |
 | `src/fake_nitro.rs` | FakeNitro (emoji): rewrites unusable emoji in outgoing messages as CDN links; `premium_type` 2 in `READY` only for tier 0 | Learns the real tier from `READY`; needs Ctrl+R after enabling |
