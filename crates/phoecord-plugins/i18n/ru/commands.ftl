@@ -23,3 +23,9 @@ follow_user-bad-user = `{ $user }` не похоже на id или упомин
 fake_deafen_detector-none = Никого не поймали на разговоре при отметке «микрофон выключен» или «звук выключен».
 fake_deafen_detector-header = Пойманы на разговоре при отметке «микрофон выключен» или «звук выключен»: { $count }
 fake_deafen_detector-line = { $user }: пойман на разговоре { $count } раз при отметке «выключен микрофон/звук» (первый раз: { $first }, последний: { $last }), скорее всего притворяется
+
+# AntiRickroll: `/phoecord rickrolls`.
+anti_rickroll-none = Рикроллов в ссылках пока не замечено.
+anti_rickroll-header = Сообщения со ссылками на рикролл: { $count }
+anti_rickroll-line-known = { $channel } сообщение { $message }: `{ $url }` это известный рикролл.
+anti_rickroll-line-custom = { $channel } сообщение { $message }: `{ $url }` подходит под один из ваших фильтров на рикроллы.
