@@ -151,13 +151,15 @@ fn finish(l: &Localizer, s: &Store, c: Candidate, author: &str, yes: bool) -> Re
         s.discard(&c);
         return fail(l, &e);
     }
+    // An update keeps the plugin on or off as it was.
+    let key = if c.replaces.is_some() {
+        "cli-update-done"
+    } else {
+        "cli-install-done"
+    };
     println!(
         "{}",
-        tf(
-            l,
-            "cli-install-done",
-            &[("name", &m.name), ("version", &m.version)]
-        )
+        tf(l, key, &[("name", &m.name), ("version", &m.version)])
     );
     Ok(())
 }

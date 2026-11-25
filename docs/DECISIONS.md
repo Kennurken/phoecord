@@ -6,7 +6,7 @@ in its plan's `ai/ledger.md` first, then rerun the script.
 
 ## Phase 1. Before the Phoenix Canary public beta
 
-Source: `docs/phase-1/ai/ledger.md`, decisions: 45.
+Source: `docs/phase-1/ai/ledger.md`, decisions: 46.
 
 - Ruling: the repository is public on Nanda070's account (owner Nanda, 2026-11-23, "Public" (translated)) — why: open-source MIT project — risk: everything pushed is published at once; secrets rules in AGENTS.md and SECRETS.md
 - Ruling: the copyright holder is Cheterin Group, next to the retained upstream MIT copyright line (owner Nanda, 2026-11-23, "Copyright in LICENSE" (translated)) — why: project ownership — risk: none
@@ -53,3 +53,4 @@ Source: `docs/phase-1/ai/ledger.md`, decisions: 45.
 - Ruling: PhoeCord gets its own plugin dev tools: a dev console (1.3.9), fast hot reload (1.3.10) and a plugin catalog (1.3.11), written from scratch; sunbird's code is not copied because it has no license (owner Nanda, 2026-11-25, "копируем это один в один" (translated: "copy this one to one"), narrowed by the coordinator to the features, since copying unlicensed code would infringe its authors' copyright) — why: plugin authors need a fast loop and users a place to find plugins — risk: the catalog is a supply-chain point, so entries are reviewed and hashed
 - Ruling: the remaining plugins' notifications and `/phoecord` answers are not translated; only the plugins already translated in 1.7.4 speak Russian (owner Nanda, 2026-11-25, "переводы плагинов не нужны" (translated: "plugin translations are not needed")) — why: the owner's priority — risk: Russian users see English plugin answers
 - Ruling: Kennurken takes the post-release checks: the macOS check of the 0.5.1 fixes (1.4.10), the loader check inside Discord Canary (1.5.9) and the antivirus submissions per release (1.4.11) (owner Nanda, 2026-11-25, "Исправление macOS на кена, загрузчик и отправка тоже на кена" (translated: "the macOS fix check to Ken, the loader and the submissions to Ken too")) — why: Kennurken has a Mac and runs the releases — risk: none
+- Ruling: PRs #97, #98, #99 (1.3.9-1.3.11) and their review fixes go straight into main without a PR, the PR branches are deleted, and CI is not waited for: a failure is fixed afterwards (owner Nanda, 2026-11-25, "все фиксы сразу в main без PR, другие ветки удаляй, ci не жди фиксанем если упадет" (translated: "all fixes straight into main without a PR, delete the other branches, don't wait for CI, we'll fix it if it fails")) — why: the three tasks overlap and were reviewed together — risk: main can be red until a follow-up fix; nobody else reviewed the fixes

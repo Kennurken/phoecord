@@ -117,3 +117,19 @@ fn a_notified_sync_reloads_loads_and_unloads_without_waiting_for_an_event() {
     assert!(logs.iter().any(|l| l.contains("unloaded")), "{logs:?}");
     assert!(!chain.ids().contains(&"fresh".to_string()));
 }
+
+/// A root reached through a symlink: macOS reports the real path (`/private/var/...`), and the
+/// callback must still see paths under the root as given.
+#[cfg(unix)]
+#[test]
+fn a_root_behind_a_symlink_still_reports_its_changes() {
+    let real = TempDir::new();
+    let dir = write_package(&real.0, "a", 1, "");
+    let link_parent = TempDir::new();
+    let link = link_parent.0.join("plugins");
+    std::os::unix::fs::symlink(&real.0, &link).unwrap();
+    let (_w, rx) = watch(&link, Duration::from_millis(30));
+    std::fs::write(dir.join("plugin.toml"), "id = \"a\"\n").unwrap();
+    let got = next(&rx, 3000).expect("change reported");
+    assert!(got.iter().all(|p| p.starts_with(&link)), "{got:?}");
+}

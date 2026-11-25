@@ -618,11 +618,23 @@ impl PackageSet {
             ));
         }
         self.failed.remove(id);
-        if chain.swap_dynamic(Arc::new(plugin)) {
+        let plugin = self.adopt(id, plugin);
+        if chain.swap_dynamic(plugin) {
             Ok(())
         } else {
+            self.loaded.remove(id);
             Err(format!("{id} was unloaded meanwhile"))
         }
+    }
+
+    /// Keep `plugin` as the instance of folder `name` that [`PackageSet::sync`] reloads. Its own
+    /// lazy check is turned off: a reload on a traffic thread would leave `sync` with nothing to
+    /// report, and the transport would not replay gateway state for the new subscriptions.
+    fn adopt(&mut self, name: &str, plugin: PackagePlugin) -> Arc<PackagePlugin> {
+        plugin.set_check_interval(Duration::MAX);
+        let plugin = Arc::new(plugin);
+        self.loaded.insert(name.to_string(), plugin.clone());
+        plugin
     }
 
     /// Load new packages and drop removed ones. Returns the lines to log, empty when nothing
@@ -661,9 +673,7 @@ impl PackageSet {
                 Ok(p) => {
                     self.failed.remove(name);
                     logs.push(format!("plugin {name} loaded from {}", dir.display()));
-                    let p = Arc::new(p);
-                    self.loaded.insert(name.clone(), p.clone());
-                    next.push(p);
+                    next.push(self.adopt(name, p));
                 }
                 Err(e) => {
                     self.failed.insert(name.clone(), now);

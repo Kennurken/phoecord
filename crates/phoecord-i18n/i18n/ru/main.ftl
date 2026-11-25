@@ -541,6 +541,7 @@ cli-install-confirm = Поставить { $name }? [y/N]
 cli-install-declined = Не установлено.
 cli-install-needs-yes = Здесь нет терминала, чтобы спросить. Прочтите права выше и запустите команду снова с --yes.
 cli-install-done = { $name } { $version } установлен и включён. Запущенный PhoeCord подхватит его сам.
+cli-update-done = { $name } обновлён до { $version }; его данные и состояние вкл/выкл сохранены. Запущенный PhoeCord подхватит его сам.
 cli-update-none = Всё, что установлено из каталога, уже новое.
 cli-update-available = { $id }: { $from } -> { $to }
 cli-remove-done = { $id } удалён.

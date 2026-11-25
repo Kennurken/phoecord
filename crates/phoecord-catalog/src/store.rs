@@ -397,18 +397,32 @@ impl Store {
         let _ = std::fs::remove_dir(&self.staging);
     }
 
-    /// Move a staged package into `plugins/<id>` (replacing an older one) and switch it on.
+    /// Move a staged package into `plugins/<id>`, replacing an older one. A first install is
+    /// switched on; an update keeps the plugin's data (`kv.json` and any other file the plugin
+    /// keeps in its folder) and whether it was on or off.
     pub fn commit(&self, c: &Candidate) -> Result<String, Error> {
         let id = c.id().to_string();
         std::fs::create_dir_all(&self.root)?;
         let target = self.root.join(&id);
         let work = c.dir.parent().ok_or(Error::NotAPackage)?.to_path_buf();
-        if target.exists() {
+        let update = target.exists();
+        if update {
+            // The plugin's own files go into the new package first, and back if anything fails.
+            let carried = carry_data(&target, &c.dir)?;
+            let undo = |to: &Path| {
+                for name in &carried {
+                    let _ = std::fs::rename(c.dir.join(name), to.join(name));
+                }
+            };
             // Move the old one aside first so the folder is never half old, half new.
             let old = work.join("previous");
-            std::fs::rename(&target, &old)?;
+            if let Err(e) = std::fs::rename(&target, &old) {
+                undo(&target);
+                return Err(e.into());
+            }
             if let Err(e) = std::fs::rename(&c.dir, &target) {
                 let _ = std::fs::rename(&old, &target);
+                undo(&target);
                 return Err(e.into());
             }
         } else {
@@ -419,7 +433,9 @@ impl Store {
         if let Some(mark) = &c.from_catalog {
             mark.write(&target)?;
         }
-        self.set_enabled(&id, true)?;
+        if !update {
+            self.set_enabled(&id, true)?;
+        }
         Ok(id)
     }
 
@@ -449,6 +465,31 @@ impl Store {
         cfg.set_enabled(id, on).map_err(io)?;
         cfg.save(&self.config).map_err(io)
     }
+}
+
+/// Is `name` (a top-level entry of a package folder) part of the package, not the plugin's data?
+fn is_package_part(name: &str) -> bool {
+    KEEP.contains(&name) || name == "i18n" || name == crate::index::MARK_FILE
+}
+
+/// Move every entry of `from` that is plugin data (not part of the package) into `to`. Returns
+/// the names moved; on an error the ones already moved are put back.
+fn carry_data(from: &Path, to: &Path) -> Result<Vec<std::ffi::OsString>, Error> {
+    let mut moved = Vec::new();
+    for entry in std::fs::read_dir(from)? {
+        let name = entry?.file_name();
+        if name.to_str().is_some_and(is_package_part) || to.join(&name).exists() {
+            continue;
+        }
+        if let Err(e) = std::fs::rename(from.join(&name), to.join(&name)) {
+            for n in &moved {
+                let _ = std::fs::rename(to.join(n), from.join(n));
+            }
+            return Err(e.into());
+        }
+        moved.push(name);
+    }
+    Ok(moved)
 }
 
 /// Is `url` an `https://` link with a host?
@@ -551,6 +592,31 @@ fetch = ["api.example.com"]
         s.commit(&c).unwrap();
         let wasm = std::fs::read(s.root.join("hello_wasm/plugin.wasm")).unwrap();
         assert_eq!(wasm, b"v2");
+    }
+
+    #[test]
+    fn an_update_keeps_the_plugins_data_and_its_off_switch() {
+        let t = tempfile::tempdir().unwrap();
+        let s = store(t.path());
+        let z = zip_of(&[("plugin.toml", TOML.as_bytes()), ("plugin.wasm", b"v1")]);
+        s.commit(&s.stage_zip(&z, &ok).unwrap()).unwrap();
+        let dir = s.root.join("hello_wasm");
+        std::fs::write(dir.join("kv.json"), br#"{"k":1}"#).unwrap();
+        std::fs::create_dir(dir.join("cache")).unwrap();
+        std::fs::write(dir.join("cache/x"), b"x").unwrap();
+        s.set_enabled("hello_wasm", false).unwrap();
+
+        let newer = TOML.replace("1.2.0", "1.3.0");
+        let z = zip_of(&[("plugin.toml", newer.as_bytes()), ("plugin.wasm", b"v2")]);
+        s.commit(&s.stage_zip(&z, &ok).unwrap()).unwrap();
+        assert_eq!(std::fs::read(dir.join("plugin.wasm")).unwrap(), b"v2");
+        assert_eq!(std::fs::read(dir.join("kv.json")).unwrap(), br#"{"k":1}"#);
+        assert!(dir.join("cache/x").is_file());
+        assert!(
+            !Config::load(&s.config).unwrap().is_enabled("hello_wasm"),
+            "an update does not switch a plugin back on"
+        );
+        assert!(!s.staging.exists());
     }
 
     #[test]

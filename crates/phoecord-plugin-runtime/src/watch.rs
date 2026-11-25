@@ -44,6 +44,14 @@ impl DebouncedWatcher {
             .watch(root, RecursiveMode::Recursive)
             .map_err(|e| format!("{}: {e}", root.display()))?;
         let flag = healthy.clone();
+        // Some systems report the real path (macOS FSEvents: `/private/var/...` for `/var/...`).
+        // Paths are handed on under `root` as the caller wrote it, so `relevant` can compare them.
+        let given = root.to_path_buf();
+        let real = root.canonicalize().unwrap_or_else(|_| given.clone());
+        let as_given = move |p: PathBuf| match p.strip_prefix(&real) {
+            Ok(rel) if real != given => given.join(rel),
+            _ => p,
+        };
         std::thread::Builder::new()
             .name("phoecord-fs-watch".into())
             .spawn(move || {
@@ -53,7 +61,9 @@ impl DebouncedWatcher {
                     let mut take = |res: Result<notify::Event, notify::Error>| match res {
                         Ok(ev) => {
                             if !matches!(ev.kind, EventKind::Access(_)) {
-                                paths.extend(ev.paths.into_iter().filter(|p| relevant(p)));
+                                paths.extend(
+                                    ev.paths.into_iter().map(&as_given).filter(|p| relevant(p)),
+                                );
                             }
                         }
                         Err(_) => flag.store(false, Ordering::SeqCst),

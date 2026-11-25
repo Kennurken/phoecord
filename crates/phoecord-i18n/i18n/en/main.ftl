@@ -536,6 +536,7 @@ cli-install-confirm = Install { $name }? [y/N]
 cli-install-declined = Not installed.
 cli-install-needs-yes = There is no terminal to ask in. Read the rights above, then run the command again with --yes.
 cli-install-done = Installed { $name } { $version } and switched it on. A running PhoeCord picks it up by itself.
+cli-update-done = Updated { $name } to { $version }; its data and its on/off switch are kept. A running PhoeCord picks it up by itself.
 cli-update-none = Everything installed from the catalog is up to date.
 cli-update-available = { $id }: { $from } -> { $to }
 cli-remove-done = Removed { $id }.
