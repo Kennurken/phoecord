@@ -13,3 +13,8 @@ toggle-failed = Could not switch `{ $id }`: { $error }
 fake_deafen-on = Fake deafen is **on**: others see you muted and deafened.
 fake_deafen-off = Fake deafen is **off**.
 fake_deafen-unknown-state = Unknown state `{ $state }`. Use `on` or `off`.
+# follow_user
+follow_user-following = Following user `{ $id }`.
+follow_user-trigger = Joining the followed user's channel.
+follow_user-unfollowed = No longer following anyone.
+follow_user-bad-user = `{ $user }` is not a user id or mention.
