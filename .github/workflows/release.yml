@@ -100,7 +100,7 @@ jobs:
             tar -czf "../out/$base.tar.gz" "$base"
           fi
           ls -l ../out
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: phoecord-binaries-${{ matrix.name }}
           path: out/*
@@ -117,7 +117,7 @@ jobs:
     needs: [binaries, installers]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: phoecord-*
           path: parts
@@ -133,7 +133,7 @@ jobs:
           mv ../SHA256SUMS SHA256SUMS
           cat SHA256SUMS
           sha256sum -c SHA256SUMS
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-files
           path: release/*
@@ -149,7 +149,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-files
           path: release
