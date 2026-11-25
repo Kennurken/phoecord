@@ -13,3 +13,8 @@ toggle-failed = Не удалось переключить `{ $id }`: { $error }
 fake_deafen-on = Fake deafen **включён**: остальные видят вас с выключенными микрофоном и звуком.
 fake_deafen-off = Fake deafen **выключен**.
 fake_deafen-unknown-state = Неизвестное состояние `{ $state }`. Используйте `on` или `off`.
+# follow_user
+follow_user-following = Слежу за пользователем `{ $id }`.
+follow_user-trigger = Захожу в канал отслеживаемого пользователя.
+follow_user-unfollowed = Больше ни за кем не слежу.
+follow_user-bad-user = `{ $user }` не похоже на id или упоминание пользователя.
