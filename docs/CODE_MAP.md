@@ -137,11 +137,12 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/show_hidden_channels.rs` | ShowHiddenChannels: computes VIEW_CHANNEL from roles and overwrites; `/phoecord hidden`; optional READY rewrite | `rewrite_payload` and its READY rewrite stay off by default (ban-prone) |
 | `src/show_hidden_things.rs` | ShowHiddenThings: member timeouts, paused invites and DMs, community features; `/phoecord hiddenthings` | Read-only: always returns `Pass` |
 | `src/experiments.rs` | Experiments: experiment assignments from READY and `GET /experiments`; `/phoecord experiments`; optional STAFF flag | `enableIsStaff` stays off by default (ban-prone) |
-| `src/fake_deafen.rs` | FakeDeafen (owner's userplugin): sets `self_mute`/`self_deaf` on outbound op 4 while `/phoecord fakedeafen` is on; refresh queued until the next gateway frame | Rewrites outbound op 4 only |
-| `src/follow_user.rs` | FollowUser (owner's userplugin): follows `followUserId` or `/phoecord follow` across voice channels with op 4 sends | Sends op 4 on the next gateway frame; permissions unknown to plugins |
+| `src/fake_deafen.rs` | FakeDeafen (owner's userplugin): sets `self_mute`/`self_deaf` on outbound op 4 while `/phoecord fakedeafen` is on; the toggle re-sends your voice state at once | Rewrites outbound op 4 only |
+| `src/follow_user.rs` | FollowUser (owner's userplugin): follows `followUserId` or `/phoecord follow` across voice channels with op 4 sends | Sends op 4 at once; permissions unknown to plugins |
 | `src/fake_deafen_detector.rs` | FakeDeafenDetector (owner's userplugin): mute/deafen claims from voice states, flags `SPEAKING` while claimed silent; `/phoecord flagged` | No `SPEAKING` feed in the proxy yet: detection is inert |
 | `src/anti_rickroll.rs` | AntiRickroll (owner's userplugin, MIT): known hosts/video IDs + custom rules over messages and history pages; `/phoecord rickrolls` | Read-only, no outside calls |
 | `src/local_dev_badges.rs` | localDevBadges (owner's userplugin): adds STAFF / Early Verified Bot Developer / Active Developer badges and flags to your own user in READY, USER_UPDATE, `/users/@me` and your profile | Inbound rewrite for self only |
+| `src/voice_chat_utilities.rs` | VoiceChatUtilities (owner's userplugin): `/phoecord vcu` PATCHes every member of a voice channel (disconnect, mute, deafen, move), one per timer step with the script's `waitAfter` / `waitSeconds` | Retries a member after a local refusal or a 429 |
 | `src/state.rs` | Shared gateway-state trackers for data parts: `Shared<T>`, `Guilds`, `VoiceStates`/`VoiceChange`, bounded `Users` and `Ring<T>` | Trackers keep ids, names and counts only |
 | `src/testutil.rs` | Test helpers shared by the plugin tests: `Cfg`, recording `Rec` with scripted `rest`, `j` | |
 | `src/game_activity_toggle.rs` | GameActivityToggle: removes "Playing" activities from op 3 presence updates | The proxy re-sends the last presence on toggle |
