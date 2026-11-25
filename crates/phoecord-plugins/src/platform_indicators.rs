@@ -15,7 +15,7 @@
 //! At most 10 000 users are kept; the oldest are forgotten first.
 
 use crate::commands::{Args, FnCmd, Subcommand};
-use crate::state::{Shared, Users, is_one_of};
+use crate::state::{Shared, Users, dispatch_data, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::{HashMap, VecDeque};
@@ -242,7 +242,7 @@ impl Plugin for PlatformIndicators {
         if let Event::Dispatch { name, payload, .. } = event
             && is_one_of(name, EVENTS)
         {
-            self.state.lock().observe(name, payload);
+            self.state.lock().observe(name, dispatch_data(payload));
         }
         Verdict::Pass
     }
@@ -296,6 +296,26 @@ mod tests {
             r#"{"user":{"id":"5"},"status":"offline","client_status":{}}"#,
         );
         assert!(cmd.run(&mut h, &args(None)).contains("No presence"));
+    }
+
+    #[test]
+    fn collects_presence_from_a_real_gateway_frame() {
+        let plugin = PlatformIndicators::new();
+        let cmd = plugin.command();
+        let chain = Chain::new(vec![Box::new(plugin)]);
+        let mut h = Cfg::default();
+        let out = feed(
+            &chain,
+            &mut h,
+            "PRESENCE_UPDATE",
+            r#"{"op":0,"t":"PRESENCE_UPDATE","s":1,"d":{"user":{"id":"5","username":"ann"},
+               "status":"online","client_status":{"desktop":"online","mobile":"idle"}}}"#,
+        );
+        assert_eq!(out, Outcome::Untouched);
+        assert!(
+            cmd.run(&mut h, &args(None))
+                .contains("ann: desktop (online), mobile (idle)")
+        );
     }
 
     #[test]
