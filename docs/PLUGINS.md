@@ -208,7 +208,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 
 ## Owner's userplugins
 
-From Nanda's Vencord `userplugins` folder. Bulk actions (`VoiceChatUtilities`, `rmcord`) run through the proxy's rate limiter and are capped per minute; Discord can still treat heavy automation of a user account as self-botting, so they carry a warning in their settings.
+From Nanda's Vencord `userplugins` folder. They behave 1:1 like the owner's original scripts, with no caps or confirmations of PhoeCord's own (owner's ruling, 2026-11-25); their requests still go through the proxy's built-in rate limiter (1 request/s per plugin, Discord's buckets respected). Discord can treat heavy automation of a user account as self-botting, so bulk actions (`VoiceChatUtilities`, `rmcord`, `SilentDelete`, `FollowUser`) carry a warning in their settings.
 
 | Plugin | What it does | Layer | Where |
 |:---|:---|:---|:---|
@@ -222,7 +222,7 @@ From Nanda's Vencord `userplugins` folder. Bulk actions (`VoiceChatUtilities`, `
 | AntiRickroll | Warn before opening rickroll links | 🌐 + 🎨 | 1.2.19 / 2 |
 | BetterActivities | Activity icons in the member list, all activities shown | 🎨 UI | 2 |
 | SoundboardToVoice | Play soundboard sounds through your microphone | 🎨 UI | 2 (audio pipeline) |
-| QuestMaster | Quest dashboard and auto-completion | 🌐 + 🎨 | not scheduled |
+| QuestMaster | Quest dashboard and auto-completion | 🌐 + 🎨 | planned (owner's ruling 2026-11-25, task not set yet) |
 | TrustMeBro | Age verification bypass | 🌐 Network | not scheduled |
 
 
