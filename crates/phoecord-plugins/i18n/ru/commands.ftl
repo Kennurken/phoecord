@@ -9,3 +9,7 @@ toggle-on = `{ $id }` теперь включён.
 toggle-off = `{ $id }` теперь выключен.
 toggle-reconnect = Вступит в силу после переподключения Discord (Ctrl+R).
 toggle-failed = Не удалось переключить `{ $id }`: { $error }
+# fake_deafen
+fake_deafen-on = Fake deafen **включён**: остальные видят вас с выключенными микрофоном и звуком.
+fake_deafen-off = Fake deafen **выключен**.
+fake_deafen-unknown-state = Неизвестное состояние `{ $state }`. Используйте `on` или `off`.
