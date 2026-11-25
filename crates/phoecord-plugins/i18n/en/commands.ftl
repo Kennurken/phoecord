@@ -81,3 +81,7 @@ quest_master-st-enroll = action required: accept the quest in Discord
 quest_master-st-claimable = completed, claim with `/phoecord quests claim { $id }`
 quest_master-st-claim-waiting = claiming...
 quest_master-st-claim-failed = action required: check Discord for a captcha
+quest_master-consent-none = No authorization is waiting for an answer.
+quest_master-consent-other = The waiting authorization is for app `{ $id }`.
+quest_master-consent-yes = Authorizing app `{ $id }` for the achievement quest.
+quest_master-consent-no = Not authorizing app `{ $id }`.

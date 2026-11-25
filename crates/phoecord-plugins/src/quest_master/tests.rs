@@ -272,7 +272,7 @@ fn auto_enroll_off_leaves_the_quest_pending() {
 }
 
 #[test]
-fn game_quest_sends_soft_heartbeats_and_reads_client_heartbeats() {
+fn game_quest_sends_presence_and_desktop_heartbeats_then_restores() {
     let (p, st) = plugin();
     let q = quest("4", r#"{"PLAY_ON_DESKTOP":{"target":900}}"#, true, "");
     let mut h = Rec::default()
@@ -289,15 +289,57 @@ fn game_quest_sends_soft_heartbeats_and_reads_client_heartbeats() {
             200,
             r#"{"progress":{"PLAY_ON_DESKTOP":{"value":120}}}"#,
         );
+    // The client's own presence before the run: a custom status and a real game.
+    let mut presence = j(r#"{"op":3,"d":{"since":0,"status":"dnd","afk":false,
+        "activities":[{"type":4,"name":"Custom Status","state":"hi"},{"type":0,"name":"Real"}]}}"#);
+    let v = p.on_event(
+        &mut h,
+        Event::Send {
+            op: 3,
+            payload: &mut presence,
+        },
+    );
+    assert_eq!(v, Verdict::Pass);
     command(&p, &mut h, "start", None);
     assert_eq!(
         calls(&h, "GET /applications/public?application_ids=555").len(),
         1
     );
+    // applyExclusive + rpc(): only the fake game plays, the custom status stays.
+    let (op, d) = h.sent.last().unwrap().clone();
+    assert_eq!(op, 3);
+    assert_eq!(d.str_at(&["status"]), Some("dnd"));
+    let acts = d.get("activities").unwrap().as_list();
+    assert_eq!(acts.len(), 2);
+    assert_eq!(acts[0].str_at(&["name"]), Some("Custom Status"));
+    assert_eq!(acts[1].str_at(&["name"]), Some("Real Game"));
+    assert_eq!(acts[1].str_at(&["application_id"]), Some("555"));
+    assert_eq!(acts[1].get("type"), Some(&Val::Int(0)));
+    assert_eq!(
+        acts[1].at(&["timestamps", "start"]),
+        Some(&Val::Int(NOW as i64))
+    );
+    // A presence the client sends meanwhile keeps the fake game.
+    let mut again = j(r#"{"op":3,"d":{"status":"idle","activities":[{"type":0,"name":"Real"}]}}"#);
+    assert_eq!(
+        p.on_event(
+            &mut h,
+            Event::Send {
+                op: 3,
+                payload: &mut again
+            }
+        ),
+        Verdict::Changed
+    );
+    assert_eq!(
+        again.at(&["d", "activities"]).unwrap().as_list()[0].str_at(&["name"]),
+        Some("Real Game")
+    );
+    // The desktop heartbeat the client sends for a running game.
     let beats = calls(&h, "POST /quests/4/heartbeat");
     assert_eq!(
         beats[0],
-        Some(j(r#"{"stream_key":"call:4:1","terminal":false}"#))
+        Some(j(r#"{"application_id":"555","terminal":false}"#))
     );
     assert_eq!(st.lock().cards["4"].cur, 120.0);
     let task = last_tag(&h, "task");
@@ -315,15 +357,109 @@ fn game_quest_sends_soft_heartbeats_and_reads_client_heartbeats() {
         },
     );
     assert_eq!(st.lock().cards["4"].cur, 900.0);
-    // Next wake: target reached, the closing terminal beat, then completion.
+    // Next wake: target reached, the closing terminal beat, then completion and restore().
     fire(&p, &mut h, &task);
     fire_last(&p, &mut h, "traffic");
     let beats = calls(&h, "POST /quests/4/heartbeat");
     assert_eq!(
         beats.last().unwrap(),
-        &Some(j(r#"{"stream_key":"call:4:1","terminal":true}"#))
+        &Some(j(r#"{"application_id":"555","terminal":true}"#))
     );
     assert_eq!(st.lock().cards["4"].status, Status::Completed);
+    let (op, d) = h.sent.last().unwrap().clone();
+    assert_eq!(op, 3);
+    assert_eq!(
+        d.str_at(&["status"]),
+        Some("idle"),
+        "the latest real presence comes back"
+    );
+    assert!(st.lock().fake_games.is_empty());
+}
+
+#[test]
+fn a_refused_desktop_heartbeat_falls_back_to_soft_heartbeats_and_hide_activity_hides() {
+    let (p, _st) = plugin();
+    let q = quest("14", r#"{"PLAY_ON_DESKTOP_V2":{"target":900}}"#, true, "");
+    let mut h = Rec::default().with("hideActivity", Val::Bool(true)).answer(
+        "GET",
+        "/quests/@me",
+        200,
+        &quests_body(&[q]),
+    );
+    command(&p, &mut h, "start", None);
+    assert!(h.sent.is_empty(), "hideActivity: no fake presence");
+    fire_last(&p, &mut h, "task");
+    fire_last(&p, &mut h, "traffic");
+    let beats = calls(&h, "POST /quests/14/heartbeat");
+    assert_eq!(
+        beats[0],
+        Some(j(r#"{"application_id":"555","terminal":false}"#))
+    );
+    assert_eq!(
+        beats[1],
+        Some(j(r#"{"stream_key":"call:14:1","terminal":false}"#))
+    );
+    assert!(
+        h.logs
+            .iter()
+            .any(|l| l.contains("soft heartbeats from now on"))
+    );
+}
+
+#[test]
+fn stream_quest_uses_your_voice_channel_stream_key() {
+    let (p, _st) = plugin();
+    let q = quest("15", r#"{"STREAM_ON_DESKTOP":{"target":900}}"#, true, "");
+    let mut h = Rec::default().answer("GET", "/quests/@me", 200, &quests_body(&[q]));
+    h.self_id = Some(77);
+    let mut join =
+        j(r#"{"op":4,"d":{"guild_id":"9","channel_id":"8","self_mute":false,"self_deaf":false}}"#);
+    p.on_event(
+        &mut h,
+        Event::Send {
+            op: 4,
+            payload: &mut join,
+        },
+    );
+    command(&p, &mut h, "start", None);
+    let beats = calls(&h, "POST /quests/15/heartbeat");
+    assert_eq!(
+        beats[0],
+        Some(j(r#"{"stream_key":"guild:9:8:77","terminal":false}"#))
+    );
+    // A DM call: `call:{channel}:{you}`; leaving voice falls back to the script's soft keys.
+    let mut call = j(
+        r#"{"op":0,"t":"VOICE_STATE_UPDATE","d":{"user_id":"77","guild_id":null,"channel_id":"5"}}"#,
+    );
+    p.on_event(
+        &mut h,
+        Event::Dispatch {
+            name: "VOICE_STATE_UPDATE",
+            payload: &mut call,
+            extra: &mut Vec::new(),
+        },
+    );
+    assert_eq!(_st.lock().stream_key(&h).as_deref(), Some("call:5:77"));
+    let mut leave = j(r#"{"op":4,"d":{"guild_id":null,"channel_id":null}}"#);
+    p.on_event(
+        &mut h,
+        Event::Send {
+            op: 4,
+            payload: &mut leave,
+        },
+    );
+    assert_eq!(_st.lock().stream_key(&h), None);
+    // Someone else's voice state changes nothing.
+    let mut other = j(r#"{"op":0,"t":"VOICE_STATE_UPDATE","d":{"user_id":"1","channel_id":"5"}}"#);
+    p.on_event(
+        &mut h,
+        Event::Dispatch {
+            name: "VOICE_STATE_UPDATE",
+            payload: &mut other,
+            extra: &mut Vec::new(),
+        },
+    );
+    assert_eq!(_st.lock().stream_key(&h), None);
 }
 
 #[test]
@@ -386,9 +522,10 @@ fn activity_quest_heartbeats_on_the_latest_dm() {
 }
 
 #[test]
-fn achievement_without_a_channel_fails_cannot_auto_complete() {
+fn achievement_with_a_non_numeric_app_fails_cannot_auto_complete() {
     let (p, st) = plugin();
-    let q = quest("7", r#"{"ACHIEVEMENT_IN_ACTIVITY":{"target":1}}"#, true, "");
+    let q = quest("7", r#"{"ACHIEVEMENT_IN_ACTIVITY":{"target":1}}"#, true, "")
+        .replace(r#""id":"555""#, r#""id":"5x5""#);
     let mut h = Rec::default().answer("GET", "/quests/@me", 200, &quests_body(&[q]));
     command(&p, &mut h, "start", None);
     assert!(calls(&h, "POST").is_empty());
@@ -396,7 +533,159 @@ fn achievement_without_a_channel_fails_cannot_auto_complete() {
     let s = st.lock();
     assert_eq!(s.cards["7"].status, Status::Failed);
     assert!(s.skipped.contains("7"));
+    assert!(
+        h.logs
+            .iter()
+            .any(|l| l.contains("non-numeric appId \"5x5\""))
+    );
     assert!(h.logs.iter().any(|l| l.contains("Cannot auto-complete")));
+}
+
+#[test]
+fn achievement_bypass_runs_the_discord_says_flow_and_revokes_its_grant() {
+    let (p, st) = plugin();
+    let q = quest("7", r#"{"ACHIEVEMENT_IN_ACTIVITY":{"target":1}}"#, true, "");
+    let authorize = "/oauth2/authorize?response_type=code&client_id=555&scope=identify%20applications.commands%20applications.entitlements";
+    let mut h = Rec::default()
+        .answer("GET", "/quests/@me", 200, &quests_body(&[q]))
+        .answer(
+            "GET",
+            "/oauth2/tokens",
+            200,
+            r#"[{"id":"old","application":{"id":"555"}},{"id":"x","application":{"id":"9"}}]"#,
+        )
+        .answer(
+            "GET",
+            "/applications/public?application_ids=555",
+            200,
+            r#"[{"name":"Quest App"}]"#,
+        )
+        .answer(
+            "POST",
+            authorize,
+            200,
+            r#"{"location":"https://555.discordsays.com/cb?code=CODE1&state=s"}"#,
+        )
+        .answer(
+            "POST",
+            "/applications/555/proxy-tickets",
+            200,
+            r#"{"ticket":"t/1+"}"#,
+        )
+        .answer("DELETE", "/oauth2/tokens/new", 204, "{}")
+        .answer_fetch(
+            "POST",
+            "https://555.discordsays.com/.proxy/acf/authorize",
+            200,
+            r#"{"token":"TOK"}"#,
+        )
+        .answer_fetch(
+            "POST",
+            "https://555.discordsays.com/.proxy/acf/quest/progress",
+            200,
+            "{}",
+        );
+    command(&p, &mut h, "start", None);
+    // No channel: straight to the bypass, which waits 60 s for consent.
+    assert_eq!(calls(&h, "GET /oauth2/tokens").len(), 1);
+    assert!(
+        h.notes.iter().any(|(_, b)| b.contains("Quest App (555)")),
+        "{:?}",
+        h.notes
+    );
+    let wait = last_tag(&h, "task");
+    assert_eq!(
+        h.scheduled.iter().find(|(_, t)| *t == wait).unwrap().0,
+        60_000
+    );
+    assert!(calls(&h, "POST").is_empty());
+    // The grant list now also has the run's grant.
+    set_answer(
+        &mut h,
+        "GET",
+        "/oauth2/tokens",
+        r#"[{"id":"old","application":{"id":"555"}},{"id":"new","application":{"id":"555"}}]"#,
+    );
+    assert_eq!(
+        command(&p, &mut h, "consent", Some("1")),
+        h.t("quest_master-consent-other", &[("id", "555")])
+    );
+    command(&p, &mut h, "consent", Some("555"));
+    let auth = calls(&h, &format!("POST {authorize}"));
+    assert_eq!(
+        auth[0],
+        Some(j(
+            r#"{"permissions":"0","authorize":true,"integration_type":1,
+            "location_context":{"guild_id":"10000","channel_id":"10000","channel_type":10000}}"#
+        ))
+    );
+    assert_eq!(
+        calls(&h, "POST /applications/555/proxy-tickets")[0],
+        Some(j("{}"))
+    );
+    let referrer = "https://555.discordsays.com/?instance_id=example-cl-instance&platform=desktop&discord_proxy_ticket=t%2F1%2B";
+    let (url, headers, body) = &h.fetch_calls[0];
+    assert_eq!(url, "POST https://555.discordsays.com/.proxy/acf/authorize");
+    let hv = |hs: &Vec<(String, String)>, n: &str| {
+        hs.iter().find(|(k, _)| k == n).map(|(_, v)| v.clone())
+    };
+    assert_eq!(
+        hv(headers, "Content-Type").as_deref(),
+        Some("application/json")
+    );
+    assert_eq!(hv(headers, "X-Auth-Token").as_deref(), Some(""));
+    assert_eq!(hv(headers, "X-Discord-Quest-ID").as_deref(), Some("7"));
+    assert_eq!(hv(headers, "Referer").as_deref(), Some(referrer));
+    assert_eq!(body, &Some(j(r#"{"code":"CODE1"}"#)));
+    let (url, headers, body) = &h.fetch_calls[1];
+    assert_eq!(
+        url,
+        "POST https://555.discordsays.com/.proxy/acf/quest/progress"
+    );
+    assert_eq!(hv(headers, "X-Auth-Token").as_deref(), Some("TOK"));
+    assert_eq!(body, &Some(j(r#"{"progress":1}"#)));
+    // finally: only the grant the run created is revoked.
+    assert_eq!(calls(&h, "DELETE /oauth2/tokens/").len(), 1);
+    assert_eq!(calls(&h, "DELETE /oauth2/tokens/new").len(), 1);
+    assert!(
+        h.logs
+            .iter()
+            .any(|l| l.contains("completed via Discord Says"))
+    );
+    assert_eq!(st.lock().cards["7"].status, Status::Completed);
+}
+
+#[test]
+fn achievement_consent_timeout_or_deny_still_cleans_up_and_fails() {
+    let (p, st) = plugin();
+    let qs = [
+        quest("7", r#"{"ACHIEVEMENT_IN_ACTIVITY":{"target":1}}"#, true, ""),
+        quest("8", r#"{"ACHIEVEMENT_IN_ACTIVITY":{"target":1}}"#, true, ""),
+    ];
+    let mut h = Rec::default()
+        .with("concurrentGames", Val::Int(1))
+        .answer("GET", "/quests/@me", 200, &quests_body(&qs))
+        .answer("GET", "/oauth2/tokens", 200, "[]");
+    command(&p, &mut h, "start", Some("7"));
+    // No answer in 60 s: declined, the grants are checked again, the quest fails.
+    fire_last(&p, &mut h, "task");
+    assert_eq!(calls(&h, "GET /oauth2/tokens").len(), 2);
+    assert!(h.logs.iter().any(|l| l.contains("Consent declined")));
+    assert!(calls(&h, "POST").is_empty());
+    assert_eq!(st.lock().cards["7"].status, Status::Failed);
+    assert_eq!(
+        command(&p, &mut h, "deny", None),
+        h.t("quest_master-consent-none", &[])
+    );
+    // `deny` answers a waiting prompt the same way.
+    command(&p, &mut h, "retry", None);
+    fire_last(&p, &mut h, "open");
+    command(&p, &mut h, "start", Some("8"));
+    assert!(st.lock().consent_wait.is_some());
+    command(&p, &mut h, "deny", None);
+    assert!(st.lock().consent_wait.is_none());
+    assert_eq!(st.lock().cards["8"].status, Status::Failed);
+    assert!(h.fetch_calls.is_empty());
 }
 
 #[test]
