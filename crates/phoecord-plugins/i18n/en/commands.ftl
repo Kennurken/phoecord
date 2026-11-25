@@ -45,3 +45,6 @@ voice_chat_utilities-empty = Nobody is in <#{ $channel }>.
 voice_chat_utilities-nobody = Nobody but you is in <#{ $channel }>.
 # rmcord: the command ran without the plugin handling the interaction (shown by the command plugin).
 rmcord-no-reply = The rmcord command did not run. Is the plugin on? Switch it on with `/phoecord toggle rmcord`.
+
+# SilentDelete: the command ran without the plugin handling the interaction (shown by the command plugin).
+silent_delete-no-reply = The SilentDelete command did not run. Is the plugin on? Switch it on with `/phoecord toggle silent_delete`.
