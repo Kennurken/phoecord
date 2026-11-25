@@ -45,6 +45,8 @@ Write down right away: when it started (UTC), Discord client and version, PhoeCo
 |:---|:---|
 | Network plugins broke | Run `phoecord selftest`; a Gateway encoding/compression change shows up there. Fix in `phoecord-proxy::codec`, not in plugins |
 | UI plugins are off, notice "waiting for a signature update" | Expected degradation: the client build is unknown. New signatures go into `signatures/*.toml` (Phase 2, 2.2) |
+| Loader missing after a Discord update (Windows, `setup --loader`) | Discord updated into a new `app-x.y.z` folder. Start Discord with `phoecord launch` (or let autostart run): it copies `version.dll` into the newest folder first. If it does not, read the warning `run`/`launch` print: `version.dll` missing next to `phoecord` (reinstall PhoeCord), no `app-x.y.z` build, or the copy failed (quit Discord fully: a running client keeps the old DLL locked) |
+| "belongs to another program": a foreign `version.dll` is in the way | Another tool put its own `version.dll` in the `app-x.y.z` folder; PhoeCord never overwrites a file whose hash it did not record. Decide which one you want: remove or rename the other file, then `phoecord launch` installs PhoeCord's. `uninstall` likewise leaves a `version.dll` that is no longer the one PhoeCord wrote ("changed by another program") |
 | Client crashes on start with the loader installed | Remove the loader (`phoecord-installer`, "Uninstall") and file a bug with the client version: a hook is wrong |
 
 ## 3b. Starting Discord through PhoeCord
@@ -76,7 +78,7 @@ Releases are unsigned, so Windows SmartScreen shows "Windows protected your PC" 
 ## 4. Removing everything
 
 ```bash
-phoecord uninstall         # undo autostart, CA trust and the files setup created
+phoecord uninstall         # undo autostart, CA trust, loader DLL copies and the files setup created
 ```
 
 Your `config.toml` stays; delete it and the binary by hand if you want nothing left. If `uninstall` reports a failed step, run it again: the step stays in `install.log` until it succeeds.

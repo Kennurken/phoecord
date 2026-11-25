@@ -150,6 +150,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/system.rs` additions | `stop_proxies` (only `run`/`launch` processes of PhoeCord's own binaries, never the calling process; `select_proxy_pids` is tested), `shortcut_create`, `Env.start_menu`, `Env.applications_dir` | |
 | `src/install.rs`, `src/uninstall.rs` | `install()` (idempotent), `install_with_progress` (reports each `Phase` start/end for the window) and `uninstall_all()` (undoes the log newest-first, `UninstallReport`) |
 | `src/log.rs` | `install.log` (JSON lines in the data folder): every step the installer made, so rollback removes only what it created |
+| `src/loader.rs` | Loader DLL step (1.5.6, opt-in `setup --loader`, Windows only): `install_loader` records `Step::LoaderWanted` and copies `version.dll` (next to the `phoecord` binary, `default_source`) into the newest `app-x.y.z` (`discover::newest_app_dir`); `ensure_loader` re-applies it on `run`/`launch` after Discord updates; every copy is logged as `Step::LoaderCopy` with its SHA-256 | A `version.dll` whose hash is not recorded for that file is foreign: never overwritten, never removed by `uninstall` (`Kept::NotOurs`); `ensure_loader` never fails its caller |
 
 ### `phoecord-installer-gui`
 
@@ -185,7 +186,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 
 | File | What | Easy to break |
 |:---|:---|:---|
-| `src/main.rs` | Commands: `run`, `launch`, `setup` (installer `install()`), `uninstall` (installer `uninstall_all()`), `trust`, `untrust`, `plugins`, `enable`, `disable`, `toggle`, `log`, `selftest`, `paths`; `run` loads WASM packages | `plugins`/`enable` know built-ins only, not WASM packages; every user-facing string comes from `crates/phoecord-i18n/i18n/{en,ru}/main.ftl`; `setup` asks to accept `TERMS.md` first (`--accept-terms` skips the prompt) |
+| `src/main.rs` | Commands: `run`, `launch`, `setup` (installer `install()`), `uninstall` (installer `uninstall_all()`), `trust`, `untrust`, `plugins`, `enable`, `disable`, `toggle`, `log`, `selftest`, `paths`; `run` loads WASM packages | `plugins`/`enable` know built-ins only, not WASM packages; every user-facing string comes from `crates/phoecord-i18n/i18n/{en,ru}/main.ftl`; `setup` asks to accept `TERMS.md` first (`--accept-terms` skips the prompt); `setup --loader` installs the loader DLL, and `run`/`launch` call `ensure_loader` first |
 | `src/help.rs` | `--help` built at runtime from the `Localizer` (clap needs static strings, so the help is rebuilt per language); `lang_from_args` reads `--lang` before clap runs | A new subcommand or flag needs `cmd-*` / `cli-arg-*` keys in both `.ftl` files |
 | `src/log.rs`, `src/selftest.rs` | `phoecord log` output, `phoecord selftest` | |
 
