@@ -248,7 +248,7 @@ Every row of [`docs/PLUGINS.md`](../../PLUGINS.md) whose "Where" column names a 
 | 1.2.14 Profiles | `RestResponse` rewriting of profile responses; `Host::fetch` for USRBG and Decor | buslan07 |
 | 1.2.15 External services | `Host::fetch` (DeArrow API, Tenor/Giphy) | buslan07 |
 | 1.2.16 Data parts | `Host::rest` (ValidUser, ValidReply, NewGuildSettings); `Dispatch` `extra` payloads | Kennurken |
-| 1.2.17 Translate etc. | `Host::fetch` (translation backend, ReviewDB API); XSOverlay over a local UDP right | anyone |
+| 1.2.17 Translate etc. | `Host::fetch` (translation backend, ReviewDB API); XSOverlay over a local UDP right | matvee |
 | 1.2.18 Hidden things | `Dispatch` `READY` / `GUILD_CREATE` rewriting; experiment assignments | Kennurken |
 | 1.2.19 Userplugins | `Host::rest` with the rate limiter (VoiceChatUtilities, rmcord); `Send` op 4 (FakeDeafen, FollowUser) | Kennurken |
 
@@ -305,7 +305,7 @@ Every row of [`docs/PLUGINS.md`](../../PLUGINS.md) whose "Where" column names a 
 
 **Done when:** `cargo build --target wasm32-wasip2` in the example produces a package that 1.3.4 loads.
 
-### 1.3.7. TypeScript template (anyone)
+### 1.3.7. TypeScript template (matvee)
 
 **Files:** `examples/hello-plugin-ts/**`
 
