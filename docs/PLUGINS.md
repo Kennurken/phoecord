@@ -143,7 +143,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | ReplyTimestamp | Timestamp on reply previews | 🎨 UI | 2 |
 | RevealAllSpoilers | Reveal all spoilers in a message | 🎨 UI | 2 |
 | ReverseImageSearch | Reverse image search in menus | 🎨 UI | 2 |
-| ReviewDB | Reviews on user profiles | 🌐 + 🎨 | 1.2.17 / 2 |
+| ReviewDB | Reviews on user profiles | 🌐 + 🎨 | done: data — `/phoecord reviews` (read only) / 2 (profile section; writing needs a token header) |
 | RoleColorEverywhere | Top role colour everywhere | 🎨 UI | 2 |
 | SecretRingToneEnabler | Always the secret ringtone | 🎨 UI | 2 |
 | SendTimestamps | Send timestamps with shortcuts | 🌐 Network | done (the picker button is Phase 2) |
@@ -168,7 +168,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | SuperReactionTweaks | Super reaction limits and default | 🎨 UI | 2 |
 | TextReplace | Replace text in your messages by rules | 🌐 Network | done |
 | ThemeAttributes | Data attributes for CSS themes | ♻️ Replaced | theme engine (no CSS in Phoenix) |
-| Translate | Translate messages | 🌐 + 🎨 | 1.2.17 / 2 |
+| Translate | Translate messages | 🌐 + 🎨 | done: data — `/phoecord translate`, `autoTranslate` (Google) / 2 (buttons, accessory) |
 | TypingIndicator | Who is typing, per channel | 🌐 + 🎨 | done: data — `/phoecord typing` / 2 (dots and avatars) |
 | TypingTweaks | Avatars and role colours in typing | 🎨 UI | 2 |
 | Unindent | Trim indentation in code blocks | 🌐 Network | done: shared indentation removed from fenced code blocks of sent and edited messages (not yet inside `payload_json` of uploads) |
@@ -186,7 +186,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | ViewRaw | View raw message, channel or server JSON | 🌐 + 🎨 | done: data — `/phoecord viewraw` / 2 (menus, modal, copy buttons) |
 | VoiceChatDoubleClick | Join voice on double-click | 🎨 UI | 2 |
 | VoiceDownload | Download voice messages | 🎨 UI | 2 |
-| VoiceMessages | Send voice messages like on mobile | 🌐 + 🎨 | 1.2.17 / 2 |
+| VoiceMessages | Send voice messages like on mobile | 🌐 + 🎨 | done: data — `/phoecord voicemessage` (an .ogg file) / 2 (recording) |
 | VolumeBooster | Volume above 200% | 🎨 UI | 2 |
 | WebContextMenus | Context menus on web | ⛔ N/A | web only |
 | WebKeybinds | Keybinds on web | ⛔ N/A | web only |
@@ -195,7 +195,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | WebScreenShare | Screen share options on web | ⛔ N/A | browser only |
 | WebScreenShareFixes | Screen share bitrate on web | ⛔ N/A | web only |
 | WhoReacted | Avatars of who reacted | 🌐 + 🎨 | done: data — `/phoecord reactions <channel> <message> [emoji]` / 2 (avatars) |
-| XSOverlay | Notifications to XSOverlay in VR | 🌐 Network | 1.2.17 |
+| XSOverlay | Notifications to XSOverlay in VR | 🌐 Network | 1.2.17, blocked: needs a local UDP or WebSocket right |
 
 ## Vencord core modules
 

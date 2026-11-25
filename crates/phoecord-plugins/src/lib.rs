@@ -49,6 +49,7 @@ pub mod presence;
 pub mod quest_master;
 pub mod read_all_notifications;
 pub mod relationship_notifier;
+pub mod review_db;
 pub mod rmcord;
 pub mod send_timestamps;
 pub mod server_info;
@@ -60,6 +61,7 @@ pub mod silent_typing;
 pub mod spotify_share_commands;
 pub mod state;
 pub mod text_replace;
+pub mod translate;
 pub mod typing_indicator;
 pub mod unindent;
 pub mod unsuppress_embeds;
@@ -69,6 +71,7 @@ pub mod valid_user;
 pub mod vc_narrator;
 pub mod view_raw;
 pub mod voice_chat_utilities;
+pub mod voice_messages;
 pub mod who_reacted;
 
 #[cfg(test)]
@@ -172,6 +175,8 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "ru",
         include_str!("../i18n/ru/relationship_notifier.ftl"),
     ),
+    ("review_db", "en", include_str!("../i18n/en/review_db.ftl")),
+    ("review_db", "ru", include_str!("../i18n/ru/review_db.ftl")),
     ("rmcord", "en", include_str!("../i18n/en/rmcord.ftl")),
     ("rmcord", "ru", include_str!("../i18n/ru/rmcord.ftl")),
     (
@@ -204,6 +209,8 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "ru",
         include_str!("../i18n/ru/spotify_share_commands.ftl"),
     ),
+    ("translate", "en", include_str!("../i18n/en/translate.ftl")),
+    ("translate", "ru", include_str!("../i18n/ru/translate.ftl")),
     (
         "unsuppress_embeds",
         "en",
@@ -235,6 +242,16 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "voice_chat_utilities",
         "ru",
         include_str!("../i18n/ru/voice_chat_utilities.ftl"),
+    ),
+    (
+        "voice_messages",
+        "en",
+        include_str!("../i18n/en/voice_messages.ftl"),
+    ),
+    (
+        "voice_messages",
+        "ru",
+        include_str!("../i18n/ru/voice_messages.ftl"),
     ),
 ];
 
@@ -323,6 +340,13 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let ignore_activities = ignore_activities::IgnoreActivities::new();
     let ignore_activities_commands = ignore_activities.commands();
     let auto_dnd_while_playing = auto_dnd_while_playing::AutoDndWhilePlaying::new();
+    // Stage 1.2.17 plugins (off by default).
+    let voice_messages = voice_messages::VoiceMessages::new();
+    let voice_messages_command = voice_messages.command();
+    let review_db = review_db::ReviewDb::new();
+    let review_db_command = review_db.command();
+    let translate = translate::Translate::new();
+    let translate_commands = translate.commands();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(dearrow::Dearrow::new()),
@@ -374,6 +398,9 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(rmcord),
         Box::new(silent_delete),
         Box::new(quest_master),
+        Box::new(voice_messages),
+        Box::new(review_db),
+        Box::new(translate),
         Box::new(friend_invites),
         Box::new(unsuppress_embeds),
         Box::new(custom_rpc),
@@ -437,6 +464,11 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     }
     commands = commands.with(custom_idle_command);
     commands = commands.with(custom_rpc_command);
+    for c in translate_commands {
+        commands = commands.with(c);
+    }
+    commands = commands.with(review_db_command);
+    commands = commands.with(voice_messages_command);
     plugins.push(Box::new(commands));
     plugins
 }
