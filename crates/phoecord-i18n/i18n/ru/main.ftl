@@ -137,6 +137,8 @@ plugin-desc-follow_user = Ходить за пользователем по го
 plugin-desc-anti_rickroll = Находить ссылки на рикролл в сообщениях
 plugin-desc-local_dev_badges = Значки сотрудника и разработчика на своём профиле, только у себя
 plugin-desc-voice_chat_utilities = Переместить, заглушить или отключить всех в голосовом канале
+plugin-desc-rmcord = Массово удалить свои сообщения
+plugin-desc-silent_delete = Подменить сообщение и удалить его, чтобы логгеры сохранили подмену
 
 # CLI: log
 cli-log-empty = пока ничего не записано ({ $path })

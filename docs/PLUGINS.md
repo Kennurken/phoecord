@@ -212,13 +212,13 @@ From Nanda's Vencord `userplugins` folder. They behave 1:1 like the owner's orig
 
 | Plugin | What it does | Layer | Where |
 |:---|:---|:---|:---|
-| SilentDelete | Replace a message with other text, then delete it, so loggers keep the replacement | 🌐 Network | 1.2.19 |
+| SilentDelete | Replace a message with other text, then delete it, so loggers keep the replacement | 🌐 Network | done: data — `/phoecord silentdelete <message> [channel] [history]` and `/phoecord silentpurge <count> [channel]`: the script's placeholder post, `deleteDelay`, delete; `silentDeleteOnEmptyEdit` has no network effect / 2 (popover button, menu item) |
 | FakeDeafen | Look deafened to others while still hearing | 🌐 Network | done: data — `/phoecord fakedeafen [on\|off]` rewrites outbound op 4 (`fakeMute`, `fakeDeafen`) and re-sends your voice state at once / 2 (button, keybind) |
 | FakeDeafenDetector | Flag members who speak while marked muted or deafened | 🌐 + 🎨 | partial: data — `/phoecord flagged`; tracks mute/deafen claims, detection waits for a voice `SPEAKING` feed the proxy does not see yet / 2 (flag next to the name) |
 | localDevBadges | Show staff and developer badges on your own profile, locally only | 🌐 Network | done: data — settings `discordStaff`, `earlyVerifiedBotDeveloper`, `activeDeveloper` add the badges to your own profile answer and set the flags on your own user (READY, USER_UPDATE, `/users/@me`, profile); nothing leaves the machine |
 | FollowUser | Follow a user from voice channel to voice channel | 🌐 Network | done: data — `/phoecord follow [user]`, `/phoecord unfollow` or `followUserId`; joins via op 4 at once / 2 (context menu, header icon) |
 | VoiceChatUtilities | Move, mute or disconnect everyone in a voice channel (rate-limited) | 🌐 + 🎨 | done: data — `/phoecord vcu <disconnect\|mute\|unmute\|deafen\|undeafen\|move\|stop\|status> <channel> [target]` patches every member one at a time (`waitAfter`, `waitSeconds`), within the proxy's rate limit / 2 ("Voice Tools" context menu) |
-| rmcord | Bulk-delete your own messages (rate-limited) | 🌐 + 🎨 | 1.2.19 / 2 |
+| rmcord | Bulk-delete your own messages (rate-limited) | 🌐 + 🎨 | done: data — `/phoecord rmcord action:<start\|schedule\|cancel\|pause\|resume\|stop\|status\|log\|help>` runs the script's engine (search 10 s, delete 600 ms, adaptive on 429) within the proxy's rate limit / 2 (panel, pickers, import) |
 | AntiRickroll | Warn before opening rickroll links | 🌐 + 🎨 | done: data — `/phoecord rickrolls` lists messages with known or custom rickroll links, local lists only / 2 (warning under the message, click dialog) |
 | BetterActivities | Activity icons in the member list, all activities shown | 🎨 UI | 2 |
 | SoundboardToVoice | Play soundboard sounds through your microphone | 🎨 UI | 2 (audio pipeline) |
