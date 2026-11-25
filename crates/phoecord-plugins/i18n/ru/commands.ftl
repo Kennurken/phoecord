@@ -49,3 +49,4 @@ rmcord-no-reply = Команда rmcord не сработала. Плагин в
 
 # SilentDelete: команда запущена, но плагин не обработал взаимодействие (показывает плагин команд).
 silent_delete-no-reply = Команда SilentDelete не сработала. Плагин включён? Включите: `/phoecord toggle silent_delete`.
+voice_chat_utilities-no-reply = Нечего показать: запустите как `/phoecord vcu`.
