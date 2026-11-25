@@ -46,7 +46,7 @@ Ask: *"Could a program between the client and Discord do this by changing the tr
 | `definePlugin({ name, description, authors })` | `Manifest { id, name, description, authors, vencord, layers, api }` | `id` is `snake_case` of the name; set `vencord: Some("OriginalName")` |
 | `definePluginSettings({ … })` | `[plugins.<id>]` in `config.toml`, read with `host.setting("key")` | defaults go in the manifest; native plugins read a missing key as its default |
 | `patches: [{ find, replacement }]` | nothing in Phase 1; a UI hook in Phase 2 *(2)* | if the patch only changes data, find the request or event that carries that data instead |
-| `FluxDispatcher` events (`MESSAGE_CREATE`, …) | `Event::Dispatch { name, payload, extra }` | same event names as the Gateway |
+| `FluxDispatcher` events (`MESSAGE_CREATE`, …) | `Event::Dispatch { name, payload, extra }` | same event names as the Gateway; `payload` is the whole frame `{op, t, s, d}`, read the data with `state::dispatch_data(payload)` (or `_mut` to rewrite) |
 | `MessageEvents.addPreSendListener` | `Event::RestRequest` on `POST /channels/{id}/messages` | edit `body["content"]`, return `Verdict::Changed` |
 | `MessageEvents.addPreEditListener` | `Event::RestRequest` on `PATCH /channels/{id}/messages/{mid}` | |
 | `RestAPI` calls you make | `host.rest(method, route, body)` (route is a plain path like `/channels/{id}/messages`) | rate-limited (1/s per plugin, 5/s overall, Discord's own limits honoured); warn the user in the plugin's description if it does bulk work |
@@ -111,7 +111,7 @@ Tests never touch the network and never need a Discord token.
 
 1. **Matching rule:** unit tests on `matches(...)` with routes or event names that should and should not match.
 2. **Behaviour:** run it through a `Chain` with `NullHost` (see the template) and assert the `Outcome` and the changed payload.
-3. **Gateway plugins:** use recorded payloads from `tests/fixtures/` *(1.1.9)*, never real user data.
+3. **Gateway plugins:** use recorded payloads from `tests/fixtures/` *(1.1.9)*, never real user data. Feed whole frames (`{"op":0,"t":..,"d":{..}}`), as the proxy does; a test that feeds a bare `d` passes while the plugin sees nothing in production.
 4. **Live check (manual, optional):** `phoecord launch`, switch the plugin on with `phoecord enable <id>`, press Ctrl+R for Gateway plugins, and try it on a test account and a test server.
 
 **Check:** `bash scripts/check.sh` passes.
