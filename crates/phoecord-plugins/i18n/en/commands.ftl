@@ -43,3 +43,5 @@ voice_chat_utilities-need-target = Move needs a target voice channel.
 voice_chat_utilities-bad-target = `{ $channel }` is not another voice channel of the same guild.
 voice_chat_utilities-empty = Nobody is in <#{ $channel }>.
 voice_chat_utilities-nobody = Nobody but you is in <#{ $channel }>.
+# rmcord: the command ran without the plugin handling the interaction (shown by the command plugin).
+rmcord-no-reply = The rmcord command did not run. Is the plugin on? Switch it on with `/phoecord toggle rmcord`.
