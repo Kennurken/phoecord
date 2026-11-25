@@ -4,7 +4,9 @@ Checked against code: not applicable (no PhoeCord code touches Phoenix yet); aga
 
 Findings about an official Phoenix build, and the steps that produce them. Part 1 holds tasks **2.1.2** (binary inspection), **2.1.5** and **2.1.6** (allocator, HTTP transport, gateway dispatcher); part 2 holds **2.1.3** (proxy behavior), **2.1.4** (gateway wire format) and **2.3.7** (degradation). Task 2.1.9 completes the report: loading path and the decisions for 2.2–2.4.
 
-**Status: partly run (2026-11-25, Windows, signed out at the login screen).** Proxy settings from the environment and the command line, and certificate verification, have results. In the tables below the system proxy, a trusted CA, the gateway and degradation still read "not run"; newer results for all but degradation are under "Later results". What an unrun step expects is a hypothesis, not a finding. What the study of another loader says about Phoenix is in [`phoenix-desktop.md`](phoenix-desktop.md).
+**Status of part 2: partly run (2026-11-25, Windows).** Proxy behavior and the gateway encoding and compression have Windows results. The capture, fixtures, event comparison, Linux and degradation are "not run". What an unrun step expects is a hypothesis, not a finding.
+
+**The account used for the signed-in runs is not accepted by this client.** It reaches `READY` and then shows "This app isn't available for your account". Signed-in results cover only what the client sends and receives up to and on that screen. Nothing in the traffic was changed and no way past the screen was tried. What the study of another loader says about Phoenix is in [`phoenix-desktop.md`](phoenix-desktop.md).
 
 # Part 1. The binary (2.1.2, 2.1.5, 2.1.6)
 
@@ -257,6 +259,8 @@ Set-ItemProperty $k ProxyServer '127.0.0.1:8080'
 Set-ItemProperty $k ProxyEnable 1
 ```
 
+**Result.** Honoured: with only the registry values set (followed by `InternetSetOption` 39 and 37, and the effective value checked with `WinHttpGetIEProxyConfigForCurrentUser`), the client's connections, gateway included, went to the proxy.
+
 Start Phoenix from the Start menu and watch mitmproxy. Then restore the values you wrote down (`Set-ItemProperty $k ProxyEnable 0` if the proxy was off).
 
 If this fails, the client may read the WinHTTP setting instead (elevated shell): `netsh winhttp show proxy`, `netsh winhttp set proxy 127.0.0.1:8080`, and afterwards `netsh winhttp reset proxy`.
@@ -287,7 +291,9 @@ Start-Process 'C:\path\to\Phoenix\Discord.exe' -ArgumentList '--proxy-server=htt
 
 The proxy speaks HTTP/1.1 only. If the client requires HTTP/2, record the error.
 
-**Result without the CA trusted.** `phoecord run` showed `discord.com:443: received fatal alert: UnknownCA`; the client logged `rustls_platform_verifier::verification::windows` / `invalid peer certificate: UnknownIssuer`. So the client verifies certificates, through the Windows verifier. The run with the CA trusted is not done.
+**Result without the CA trusted.** `phoecord run` showed `discord.com:443: received fatal alert: UnknownCA`; the client logged `rustls_platform_verifier::verification::windows` / `invalid peer certificate: UnknownIssuer`. So the client verifies certificates, through the Windows verifier.
+
+**Result with the CA trusted** (`phoecord trust`, removed afterwards): the connections to `discord.com` and `gateway.discord.gg` were intercepted and worked over HTTP/1.1, the proxy logged `gateway connected (Json, Zstd)`, and the client logged `signed in: READY`. No pin showed on those two hosts, so step 4 was not needed.
 
 ### Step 4. Bundled roots or pinning
 
@@ -321,16 +327,18 @@ With a working setup, use the client for a few minutes (open channels, send a me
 |:---|:---|:---|
 | `HTTPS_PROXY` honoured | **no** (nor `HTTP_PROXY`, `ALL_PROXY`) | not run |
 | `--proxy-server` honoured | **yes** | not run |
-| System proxy honoured | not run; the log has a `net::proxy` line about auto-detect and "manual settings" | not run |
+| System proxy honoured | **yes** | not run |
 | Verifies certificates | **yes**, `rustls-platform-verifier` (Windows) | not run |
-| PhoeCord CA in the system store accepted | not run | not run |
-| mitmproxy CA in the system store accepted | not run | not run |
+| PhoeCord CA in the system store accepted | **yes** (`CurrentUser\Root`), on `discord.com` and `gateway.discord.gg` | not run |
+| mitmproxy CA in the system store accepted | not needed | not run |
 | TLS crates seen | `rustls` 0.23.46, `rustls-platform-verifier` 0.7.1, `rustls-native-certs` 0.8.5, `aws-lc-rs` 1.18.2; no `webpki-roots` path | not run |
-| HTTP/2 or QUIC required | not run; ALPN offers `http/1.1`, no UDP at the login screen; `h2` 0.4.20 and `quinn` 0.11.9 are linked | not run |
-| Hosts through the proxy | signed out: `discord.com`, `status.discord.com`, `remote-auth-gateway.discord.gg` | not run |
-| Hosts that bypass it | signed out, with the flag: none over TCP | not run |
+| HTTP/2 or QUIC required | HTTP/2 not required; no UDP seen outside voice (voice not tested); `h2` 0.4.20 and `quinn` 0.11.9 are linked | not run |
+| Hosts through the proxy | intercepted: `discord.com`, `gateway.discord.gg`; tunnelled: `status.discord.com`, `cdn.discordapp.com`, `latency.discord.media`, `remote-auth-gateway.discord.gg` (signed out), connected-account services | not run |
+| Hosts that bypass it | `o64374.ingest.sentry.io` (error reporting), with the flag and with the system proxy | not run |
 
 ### What the answers mean for 2.1.8
+
+On Windows the first row applies, through `--proxy-server` or the system setting rather than `HTTPS_PROXY`: no hook is needed. `phoecord launch` already passes the flag; a client started any other way needs the flag in its shortcut or the system setting. The ruling is the owner's and is not recorded yet.
 
 | Proxy setting | System CA | Option (`ARCHITECTURE.md`, "Phoenix and the proxy") |
 |:---|:---|:---|
@@ -342,17 +350,6 @@ With a working setup, use the client for a few minutes (open channels, send a me
 
 Options 2 and 3 are hooks, so they need signatures for each build, the same thing whose absence makes the proxy the fallback. A fallback that depends on them does not cover an unknown build; the ruling for 2.1.8 has to say so.
 
-### Later results (reported in PR #104, not yet written into the steps above)
-
-Reported by Kennurken in a [comment on PR #104](https://github.com/Nanda070/phoecord/pull/104) after the last commit (same build 0.1.0.2208, Windows 11). Where this and the tables above disagree ("not run"), this is newer.
-
-- **Proxy:** the Windows system proxy is honoured.
-- **CA:** with PhoeCord's CA trusted in `CurrentUser\Root` it is accepted on `discord.com` and `gateway.discord.gg`, over HTTP/1.1; no pin seen on those hosts.
-- **Bypass:** error reporting (`o64374.ingest.sentry.io`) goes around the proxy.
-- **For 2.1.8:** row 1 of the table above applies and needs no hook (`phoecord launch` already passes the flag). The ruling is the owner's and is not recorded yet.
-- **Gateway:** JSON with `zstd-stream`; decodes with the current codec.
-- **Limit:** that account is refused after sign-in ("This app isn't available for your account"); the gateway reaches `READY` first. Nothing was changed in the traffic and no bypass was tried. Fixtures, the event comparison and the endpoints beyond that screen need an account the client accepts. Linux is not run.
-
 ## Gateway wire format
 
 This section matters for the proxy fallback only: in-process, the registry hands out decoded JSON ([`phoenix-desktop.md`](phoenix-desktop.md) §3.2).
@@ -362,8 +359,10 @@ This section matters for the proxy fallback only: in-process, the registry hands
 With `phoecord run` working (step 3), the answer is the line it prints for each connection:
 
 ```
-gateway connected (Etf, Zstd)
+gateway connected (Json, Zstd)
 ```
+
+The line appears only while an enabled plugin reads the gateway; otherwise the proxy passes the connection through without decoding and says nothing. For an observation run, enable `message_logger`, which changes nothing at start-up, and disable `no_track`, so that no request is answered locally.
 
 `phoecord-proxy/src/codec.rs` reads `encoding` (`json`, `etf`) and `compress` (`zlib-stream`, `zstd-stream`, or none) from the gateway URL. Anything else prints `unknown gateway …; passing the gateway through untouched`, and that line is the finding: it names what the codec lacks. Also note a connection that is logged as connected but then fails to decode: the parameters may be familiar while the framing is not.
 
@@ -421,15 +420,15 @@ For each event name, compare the set of key paths and value types between the tw
 
 | Question | Phoenix | Electron today |
 |:---|:---|:---|
-| Encoding | not run | not run |
-| Compression | not run | not run |
+| Encoding | **JSON** | not run |
+| Compression | **zstd-stream** | not run |
 | Gateway version (`v=`) | not run | not run |
 | Other URL parameters | not run | not run |
-| Decodes with the current codec | not run | not run |
+| Decodes with the current codec | **yes** | not run |
 | Events only on this client | not run | not run |
 | Fields added or removed | not run | not run |
 
-A hint, not a result: the executable contains the strings `encoding=json`, `zstd-stream` and `zlib-stream`; `encoding=etf` was not found.
+No `undecodable gateway payload` line appeared at debug level during about 45 seconds of one connection, so no change to `codec.rs` is needed for what was seen. The URL parameters are not logged, and the client's full event traffic was not seen (see the status of part 2).
 
 ## Degradation
 
