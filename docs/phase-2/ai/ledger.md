@@ -5,3 +5,4 @@ Spec: `docs/phase-2/ai/spec.md` · Plan: `docs/phase-2/ai/plan.md`.
 Line format: `YYYY-MM-DD HH:MM | <id> | claimed / paused / resumed / blocked / review / complete | <who> | <text>`, UTC, new lines at the bottom. Decisions: a `Ruling:` line, then `python scripts/gen_decisions.py`.
 
 2026-11-25 23:00 | -     | plan-created | Nanda/Claude | Phase 2 plan pushed to main; Phoenix Canary available on the owner's account; next: 2.1.1
+2026-11-25 21:57 | 2.3.1 | review | matvee | part 1 without the Phoenix binary: `phoecord_loader::theme` (theme.toml → Hsla, hex/rgb/hsl colours, bad entries reported, ThemeWatcher 2 s poll), 5 tests, branch feat/theme-engine; part 2 (hook on the active theme global, Phoenix field names, default theme) waits for 2.1.5/2.1.9
