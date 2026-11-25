@@ -36,7 +36,7 @@ So PhoeCord splits the work into two layers by one rule: **everything that can b
                    └── phoecord-core ┘ ◄─────────────────┘
 
    phoecord-loader (cdylib, inside the client) ── IPC ──► phoecord-proxy
-   phoecord-plugin-sdk (wasm32, used by plugin authors) — no host dependencies
+   phoecord-plugin-sdk (+ phoecord-plugin-sdk-macros; wasm32, used by plugin authors) — no host dependencies
 ```
 
 | Crate | Responsibility | Must not |
@@ -44,7 +44,7 @@ So PhoeCord splits the work into two layers by one rule: **everything that can b
 | `phoecord-core` | `Val`, ETF, routes, Plugin API | Do I/O or async, depend on our other crates |
 | `phoecord-proxy` | TCP/TLS, `CONNECT`, MITM, REST, Gateway, codecs, CA, trust | Know about specific plugins |
 | `phoecord-plugin-runtime` | Plugin chain, manifest loading, WASM host, limits | Do network I/O |
-| `phoecord-plugin-sdk` | WIT bindings and macro for guests | Depend on `phoecord-core` or host crates |
+| `phoecord-plugin-sdk` | WIT bindings, the guest `Plugin` trait and the `#[phoecord::plugin]` macro (from `phoecord-plugin-sdk-macros`); example `examples/hello-plugin` | Depend on `phoecord-core` or host crates |
 | `phoecord-plugins` | Built-in native plugins | Bypass `Host` |
 | `phoecord-loader` | Proxy DLL, AOB, hooks, theme engine, IPC with the proxy | Be required by network plugins |
 | `phoecord-installer` | Client discovery, CA, DLL install/remove, Vencord import | Act without an explicit user action |
@@ -169,7 +169,7 @@ name.ru = "ClearURLs"
 
 ### Licensing of plugins
 
-PhoeCord is GPL-3.0-or-later. The plugin SDK (`phoecord-plugin-sdk`), the WIT contract (`wit/`) and the plugin templates are MIT, so a third-party WASM plugin, which only talks to PhoeCord through that contract, may use any license. A plugin that adapts Vencord code is GPL-3.0 itself.
+PhoeCord is GPL-3.0-or-later. The plugin SDK (`phoecord-plugin-sdk` and `phoecord-plugin-sdk-macros`), the WIT contract (`wit/`) and the plugin templates are MIT, so a third-party WASM plugin, which only talks to PhoeCord through that contract, may use any license. A plugin that adapts Vencord code is GPL-3.0 itself.
 
 ## Dynamic plugins: choosing a runtime
 
