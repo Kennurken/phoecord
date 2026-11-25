@@ -26,7 +26,7 @@
 //! cache (Vencord's "Clear the linked message cache" button).
 
 use crate::commands::{FnCmd, Subcommand};
-use crate::state::Shared;
+use crate::state::{Shared, dispatch_data_mut};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::{HashMap, VecDeque};
@@ -442,7 +442,7 @@ impl Plugin for MessageLinkEmbeds {
         match event {
             Event::Dispatch { name, payload, .. } if is_message_event(name) => {
                 let mut st = self.state.lock();
-                if fix_message(host, &mut st, payload) {
+                if fix_message(host, &mut st, dispatch_data_mut(payload)) {
                     Verdict::Changed
                 } else {
                     Verdict::Pass
@@ -536,6 +536,24 @@ mod tests {
             Verdict::Pass,
             "already embedded"
         );
+    }
+
+    #[test]
+    fn link_in_a_real_gateway_frame_gets_an_embed() {
+        use phoecord_plugin_runtime::{Chain, Outcome};
+        let chain = Chain::new(vec![Box::new(MessageLinkEmbeds::new())]);
+        let mut h = Rec::default().answer("GET", ROUTE, 200, LINKED);
+        let mut frame = j(
+            r#"{"op":0,"t":"MESSAGE_CREATE","s":1,"d":{"id":"1","author":{"id":"9"},"embeds":[]}}"#,
+        );
+        frame
+            .get_mut("d")
+            .unwrap()
+            .set("content", Val::Str(format!("look {LINK}")));
+        let out = chain.dispatch(&mut h, "MESSAGE_CREATE", &mut frame, &mut Vec::new());
+        assert_eq!(out, Outcome::Changed);
+        let e = &frame.at(&["d", "embeds"]).unwrap().as_list()[0];
+        assert_eq!(e.str_at(&["description"]), Some("hello world"));
     }
 
     #[test]
