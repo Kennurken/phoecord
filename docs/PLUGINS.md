@@ -222,7 +222,7 @@ From Nanda's Vencord `userplugins` folder. They behave 1:1 like the owner's orig
 | AntiRickroll | Warn before opening rickroll links | 🌐 + 🎨 | 1.2.19 / 2 |
 | BetterActivities | Activity icons in the member list, all activities shown | 🎨 UI | 2 |
 | SoundboardToVoice | Play soundboard sounds through your microphone | 🎨 UI | 2 (audio pipeline) |
-| QuestMaster | Quest dashboard and auto-completion | 🌐 + 🎨 | planned (owner's ruling 2026-11-25, task not set yet) |
+| QuestMaster | Quest dashboard and auto-completion | 🌐 + 🎨 | 1.2.19 / 2 |
 | TrustMeBro | Age verification bypass | 🌐 Network | not scheduled |
 
 
