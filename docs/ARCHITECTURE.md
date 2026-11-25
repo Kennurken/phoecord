@@ -245,6 +245,8 @@ Process: Ghidra/IDA + the open GPUI (Zed) sources → find the function → make
 | A panic in a hook | The hook is removed, the error is logged; the client keeps running |
 | The proxy is not running | The loader does not interfere with the client and intercepts nothing |
 
+Which entry points and UI features run is decided in one place, `phoecord_loader::plan`, from the locator results: an unknown build is proxy only without UI, and a failed locator costs its own entry point or feature. Two entry points also depend on another one: `on_response` on `on_request` (it needs the method and route), `on_send` on `on_dispatch` (one gateway connection). `on_dispatch` does not depend on `on_send`, because Phoenix may have no send function to hook. It is not wired to hooks yet.
+
 ---
 
 ## Installer and releases

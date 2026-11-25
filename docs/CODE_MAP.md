@@ -215,6 +215,7 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/theme/parse.rs` | `parse_color`: hex, `rgb(a)`, `hsl(a)` → `Hsla` (standard RGB → HSL) | Pure, tested on every OS |
 | `src/locators/mod.rs` | `Found<T>`, `LocatorError`, `Located<T>`; `exactly_one`, `winner`; `Image` (`.text`, `.rdata`, `.pdata` by RVA: `from_pe`, `find_bytes`, `find_str`, `function_of`) | Pure, mock sections in tests; never fall back to an offset from another build |
 | `src/locators/index.rs` | `CallIndex::build`: `call rel32` to function starts and RIP-relative `lea` / `mov` into `.text` / `.rdata`; `calls_to`, `refs_to`, `callers`, `loaders` | A byte scan, not a decoder: targets are checked, and locators should intersect several facts |
+| `src/plan.rs` | `Plan::resolve` / `unknown_build`: from a `Probe` per `Target` (`probe` turns a `Located<T>` into one) to a `Route` per `EntryPoint` and on/off per `UiFeature`, `report` for the log | Pure; dependencies between entry points live only in `requires` |
 | `src/hook.rs` | Inline detours (`retour`), installed with other threads suspended, `uninstall_all` | Hooks must be removed before `FreeLibrary` |
 | `examples/host.rs` | Throwaway exe that loads `version.dll` from its folder for manual checks | |
 

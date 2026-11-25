@@ -14,7 +14,8 @@
 //! Status: stage 1.5.1–1.5.5 (prototype): export forwarding, `DllMain` + worker, version detection,
 //! signatures, detours, and the IPC to the proxy ([`ipc`], [`pipe`]). Survival of client updates
 //! is 1.5.6. Phase 2: the `theme.toml` format and its live reload ([`theme`], 2.3.1, the hook
-//! that applies it comes after the Phoenix reconnaissance).
+//! that applies it comes after the Phoenix reconnaissance) and the degradation plan ([`plan`],
+//! not wired to hooks yet).
 //!
 //! The `dll` feature (on by default) is the DLL itself. The proxy uses this crate without it, for
 //! the IPC protocol and the pipe server: that is the only way the `unsafe` of the pipe stays in
@@ -25,6 +26,7 @@ pub mod ipc;
 pub mod locators;
 pub mod log;
 pub mod pe;
+pub mod plan;
 pub mod signatures;
 pub mod theme;
 pub mod version;
