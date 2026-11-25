@@ -131,6 +131,10 @@ plugin-desc-valid_reply = Исправляет «Не удалось загру�
 plugin-desc-valid_user = Исправляет упоминания неизвестных пользователей (@unknown-user)
 plugin-desc-vc_narrator = Уведомляет, когда кто-то заходит в ваш голосовой канал или выходит (без озвучки)
 plugin-desc-who_reacted = Кто поставил реакцию на сообщение
+plugin-desc-fake_deafen = Выглядеть для других с выключенным звуком, но всё слышать
+plugin-desc-fake_deafen_detector = Отмечать участников, которые говорят с выключенным микрофоном или звуком
+plugin-desc-follow_user = Ходить за пользователем по голосовым каналам
+plugin-desc-anti_rickroll = Находить ссылки на рикролл в сообщениях
 
 # CLI: log
 cli-log-empty = пока ничего не записано ({ $path })

@@ -126,6 +126,10 @@ plugin-desc-valid_reply = Fix “Message could not be loaded” in replies
 plugin-desc-valid_user = Fix mentions of unknown users that show as @unknown-user
 plugin-desc-vc_narrator = Notify you when people join or leave your voice channel (no speech)
 plugin-desc-who_reacted = Who reacted to a message
+plugin-desc-fake_deafen = Look deafened to others while still hearing
+plugin-desc-fake_deafen_detector = Flag members who speak while shown as muted or deafened
+plugin-desc-follow_user = Follow a user from voice channel to voice channel
+plugin-desc-anti_rickroll = Find rickroll links in messages
 
 # CLI: log
 cli-log-empty = nothing logged yet ({ $path })

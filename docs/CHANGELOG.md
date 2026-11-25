@@ -15,6 +15,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 - `Host::emit_send` from a REST event (for example a `/phoecord` command) or a timer goes to the live gateway connection at once instead of being lost; every plugin-queued send passes the Send chain once.
 - The per-plugin `Host::rest` limit allows bursts: 5 calls per 5 s (was 1 per second); a refusal says `retry in X s`. The 5/s overall cap and Discord's buckets are unchanged.
+- 1.2.19 (in progress): network parts of the owner's userplugins FakeDeafen (`/phoecord fakedeafen`), FollowUser (`/phoecord follow`, `unfollow`), FakeDeafenDetector (`/phoecord flagged`; detection needs a voice `SPEAKING` feed the proxy does not see yet) and AntiRickroll (`/phoecord rickrolls`), ported 1:1 from the owner's scripts, all off by default.
 
 ## [0.5.0] - 2026-11-25
 
