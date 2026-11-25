@@ -16,7 +16,7 @@
 //! Switching it on: `[plugins.override_forum_defaults] enabled = true`, or
 //! `/phoecord toggle override_forum_defaults`.
 
-use crate::state::is_one_of;
+use crate::state::{dispatch_data_mut, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 
@@ -114,24 +114,27 @@ impl Plugin for OverrideForumDefaults {
         let layout = choice(host, "defaultLayout", &[1, 2], 1);
         let sort = choice(host, "defaultSortOrder", &[0, 1], 0);
         let changed = match event {
-            Event::Dispatch { name, payload, .. } => match name {
-                "READY" => {
-                    let mut ch = false;
-                    if let Some(gs) = payload.get_mut("guilds").and_then(Val::as_list_mut) {
-                        for g in gs {
-                            if let Some(chs) = g.get_mut("channels") {
-                                ch |= fix_list(chs, layout, sort);
+            Event::Dispatch { name, payload, .. } => {
+                let payload = dispatch_data_mut(payload);
+                match name {
+                    "READY" => {
+                        let mut ch = false;
+                        if let Some(gs) = payload.get_mut("guilds").and_then(Val::as_list_mut) {
+                            for g in gs {
+                                if let Some(chs) = g.get_mut("channels") {
+                                    ch |= fix_list(chs, layout, sort);
+                                }
                             }
                         }
+                        ch
                     }
-                    ch
+                    "GUILD_CREATE" => payload
+                        .get_mut("channels")
+                        .is_some_and(|chs| fix_list(chs, layout, sort)),
+                    "CHANNEL_CREATE" | "CHANNEL_UPDATE" => fix_channel(payload, layout, sort),
+                    _ => false,
                 }
-                "GUILD_CREATE" => payload
-                    .get_mut("channels")
-                    .is_some_and(|chs| fix_list(chs, layout, sort)),
-                "CHANNEL_CREATE" | "CHANNEL_UPDATE" => fix_channel(payload, layout, sort),
-                _ => false,
-            },
+            }
             Event::RestResponse {
                 method,
                 route,
@@ -195,6 +198,30 @@ mod tests {
         assert_eq!(chs[2].get("default_sort_order"), Some(&Val::Int(1)));
         // Already right: no change.
         assert_eq!(dispatch(&p, &mut h, "GUILD_CREATE", &mut g), Verdict::Pass);
+    }
+
+    #[test]
+    fn forum_channels_get_your_defaults_in_a_real_gateway_frame() {
+        use phoecord_plugin_runtime::{Chain, Outcome};
+        let chain = Chain::new(vec![Box::new(OverrideForumDefaults::new())]);
+        let mut h = Cfg::default()
+            .with("defaultLayout", Val::Int(2))
+            .with("defaultSortOrder", Val::Int(1));
+        let mut frame = j(
+            r#"{"op":0,"t":"GUILD_CREATE","s":1,"d":{"id":"1","channels":[
+            {"id":"2","type":15,"default_forum_layout":0,"default_sort_order":null}]}}"#,
+        );
+        let out = chain.dispatch(&mut h, "GUILD_CREATE", &mut frame, &mut Vec::new());
+        assert_eq!(out, Outcome::Changed);
+        let ch = &frame.at(&["d", "channels"]).unwrap().as_list()[0];
+        assert_eq!(ch.get("default_forum_layout"), Some(&Val::Int(2)));
+        assert_eq!(ch.get("default_sort_order"), Some(&Val::Int(1)));
+        let mut update = j(r#"{"op":0,"t":"CHANNEL_UPDATE","s":2,"d":{"type":15}}"#);
+        chain.dispatch(&mut h, "CHANNEL_UPDATE", &mut update, &mut Vec::new());
+        assert_eq!(
+            update.at(&["d", "default_forum_layout"]),
+            Some(&Val::Int(2))
+        );
     }
 
     #[test]
