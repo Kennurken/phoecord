@@ -15,6 +15,14 @@ use crate::Val;
 /// Version of this contract. Plugins declare the version they were built for in their manifest.
 pub const API_VERSION: u32 = 1;
 
+/// Name of the dispatch a plugin receives when one of its timers ([`Host::schedule`]) is due.
+///
+/// The host delivers `Event::Dispatch { name: TIMER_EVENT, payload }` with the payload
+/// `{"op":0,"t":"PHOECORD_TIMER","d":{"tag":<tag>}}` to the plugin that scheduled it and to no
+/// other. A plugin that wants timers says yes to `EventKind::Dispatch { name: TIMER_EVENT }` in
+/// [`Plugin::wants`]. Discord never sends a dispatch with this name.
+pub const TIMER_EVENT: &str = "PHOECORD_TIMER";
+
 /// Where a plugin works. Decides when it can run and what breaks it (see docs/ARCHITECTURE.md).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Layer {
@@ -106,7 +114,8 @@ pub trait Host {
     fn notify(&mut self, title: &str, body: &str);
     fn log(&mut self, message: &str);
     /// Queue a client → server gateway payload (for example a re-sent presence). The proxy sends
-    /// the queue after the frame being handled, through the plugin chain's `Send` event.
+    /// the queue after the frame being handled, through the plugin chain's `Send` event; from a
+    /// REST event or a [`TIMER_EVENT`] it goes to the connected gateway at once.
     fn emit_send(&mut self, op: i64, payload: Val);
     /// Custom emoji ids of a guild the user is in (empty when unknown).
     fn guild_emojis(&self, guild_id: u64) -> Vec<u64>;
@@ -173,6 +182,26 @@ pub trait Host {
         let _ = args;
         key.to_string()
     }
+    /// Ask for a [`TIMER_EVENT`] dispatch carrying `tag` in about `after_ms` milliseconds, so a
+    /// plugin can run delayed work (a pause between deletes, a heartbeat) without client traffic.
+    ///
+    /// When due, the host delivers `Event::Dispatch { name: TIMER_EVENT, payload:
+    /// {"op":0,"t":"PHOECORD_TIMER","d":{"tag":<tag>}} }` to this plugin only, only while it is
+    /// enabled, and only if its `wants(EventKind::Dispatch { name: TIMER_EVENT })` is true. Payloads
+    /// it queues there (`emit_send`, `emit_dispatch`) go out at once.
+    ///
+    /// Rules: a delay under 50 ms is raised to 50 ms, more than 24 h is an `Err`, and at most 64
+    /// timers may be pending per plugin (the 65th is an `Err`). Scheduling the same tag twice gives
+    /// two timers. Timers live in memory only: a restart forgets them. The default (a host without
+    /// timers) returns `Err`.
+    fn schedule(&mut self, after_ms: u64, tag: &str) -> Result<(), String> {
+        let _ = (after_ms, tag);
+        Err("timers are not supported by this host".into())
+    }
+    /// Cancel every pending timer of this plugin with this `tag` (nothing pending: no-op).
+    fn cancel_schedule(&mut self, tag: &str) {
+        let _ = tag;
+    }
     /// Called by the plugin chain right after `begin_plugin` with the hosts the plugin's manifest
     /// lists in `fetch`, so [`Host::fetch`] can check its allow-list. Plugins never call this.
     fn set_fetch_hosts(&mut self, hosts: &[String]) {
@@ -222,4 +251,45 @@ pub trait Plugin: Send + Sync {
         false
     }
     fn on_event(&self, host: &mut dyn Host, event: Event<'_>) -> Verdict;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A host that implements only the required methods.
+    struct Bare;
+
+    impl Host for Bare {
+        fn setting(&self, _: &str) -> Option<Val> {
+            None
+        }
+        fn kv_get(&self, _: &str) -> Option<Val> {
+            None
+        }
+        fn kv_set(&mut self, _: &str, _: Val) {}
+        fn self_id(&self) -> Option<u64> {
+            None
+        }
+        fn notify(&mut self, _: &str, _: &str) {}
+        fn log(&mut self, _: &str) {}
+        fn emit_send(&mut self, _: i64, _: Val) {}
+        fn guild_emojis(&self, _: u64) -> Vec<u64> {
+            Vec::new()
+        }
+        fn channel_guild(&self, _: u64) -> Option<u64> {
+            None
+        }
+    }
+
+    #[test]
+    fn timers_are_refused_by_a_host_without_them() {
+        let mut h = Bare;
+        assert_eq!(
+            h.schedule(1000, "tick"),
+            Err("timers are not supported by this host".to_string())
+        );
+        h.cancel_schedule("tick");
+        assert_eq!(TIMER_EVENT, "PHOECORD_TIMER");
+    }
 }
