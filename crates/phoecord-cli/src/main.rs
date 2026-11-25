@@ -530,6 +530,14 @@ fn describe_step(l10n: &Localizer, step: &Step) -> String {
         Step::RunKey { name, .. } => tf(l10n, "cli-step-run-key", &[("name", name)]),
         Step::LaunchAgent { label, .. } => tf(l10n, "cli-step-launch-agent", &[("label", label)]),
         Step::SystemdUnit { unit } => tf(l10n, "cli-step-systemd-unit", &[("unit", unit)]),
+        Step::LoaderWanted { channel, .. } => {
+            tf(l10n, "cli-step-loader-wanted", &[("channel", channel)])
+        }
+        Step::LoaderCopy { path, .. } => tf(
+            l10n,
+            "cli-step-loader-copy",
+            &[("path", &path.display().to_string())],
+        ),
     }
 }
 
@@ -538,6 +546,7 @@ fn describe_kept(l10n: &Localizer, why: Kept) -> String {
         Kept::AlreadyGone => "cli-kept-already-gone",
         Kept::NotEmpty => "cli-kept-not-empty",
         Kept::HoldsLog => "cli-kept-holds-log",
+        Kept::NotOurs => "cli-kept-not-ours",
     })
 }
 

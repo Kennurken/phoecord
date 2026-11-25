@@ -30,6 +30,8 @@ pub enum Kept {
     NotEmpty,
     /// The data folder, which still holds the log of failed steps.
     HoldsLog,
+    /// A loader DLL whose content is no longer what PhoeCord wrote there: someone else's file now.
+    NotOurs,
 }
 
 impl Kept {
@@ -39,6 +41,7 @@ impl Kept {
             Kept::AlreadyGone => "already gone",
             Kept::NotEmpty => "not empty",
             Kept::HoldsLog => "holds the log of failed steps",
+            Kept::NotOurs => "changed by another program, left in place",
         }
     }
 }
@@ -74,7 +77,8 @@ fn remove_dir(path: &Path) -> Result<Outcome> {
     }
 }
 
-fn undo(step: &Step, sys: &dyn System) -> Result<Outcome> {
+/// Undo one `step`; `entries` is the whole log (a loader copy checks the hashes recorded for it).
+fn undo(step: &Step, entries: &[Entry], sys: &dyn System) -> Result<Outcome> {
     match step {
         Step::Dir { path } => remove_dir(path),
         Step::File { path } => remove_file(path),
@@ -88,6 +92,15 @@ fn undo(step: &Step, sys: &dyn System) -> Result<Outcome> {
             Ok(Outcome::Removed)
         }
         Step::SystemdUnit { unit } => sys.systemd_disable(unit).map(|()| Outcome::Removed),
+        // Only a record of the user's choice: nothing on disk to undo.
+        Step::LoaderWanted { .. } => Ok(Outcome::Removed),
+        // Ours only while it still holds bytes PhoeCord wrote there (this copy or a later update of
+        // it); anything else is someone else's file now and stays.
+        Step::LoaderCopy { path, .. } => match crate::loader::file_sha256(path)? {
+            None => Ok(Outcome::Kept(Kept::AlreadyGone)),
+            Some(h) if crate::loader::is_our_copy(entries, path, &h) => remove_file(path),
+            Some(_) => Ok(Outcome::Kept(Kept::NotOurs)),
+        },
     }
 }
 
@@ -125,7 +138,7 @@ pub fn uninstall_all(env: &Env, sys: &dyn System) -> Result<UninstallReport> {
             report.kept.push((entry.step.clone(), Kept::HoldsLog));
             None
         } else {
-            Some(undo(&entry.step, sys))
+            Some(undo(&entry.step, &entries, sys))
         };
         match outcome {
             None => {}

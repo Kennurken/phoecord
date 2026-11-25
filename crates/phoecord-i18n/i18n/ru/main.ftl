@@ -386,3 +386,8 @@ gui-onboard-done-sub = PhoeCord будет настроен для { $name }. Э
 
 ## Installer window: credits
 gui-credits = Благодарности
+
+# Установка и переустановка загрузчика (1.5.6)
+cli-step-loader-wanted = выбор загрузчика для Discord { $channel }
+cli-step-loader-copy = DLL загрузчика { $path }
+cli-kept-not-ours = изменён другой программой, оставлен на месте

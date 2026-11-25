@@ -381,3 +381,8 @@ gui-onboard-done-sub = PhoeCord will be set up for { $name }. It takes a few sec
 
 ## Installer window: credits
 gui-credits = Credits
+
+# Loader install and reinstall (1.5.6)
+cli-step-loader-wanted = loader opt-in for Discord { $channel }
+cli-step-loader-copy = loader DLL { $path }
+cli-kept-not-ours = changed by another program, left in place
