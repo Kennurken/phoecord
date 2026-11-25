@@ -20,6 +20,7 @@ pub mod follow_user;
 pub mod game_activity_toggle;
 pub mod i_love_spam;
 pub mod implicit_relationships;
+pub mod local_dev_badges;
 pub mod member_count;
 pub mod message_latency;
 pub mod message_link_embeds;
@@ -191,6 +192,7 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(fake_deafen_detector),
         Box::new(follow_user),
         Box::new(anti_rickroll),
+        Box::new(local_dev_badges::LocalDevBadges::new()),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
