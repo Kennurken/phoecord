@@ -6,7 +6,7 @@ The work plan from Phoenix Canary to v1.0, written 25.11.2026 at Nanda's request
 
 ## Status
 
-26.11.2026. PR #104 (ken) is in `main`: first results for 2.1.3 and 2.1.4, and the degradation plan `phoecord_loader::plan` (preparation for 2.2.7 and 2.3.7, not wired); open for Nanda: the 2.1.8 ruling input (system proxy and trusted CA work, no hook needed). Nanda: 2.1.2 done; 2.1.5 and 2.1.6 in progress (findings in [`research/phoenix-recon.md`](../research/phoenix-recon.md), GPUI lifecycle notes in [`re/gpui-lifecycle.md`](../re/gpui-lifecycle.md)); 2.2.2 and 2.2.3 have their structure, no detours yet; 2.2.1 not marked started. Part 1 of 2.2.5 (PR #103) and 2.3.1 (PR #102) is in `main`. Next for Nanda: a transport-sliced dump (closes the open half of 2.1.5), then 2.1.7. Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` are two separate types and should become one (2.2.2 with 2.2.5). Phase 1 open tasks running in parallel: 1.1.9, 1.2.14 (partial), 1.2.15 (partial). 1.2.17 is closed, 1.4.11 is cancelled, 1.4.10 is now 2.4.8 and 1.5.9 is now 2.2.11.
+26.11.2026. PR #104 (ken) is in `main`: first results for 2.1.3 and 2.1.4, and the degradation plan `phoecord_loader::plan` (preparation for 2.2.7 and 2.3.7, not wired); 2.1.8 is decided: option 1, no hook. Nanda: 2.1.2 done; 2.1.5 and 2.1.6 in progress (findings in [`research/phoenix-recon.md`](../research/phoenix-recon.md), GPUI lifecycle notes in [`re/gpui-lifecycle.md`](../re/gpui-lifecycle.md)); 2.2.2 and 2.2.3 have their structure, no detours yet; 2.2.1 in progress. Part 1 of 2.2.5 (PR #103) and 2.3.1 (PR #102) is in `main`. Next for Nanda: a transport-sliced dump (closes the open half of 2.1.5), then 2.1.7. Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` are two separate types and should become one (2.2.2 with 2.2.5). Phase 1 open tasks running in parallel: 1.1.9, 1.2.14 (partial), 1.2.15 (partial). 1.2.17 is closed, 1.4.11 is cancelled, 1.4.10 is now 2.4.8 and 1.5.9 is now 2.2.11.
 
 ## What we get
 
@@ -31,7 +31,7 @@ New decisions for Phase 2 (made when the research answers them):
 
 - Loading path: sideload (`version.dll`) or launcher (APC injection) — decided in 2.1.7 based on 2.1.2 findings.
 - Hook timing: synchronous under the loader lock or suspended-thread — decided in 2.1.7.
-- Proxy reach on Phoenix: option 1 (HTTPS_PROXY works), 2 (hook HTTP client creation) or 3 (add CA to process roots) — decided in 2.1.8 based on 2.1.3 findings.
+- Proxy reach on Phoenix: **option 1, no hook** (2.1.8, ruling 2026-11-26): `--proxy-server` or the system proxy plus the PhoeCord CA in the system store. `HTTPS_PROXY` is ignored.
 
 **Not doing in Phase 2:** UI plugins through WASM (declarative elements → GPUI); the UI layer on macOS and Linux (Windows first, Linux in-process transport later); a third-party plugin catalogue with signature checks; languages other than English and Russian; Android or iOS.
 
@@ -74,14 +74,14 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.1.5** 🔴 | Locate the HTTP transport in the binary: `ReqwestTransport::send`, the vtable, type layouts, allocator shims. _Verified: `__rust_alloc` + `handle_alloc_error` addresses ([recon](../research/phoenix-recon.md) §Allocator). Pending: `__rust_dealloc` RVA and the `Transport`/`Request` layout (`Method`, URL, `HeaderMap`, body) + send-future — not in the current dump, need a transport-sliced one._ | Nanda | 🚧 |
 | **2.1.6** 🔴 | Locate the Gateway registry: per-domain tables, seed events, handler ABI, READY handling; search for outgoing send. _Verified: handler ABI, registry at `ctx+0x18`, sret out-pointer, `Result`/poll niche ([recon](../research/phoenix-recon.md) §Gateway dispatcher ABI). Pending: outgoing client→server send and any out-of-band READY path — not observed (dump is inbound-only)._ | Nanda | 🚧 |
 | **2.1.7** 🔴 | Loading path decision and prototype: sideload vs launcher; hook timing test | Nanda | ⏳ |
-| **2.1.8** 🔴 | Proxy reach decision and fallback: option 1 / 2 / 3 from `ARCHITECTURE.md`; implement the chosen path | ken | ⏳ |
+| **2.1.8** 🔴 | Proxy reach decision and fallback: option 1 / 2 / 3 from `ARCHITECTURE.md`; implement the chosen path | ken | ⏳ decided: option 1, no hook (ruling, 2026-11-26). Open: `phoecord launch` for Phoenix (needs 2.1.1) and the check on a fresh install with no manual setup |
 | **2.1.9** 🟡 | Recon report: `docs/research/phoenix-recon.md` with all findings, decisions for 2.2–2.4; update `ARCHITECTURE.md` | matvee | ⏳ |
 
 ### Stage 2.2. Reverse engineering and AOB signatures · `0.8`
 
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
-| **2.2.1** 🔴 | Ghidra / IDA project on Phoenix Canary: GPUI symbols imported from the reference build (1.6) | Nanda | ⏳ |
+| **2.2.1** 🔴 | Ghidra / IDA project on Phoenix Canary: GPUI symbols imported from the reference build (1.6) | Nanda | 🚧 local Ghidra project with Phoenix `0.1.0.2208`, reference-build symbols and a Version Tracking session exist; the "done when" (named hook targets, recorded comparison) is not met yet |
 | **2.2.2** 🔴 | HTTP transport hook: inline entry on `send`, vtable swap for `poll`, allocator-safe body replacement | Nanda | 🚧 structure only (`hooks/`: `HookPlan`, `HookRuntime` → `Engine::on_request` / `on_response`, panic guard; nothing calls it yet). The detours wait for 2.1.5 (transport layout, `__rust_dealloc`) and 2.1.7 |
 | **2.2.3** 🔴 | Gateway registry detours: per-event handler swap, `Engine::on_dispatch` wiring | Nanda | 🚧 structure only (`hooks/gateway.rs`: `Engine::on_dispatch` bridge, panic guard). The detours wait for 2.1.7; signatures for 2.1.6 anchors are not in `signatures/` yet |
 | **2.2.4** 🟡 | Outgoing gateway hook (if found in 2.1.6): `Engine::on_send` wiring | ken | ⏳ |

@@ -73,13 +73,13 @@ The base is the v0 proxy, which already works with today's Discord; its migratio
 
 ### Phoenix and the proxy
 
-The Electron client honours `--proxy-server` and trusts the system store. How Phoenix behaves is not known yet. Options, in order of preference:
+The Electron client honours `--proxy-server` and trusts the system store. Phoenix `0.1.0.2208` on Windows does too: **option 1 is chosen, no hook** (ruling, 2026-11-26; evidence in [`research/phoenix-recon.md`](research/phoenix-recon.md)). It ignores `HTTPS_PROXY`, so the proxy is passed with `--proxy-server` (the system proxy works as well). Seen from one account up to the gateway `READY`; no pin on `discord.com` and `gateway.discord.gg`. The other options stay here in case a later build changes:
 
-1. Phoenix honours `HTTPS_PROXY` and the system store: nothing is needed, `phoecord launch` is enough.
+1. Phoenix honours a proxy setting and the system store: no hook is needed, `phoecord launch` is enough.
 2. It ignores the proxy but trusts the system: the loader sets the proxy at startup (a hook on HTTP client creation).
 3. Pinning or its own root set (`webpki-roots` built into the binary): the loader adds the local CA to the process's root set. The name constraint still applies.
 
-The choice follows the research in ROADMAP 2.1.
+Error reporting (`o64374.ingest.sentry.io`) goes around the proxy.
 
 ### Two transports: proxy today, in-process on Phoenix
 
