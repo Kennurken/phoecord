@@ -16,7 +16,7 @@ One index page for `docs/`. The working rules are in [`AGENTS.md`](AGENTS.md) (t
 | Something broke | [`RUNBOOK.md`](RUNBOOK.md) |
 | Looking for a past decision | [`DECISIONS.md`](DECISIONS.md) (every `Ruling:` from the ledgers, by plan), [`CHANGELOG.md`](CHANGELOG.md) (what shipped and when) |
 | Who owns what, access and secrets | [`GOVERNANCE.md`](GOVERNANCE.md) |
-| Research notes | [`research/gpui.md`](research/gpui.md) (GPUI internals, stage 1.6); [`research/phoenix-desktop.md`](research/phoenix-desktop.md) (Desktop Phoenix and how a mod plugs in, task 2.1 prep); [`research/phoenix-recon.md`](research/phoenix-recon.md) (findings on the local Phoenix build, tasks 2.1.x); [`re/gpui-lifecycle.md`](re/gpui-lifecycle.md) (the client's GPUI start-up and injection points) |
+| Research notes | [`research/gpui.md`](research/gpui.md) (GPUI internals, stage 1.6); [`research/phoenix-desktop.md`](research/phoenix-desktop.md) (Desktop Phoenix and how a mod plugs in, task 2.1 prep); [`research/phoenix-recon.md`](research/phoenix-recon.md) (what an official build does: binary, hook targets, proxy, gateway wire format, degradation; tasks 2.1.x); [`re/gpui-lifecycle.md`](re/gpui-lifecycle.md) (the client's GPUI start-up and injection points) |
 | Working on Phase 2 | [`phase-2/README.md`](phase-2/README.md) (tasks and their status), [`phase-2/AGENTS.md`](phase-2/AGENTS.md), [`phase-2/ai/`](phase-2/ai/) |
 | Security | [`SECURITY.md`](../SECURITY.md) |
 

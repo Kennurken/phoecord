@@ -6,7 +6,7 @@ The work plan from Phoenix Canary to v1.0, written 25.11.2026 at Nanda's request
 
 ## Status
 
-26.11.2026. Nanda: 2.1.2 done; 2.1.5 and 2.1.6 in progress (findings in [`research/phoenix-recon.md`](../research/phoenix-recon.md), GPUI lifecycle notes in [`re/gpui-lifecycle.md`](../re/gpui-lifecycle.md)); 2.2.2 and 2.2.3 have their structure, no detours yet; 2.2.1 not marked started. Part 1 of 2.2.5 and 2.3.1 is in `main`, still in review. Next for Nanda: a transport-sliced dump (closes the open half of 2.1.5), then 2.1.7. Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` are two separate types and should become one (2.2.2 with 2.2.5). Phase 1 open tasks running in parallel: 1.1.9, 1.2.14 (partial), 1.2.15 (partial), 1.2.17, 1.3.7, 1.4.10, 1.4.11, 1.5.9.
+26.11.2026. PR #104 (ken) is in `main`: first results for 2.1.3 and 2.1.4, and the degradation plan `phoecord_loader::plan` (preparation for 2.2.7 and 2.3.7, not wired); open for Nanda: the 2.1.8 ruling input (system proxy and trusted CA work, no hook needed). Nanda: 2.1.2 done; 2.1.5 and 2.1.6 in progress (findings in [`research/phoenix-recon.md`](../research/phoenix-recon.md), GPUI lifecycle notes in [`re/gpui-lifecycle.md`](../re/gpui-lifecycle.md)); 2.2.2 and 2.2.3 have their structure, no detours yet; 2.2.1 not marked started. Part 1 of 2.2.5 (PR #103) and 2.3.1 (PR #102) is in `main`. Next for Nanda: a transport-sliced dump (closes the open half of 2.1.5), then 2.1.7. Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` are two separate types and should become one (2.2.2 with 2.2.5). Phase 1 open tasks running in parallel: 1.1.9, 1.2.14 (partial), 1.2.15 (partial), 1.2.17 (partial), 1.4.10, 1.4.11, 1.5.9.
 
 ## What we get
 
@@ -69,8 +69,8 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 |:--|:--|:--|:--|
 | **2.1.1** 🔴 | Phoenix discovery: install paths on Windows and Linux, update `discover` module, `phoecord launch --channel phoenix` | buslan | ⏳ |
 | **2.1.2** 🔴 | Binary inspection: PE headers, import table, DLL search restrictions, dependent-load flags, update scheme | Nanda | ✅ |
-| **2.1.3** 🔴 | Proxy behavior: does Phoenix honour `HTTPS_PROXY`, the system proxy, the system CA store; does it pin | ken | ⏳ |
-| **2.1.4** 🔴 | Gateway wire format for the proxy fallback: encoding (JSON / ETF), compression (zlib / zstd), new events and fields | ken | ⏳ |
+| **2.1.3** 🔴 | Proxy behavior: does Phoenix honour `HTTPS_PROXY`, the system proxy, the system CA store; does it pin | ken | ⏳ in progress ([recon](../research/phoenix-recon.md)): on Windows `--proxy-server` and the system proxy honoured, `HTTPS_PROXY` not, trusted PhoeCord CA accepted, no pin seen on `discord.com` / the gateway; open: write-up, endpoints after sign-in, Linux |
+| **2.1.4** 🔴 | Gateway wire format for the proxy fallback: encoding (JSON / ETF), compression (zlib / zstd), new events and fields | ken | ⏳ in progress ([recon](../research/phoenix-recon.md)): gateway is JSON + zstd-stream and decodes with the current codec; open: fixtures and event comparison (need an account the client accepts) |
 | **2.1.5** 🔴 | Locate the HTTP transport in the binary: `ReqwestTransport::send`, the vtable, type layouts, allocator shims. _Verified: `__rust_alloc` + `handle_alloc_error` addresses ([recon](../research/phoenix-recon.md) §Allocator). Pending: `__rust_dealloc` RVA and the `Transport`/`Request` layout (`Method`, URL, `HeaderMap`, body) + send-future — not in the current dump, need a transport-sliced one._ | Nanda | 🚧 |
 | **2.1.6** 🔴 | Locate the Gateway registry: per-domain tables, seed events, handler ABI, READY handling; search for outgoing send. _Verified: handler ABI, registry at `ctx+0x18`, sret out-pointer, `Result`/poll niche ([recon](../research/phoenix-recon.md) §Gateway dispatcher ABI). Pending: outgoing client→server send and any out-of-band READY path — not observed (dump is inbound-only)._ | Nanda | 🚧 |
 | **2.1.7** 🔴 | Loading path decision and prototype: sideload vs launcher; hook timing test | Nanda | ⏳ |
@@ -85,9 +85,9 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.2.2** 🔴 | HTTP transport hook: inline entry on `send`, vtable swap for `poll`, allocator-safe body replacement | Nanda | 🚧 structure only (`hooks/`: `HookPlan`, `HookRuntime` → `Engine::on_request` / `on_response`, panic guard; nothing calls it yet). The detours wait for 2.1.5 (transport layout, `__rust_dealloc`) and 2.1.7 |
 | **2.2.3** 🔴 | Gateway registry detours: per-event handler swap, `Engine::on_dispatch` wiring | Nanda | 🚧 structure only (`hooks/gateway.rs`: `Engine::on_dispatch` bridge, panic guard). The detours wait for 2.1.7; signatures for 2.1.6 anchors are not in `signatures/` yet |
 | **2.2.4** 🟡 | Outgoing gateway hook (if found in 2.1.6): `Engine::on_send` wiring | ken | ⏳ |
-| **2.2.5** 🔴 | Typed locators (`Found<T>`) for decoded structures: struct sizes, field offsets, handler ABI | matvee | ⏳ part 1 in review (branch `feat/locators`: `Found<T>`, errors, `Image`, `CallIndex`, string anchors; the target locators wait for 2.1.5 / 2.1.6) |
+| **2.2.5** 🔴 | Typed locators (`Found<T>`) for decoded structures: struct sizes, field offsets, handler ABI | matvee | ⏳ part 1 merged, PR #103 (`Found<T>`, errors, `Image`, `CallIndex`, string anchors; the target locators wait for 2.1.5 / 2.1.6) |
 | **2.2.6** 🔴 | `phoecord check <exe>`: run all locators against a binary, CI on `.text` dumps | buslan | ⏳ |
-| **2.2.7** 🔴 | In-process transport wired to `Engine`: REST and Gateway through the hook layer, `Effects` delivery | ken | ⏳ |
+| **2.2.7** 🔴 | In-process transport wired to `Engine`: REST and Gateway through the hook layer, `Effects` delivery | ken | ⏳ preparation merged, PR #104: fallback planner (`phoecord_loader::plan`); the wiring waits for 2.2.2, 2.2.3, 2.2.5 |
 | **2.2.8** 🔴 | Phoenix installer: loader placement (or injection), reconcile after Phoenix updates, uninstall | buslan | ⏳ |
 | **2.2.9** 🔴 | Every signature verified unique on two adjacent builds | buslan | ⏳ |
 | **2.2.10** 🟡 | Signature updates without rebuilding the loader; hot-fix path for TOML AOB entries | buslan | ⏳ |
@@ -96,13 +96,13 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
-| **2.3.1** 🔴 | Theme engine: `theme.toml` → GPUI palette, live switching | matvee | ⏳ part 1 in review (branch `feat/theme-engine`: format, colour parsing, 2 s file watcher; the palette hook and default theme wait for 2.1) |
+| **2.3.1** 🔴 | Theme engine: `theme.toml` → GPUI palette, live switching | matvee | ⏳ part 1 merged, PR #102 (format, colour parsing, 2 s file watcher; the palette hook and default theme wait for 2.1) |
 | **2.3.2** 🟡 | 3 built-in themes + import of Vencord themes where they translate to a palette | — | ⏳ |
 | **2.3.3** 🔴 | PhoeCord settings tab in Phoenix: plugins, settings, install / remove packages with rights shown, en + ru | matvee | ⏳ |
 | **2.3.4** 🔴 | MessageLogger UI: deleted messages struck through, edit history on hover | matvee | ⏳ |
 | **2.3.5** 🟡 | Message context menu: plugin action entries in right-click and `...` menus | — | ⏳ |
 | **2.3.6** 🟡 | Optimistic delete hook: `Store::delete_message` visible to plugins (MessageLogger sees local deletes) | — | ⏳ |
-| **2.3.7** 🔴 | Degradation verified: unknown build → network only, no crashes; missing signature → that feature off only | ken | ⏳ |
+| **2.3.7** 🔴 | Degradation verified: unknown build → network only, no crashes; missing signature → that feature off only | ken | ⏳ preparation merged, PR #104: scenarios 1 and 2 covered for the plan with fake locator results; nothing verified inside a client |
 
 ### Stage 2.4. Release v1.0 · `1.0`
 
