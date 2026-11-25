@@ -73,6 +73,9 @@ pub fn j(s: &str) -> Val {
     Val::from_json(serde_json::from_str(s).unwrap())
 }
 
+/// One recorded `fetch_with` call: `("METHOD url", headers, body)`.
+pub type FetchCall = (String, Vec<(String, String)>, Option<Val>);
+
 /// A [`Host`] that records everything: settings, a working KV store, notifications, logs,
 /// queued sends and dispatches, and `rest` calls answered from a script. For the data parts of
 /// UI plugins (stages 1.2.16 and 1.2.18), which talk to the user and to the API.
@@ -96,6 +99,10 @@ pub struct Rec {
     pub scheduled: Vec<(u64, String)>,
     /// Every `cancel_schedule` tag, in order.
     pub cancelled: Vec<String>,
+    /// `"METHOD url"` -> `fetch_with` answer; a call with no entry gets status 404.
+    pub fetch_answers: HashMap<String, phoecord_core::plugin::HostResponse>,
+    /// Every `fetch_with` call as `("METHOD url", headers, body)`.
+    pub fetch_calls: Vec<FetchCall>,
 }
 
 impl Rec {
@@ -109,6 +116,20 @@ impl Rec {
 
     pub fn with(mut self, key: &str, val: Val) -> Rec {
         self.settings.insert(key.into(), val);
+        self
+    }
+    /// Script a `fetch_with` answer with a JSON body.
+    pub fn answer_fetch(mut self, method: &str, url: &str, status: u16, body: &str) -> Rec {
+        self.fetch_answers.insert(
+            format!("{method} {url}"),
+            phoecord_core::plugin::HostResponse {
+                status,
+                body: Some(j(body)),
+                text: None,
+                headers: Vec::new(),
+                bytes: None,
+            },
+        );
         self
     }
     /// Script a `rest` answer with a JSON body.
@@ -190,6 +211,31 @@ impl Host for Rec {
     }
     fn plugin_enabled(&self, id: &str) -> Option<bool> {
         self.plugins.get(id).copied()
+    }
+    fn fetch_with(
+        &mut self,
+        method: &str,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: Option<&Val>,
+    ) -> Result<phoecord_core::plugin::HostResponse, String> {
+        let key = format!("{method} {url}");
+        let headers = headers
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        self.fetch_calls.push((key.clone(), headers, body.cloned()));
+        Ok(self
+            .fetch_answers
+            .get(&key)
+            .cloned()
+            .unwrap_or(phoecord_core::plugin::HostResponse {
+                status: 404,
+                body: None,
+                text: None,
+                headers: Vec::new(),
+                bytes: None,
+            }))
     }
 }
 

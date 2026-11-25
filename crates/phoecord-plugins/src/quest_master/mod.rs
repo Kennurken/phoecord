@@ -16,7 +16,9 @@
 //! - `/phoecord quests start` (picker's START with every quest checked) or
 //!   `/phoecord quests start <quest id>` (only that quest),
 //! - `/phoecord quests stop` (STOP), `/phoecord quests retry` (Retry: stop, reopen after 1.1 s),
-//! - `/phoecord quests status` (the task cards), `/phoecord quests claim <quest id>` (CLAIM REWARD).
+//! - `/phoecord quests status` (the task cards), `/phoecord quests claim <quest id>` (CLAIM REWARD),
+//! - `/phoecord quests consent <app id>` / `consent-always <app id>` / `deny`: the bypass's
+//!   "Authorize application?" dialog (Authorize, "don't ask again this session", Cancel; 60 s).
 //!
 //! Progress and the script's log lines go to the PhoeCord log; with `fileLogging` every line,
 //! debug included, is also appended to `data/plugins/quest_master/questmaster.log` (the script's
@@ -39,12 +41,32 @@
 //!   skipping on 403/404/410;
 //! - VIDEO: `POST /quests/{id}/video-progress` `{timestamp}`, up to 7 s per step, never more than
 //!   10 s ahead of the time since enrolment, 1 s ticks, re-enrol on 403/404, 5 failures, 25 min cap;
-//! - GAME / STREAM: `GET /applications/public`, soft heartbeats `POST /quests/{id}/heartbeat`
-//!   `{stream_key: "call:{quest}:1" | "game:{app}", terminal: false}` every 15–20 s, rotating the
-//!   key on 400/404, the closing `terminal: true` beat, 25 min cap; progress is also read from the
-//!   client's own heartbeat answers (the script's `QUESTS_SEND_HEARTBEAT_SUCCESS` subscription);
+//! - GAME: `GET /applications/public`, then what the client puts on the wire while the script's
+//!   fake game runs: a gateway op 3 presence with the game's activity (`application_id`, `name`,
+//!   `type: 0`, `timestamps.start`; real "Playing" entries replaced, others kept; skipped with
+//!   `hideActivity`), the client's later presences rewritten the same way, the last real presence
+//!   sent again when the last fake game goes (`restore()`), and desktop heartbeats
+//!   `POST /quests/{id}/heartbeat` `{application_id, terminal: false}` every 15–20 s;
+//! - STREAM: heartbeats `{stream_key, terminal: false}` with your own stream's key in your current
+//!   voice channel (`guild:{guild}:{channel}:{you}`, or `call:{channel}:{you}` in a DM call), from
+//!   your op 4 sends and your `VOICE_STATE_UPDATE`s; the script's "join a VC with ≥1 person and
+//!   stream any window" warning is logged;
+//! - GAME / STREAM fallback: when the desktop shape is refused (400/403/404) or you are not in
+//!   voice, the script's soft heartbeats `{stream_key: "call:{quest}:1" | "game:{app}"}`, rotating
+//!   on 400/404; the closing `terminal: true` beat in the shape in use; 25 min cap; progress is
+//!   also read from the client's own heartbeat answers (`QUESTS_SEND_HEARTBEAT_SUCCESS`);
 //! - ACTIVITY and ACHIEVEMENT: heartbeats with `call:{channel}:{1000–9999}` every 19–22 s
 //!   (channel: the most recent DM, else the first voice channel of the first guild that has one);
+//! - the ACHIEVEMENT bypass (`bypassAchievement`, native.ts): numeric app id check,
+//!   `GET /oauth2/tokens` snapshot, `GET /applications/public`, the consent prompt (notification
+//!   plus the `consent` command, no answer in 60 s = no), `POST /oauth2/authorize?response_type=
+//!   code&client_id={app}&scope=identify%20applications.commands%20applications.entitlements`
+//!   with the script's body, `POST /applications/{app}/proxy-tickets` `{}`, then through
+//!   `Host::fetch_with` (`fetch = ["*.discordsays.com"]`) `POST https://{app}.discordsays.com/
+//!   .proxy/acf/authorize` `{code}` and `/.proxy/acf/quest/progress` `{progress: target}` with
+//!   `Content-Type`, `X-Auth-Token`, `X-Discord-Quest-ID` and `Referer` exactly as native.ts sends
+//!   them, and finally the grants the run created revoked (`DELETE /oauth2/tokens/{id}`), also
+//!   when stopped mid-way;
 //! - completion: notification, `autoClaim` after 2.5–6 s (`POST /quests/{id}/claim-reward`),
 //!   captcha detection, the claim command for the rest;
 //! - settings with the script's names and defaults: `fileLogging` (true), `concurrentGames` (1),
@@ -52,18 +74,16 @@
 //!   `randomDelay` (false), `hideActivity` (false), `autoStart` (true: open the picker, here a
 //!   logged quest list, once the client is connected; nothing runs until `start`).
 //!
-//! Not ported (needs the client's own process, or Phase 2 UI):
-//! - the GAME spoof (patching `RunningGameStore.getRunningGames` / `getGameForPID` and dispatching
-//!   `RUNNING_GAMES_CHANGE` / `LOCAL_ACTIVITY_UPDATE` with a fake process), so the client sends no
-//!   heartbeats of its own for a game you do not run; `hideActivity` has nothing to hide;
-//! - the STREAM spoof (`ApplicationStreamingStore.getStreamerActiveStreamMetadata`);
-//! - the ACHIEVEMENT bypass through `<app>.discordsays.com` (`/.proxy/acf/authorize` and
-//!   `/.proxy/acf/quest/progress` with `X-Auth-Token`, `X-Discord-Quest-ID` and `Referer`
-//!   headers): `Host::fetch` allows only hosts listed by exact name and sets no custom headers,
-//!   so the whole bypass (and its OAuth grant, proxy ticket and consent dialog) is skipped and the
-//!   quest fails with "Cannot auto-complete", as the script does when the bypass fails;
-//! - the completion sound (`playSound`), the dashboard, picker filters and the cosmetic 1 s video
-//!   ticker (UI, Phase 2).
+//! Not ported: the completion sound (`playSound`), the dashboard, picker filters and the cosmetic
+//! 1 s video ticker (UI, Phase 2); the bypass's local relay (127.0.0.1:43210) and DiscordNative
+//! fallbacks (PhoeCord sends the native.ts request itself).
+//!
+//! Unverified against a live account (shapes taken from the script and the client's known
+//! formats, checked only with synthetic payloads): the desktop heartbeat body
+//! `{application_id, terminal}` and its 15–20 s cadence (the client's own cadence may differ);
+//! whether Discord counts a STREAM heartbeat without a real Go Live stream; whether the server
+//! needs the presence at all; the discordsays answers. Discord has been reported to suspend
+//! quest access for automated completion.
 //!   Reading the client's `QuestStore` becomes `GET /quests/@me` when QuestMaster opens and at the
 //!   start of every cycle; between cycles the copy also learns from the client's own quest answers.
 
@@ -73,11 +93,14 @@ use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, TIMER_EVENT, Val, Verdict};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
+mod bypass;
 mod data;
+mod spoof;
 #[cfg(test)]
 mod tests;
 
 use data::*;
+use spoof::FakeGame;
 
 const PLUGIN_ID: &str = "quest_master";
 const PLUGIN_VERSION: &str = "v2.0.0";
@@ -103,6 +126,7 @@ const DISPATCHES: &[&str] = &[
     "GUILD_DELETE",
     "CHANNEL_CREATE",
     "CHANNEL_DELETE",
+    "VOICE_STATE_UPDATE",
 ];
 
 /* ── errors (the script's ErrorHandler) ────────────────────────── */
@@ -287,6 +311,8 @@ enum Wake {
     GenericIter,
     AchIter,
     ActIter,
+    /// ACHIEVEMENT bypass: a rate-limited step again, or the consent prompt timed out.
+    Bypass,
 }
 
 /// What a queued request is for.
@@ -327,6 +353,12 @@ struct Run {
     wake: Wake,
     /// ACHIEVEMENT returns `finish()`'s promise: the slot frees after the auto-claim.
     awaits_finish: bool,
+    /// The ACHIEVEMENT bypass in progress.
+    bypass: Option<bypass::Bypass>,
+    /// GAME / STREAM: the client-shaped heartbeat was refused; soft heartbeats from now on.
+    primary_rejected: bool,
+    /// The heartbeat in flight is the client-shaped one.
+    beat_primary: bool,
 }
 
 struct Queued {
@@ -378,6 +410,12 @@ enum Cmd {
     Retry,
     Claim(String),
     Refresh,
+    /// The consent prompt's Authorize (`remember`: "don't ask again this session") or Cancel.
+    Consent {
+        app: Option<String>,
+        yes: bool,
+        remember: bool,
+    },
 }
 
 /// Everything QuestMaster knows, shared with its `/phoecord quests` command.
@@ -413,6 +451,16 @@ struct Engine {
     /// DMs as `(channel, last_message_id)`; guilds with their voice channels `(position, id)`.
     dms: Vec<(u64, u64)>,
     vocal: Vec<(u64, Vec<(i64, u64)>)>,
+    /// The client's last presence (`d` of its op 3), restored when the fake games go.
+    presence: Option<Val>,
+    /// `Patcher.games`.
+    fake_games: Vec<FakeGame>,
+    /// Your voice channel: `(guild, channel)`.
+    voice: Option<(Option<u64>, u64)>,
+    /// `Consent._granted`: apps authorized without asking again (kept across stop/start).
+    granted: HashSet<String>,
+    /// The consent prompt waiting for an answer: `(quest, app)`.
+    consent_wait: Option<(String, String)>,
 }
 
 impl Default for Engine {
@@ -443,6 +491,11 @@ impl Default for Engine {
             autostarted: false,
             dms: Vec::new(),
             vocal: Vec::new(),
+            presence: None,
+            fake_games: Vec::new(),
+            voice: None,
+            granted: HashSet::new(),
+            consent_wait: None,
         }
     }
 }
@@ -595,6 +648,7 @@ impl Engine {
                     self.claim_wake_now(host, &id);
                 }
                 Cmd::Refresh => self.refresh(host),
+                Cmd::Consent { app, yes, remember } => self.consent_cmd(host, app, yes, remember),
             }
         }
     }
@@ -790,7 +844,9 @@ impl Engine {
         self.running = false;
         self.reset_traffic();
         self.say(host, Lvl::Warn, "qm-stopping", &[]);
+        self.bypass_abort(host);
         self.runs.clear();
+        self.fake_games_clear(host);
         self.runners = [Runner::default(), Runner::default()];
         self.claims.clear();
         self.cards.clear();
@@ -1080,6 +1136,9 @@ impl Engine {
             key_idx: 0,
             wake: Wake::Dispatch,
             awaits_finish: false,
+            bypass: None,
+            primary_rejected: false,
+            beat_primary: false,
         };
         if q_enrolled(&run.quest).is_none() {
             let name = run.info.name.clone();
@@ -1136,12 +1195,22 @@ impl Engine {
             Wake::GenericIter => self.generic_iter(host, r),
             Wake::AchIter => self.ach_iter(host, r),
             Wake::ActIter => self.act_iter(host, r),
+            Wake::Bypass => {
+                if r.bypass.as_ref().map(|b| b.step) == Some(bypass::Step::Consent) {
+                    // `Consent.TIMEOUT`: no answer in 60 s is a no.
+                    self.consent_wait = None;
+                    self.consent_answer(host, &mut r, false);
+                }
+                self.bypass_run(host, r);
+            }
         }
     }
 
     /// The task is over: free its slot.
     fn task_end(&mut self, host: &mut dyn Host, id: &str, lane: Lane) {
         self.runs.remove(id);
+        // The generic task's `finally { cleanup() }`: its fake game goes.
+        self.fake_game_remove(host, id);
         let r = &mut self.runners[lane.idx()];
         if !r.executing.remove(id) {
             return;
@@ -1717,11 +1786,18 @@ impl Engine {
             self.say(
                 host,
                 Lvl::Warn,
-                "qm-stream-no-spoof",
+                "qm-stream-spoofed",
                 &[("name", &game_name)],
             );
         } else {
-            self.say(host, Lvl::Info, "qm-game-no-spoof", &[("name", &game_name)]);
+            let game = FakeGame {
+                quest: r.info.id.clone(),
+                app_id: r.info.app_id.clone(),
+                name: game_name.clone(),
+                start: self.now(),
+            };
+            self.fake_game_add(host, game);
+            self.say(host, Lvl::Info, "qm-game-spoofed", &[("name", &game_name)]);
         }
         self.card(&r.info, Some(r.cur), Status::Running);
         r.soft_keys = vec![format!("call:{}:1", r.info.id)];
@@ -1745,9 +1821,8 @@ impl Engine {
         if !(r.cur < r.info.target && self.running) {
             return self.generic_after_loop(host, r);
         }
-        let sk = r.soft_keys[r.key_idx % r.soft_keys.len()].clone();
+        let body = self.generic_beat_body(host, &mut r, false);
         let route = format!("/quests/{}/heartbeat", r.info.id);
-        let body = obj(&[("stream_key", Val::Str(sk)), ("terminal", Val::Bool(false))]);
         self.send(host, r, Purpose::GenBeat, route, body);
     }
 
@@ -1785,6 +1860,19 @@ impl Engine {
                     );
                 }
             }
+            Err(e) if r.beat_primary => {
+                // The client-shaped beat was refused: the script's soft heartbeats take over.
+                if matches!(e.status, Some(400 | 403 | 404)) {
+                    r.primary_rejected = true;
+                }
+                let (name, s) = (r.info.name.clone(), e.status_text());
+                self.say(
+                    host,
+                    Lvl::Warn,
+                    "qm-desktop-beat-refused",
+                    &[("name", &name), ("status", &s)],
+                );
+            }
             Err(e) => {
                 let sk = r.soft_keys[r.key_idx % r.soft_keys.len()].clone();
                 // Rotate the stream key on rejection; never fail the task from a soft heartbeat.
@@ -1807,13 +1895,10 @@ impl Engine {
         self.sleep(host, r, ms, Wake::GenericIter);
     }
 
-    fn generic_after_loop(&mut self, host: &mut dyn Host, r: Run) {
+    fn generic_after_loop(&mut self, host: &mut dyn Host, mut r: Run) {
         if self.running && r.cur >= r.info.target {
             let route = format!("/quests/{}/heartbeat", r.info.id);
-            let body = obj(&[
-                ("stream_key", Val::Str(r.soft_keys[0].clone())),
-                ("terminal", Val::Bool(true)),
-            ]);
+            let body = self.generic_beat_body(host, &mut r, true);
             return self.send(host, r, Purpose::GenFinal, route, body);
         }
         let (id, lane) = (r.info.id.clone(), r.lane);
@@ -1948,25 +2033,6 @@ impl Engine {
             return self.finish(host, r);
         }
         self.ach_bypass(host, r);
-    }
-
-    /// `bypassAchievement` (cannot run here, see the module doc) and the skip after it.
-    fn ach_bypass(&mut self, host: &mut dyn Host, r: Run) {
-        let (id, lane) = (r.info.id.clone(), r.lane);
-        if !self.running {
-            return self.task_end(host, &id, lane);
-        }
-        if let Some(app) = q_app_id(&r.quest) {
-            if !app.bytes().all(|b| b.is_ascii_digit()) || app.is_empty() {
-                self.say(host, Lvl::Warn, "qm-bypass-non-numeric", &[("id", &app)]);
-            } else {
-                let name = r.info.name.clone();
-                self.say(host, Lvl::Warn, "qm-bypass-unavailable", &[("name", &name)]);
-            }
-        }
-        let name = r.info.name.clone();
-        self.say(host, Lvl::Warn, "qm-skip-no-path", &[("name", &name)]);
-        self.fail(host, r, "qm-reason-cannot", &[]);
     }
 
     /* ── ACTIVITY ── */
@@ -2235,7 +2301,8 @@ impl QuestMaster {
                 vencord: Some("QuestMaster".into()),
                 layers: vec![Layer::Network],
                 api: API_VERSION,
-                fetch: Vec::new(),
+                // The ACHIEVEMENT bypass talks to `<app id>.discordsays.com`.
+                fetch: vec!["*.discordsays.com".into()],
             },
             state: Shared::default(),
         }
@@ -2247,11 +2314,19 @@ impl QuestMaster {
         FnCmd::new(
             PLUGIN_ID,
             "quests",
-            "QuestMaster: list, start [quest], stop, status, claim <quest>, retry",
+            "QuestMaster: list, start, stop, status, claim, retry, consent, deny",
             move |host, args: &Args| answer(&mut state.lock(), host, args),
         )
-        .option("action", "list, start, stop, status, claim or retry", true)
-        .option("quest", "A quest id (start, claim)", false)
+        .option(
+            "action",
+            "list, start, stop, status, claim, retry, consent, consent-always or deny",
+            true,
+        )
+        .option(
+            "quest",
+            "A quest id (start, claim) or an app id (consent)",
+            false,
+        )
         .boxed()
     }
 }
@@ -2313,6 +2388,25 @@ fn answer(st: &mut Engine, host: &mut dyn Host, args: &Args) -> String {
                     host.t("quest_master-claiming", &[("id", id)])
                 }
                 _ => host.t("quest_master-claim-none", &[("id", id)]),
+            }
+        }
+        "consent" | "consent-always" | "deny" => {
+            let Some((_, app)) = st.consent_wait.clone() else {
+                return host.t("quest_master-consent-none", &[]);
+            };
+            let yes = action != "deny";
+            if yes && quest.is_some_and(|q| q != app) {
+                return host.t("quest_master-consent-other", &[("id", &app)]);
+            }
+            st.pending.push(Cmd::Consent {
+                app: Some(app.clone()),
+                yes,
+                remember: action == "consent-always",
+            });
+            if yes {
+                host.t("quest_master-consent-yes", &[("id", &app)])
+            } else {
+                host.t("quest_master-consent-no", &[("id", &app)])
             }
         }
         "status" | "" => status_text(st, host),
@@ -2404,11 +2498,14 @@ impl Plugin for QuestMaster {
             EventKind::RestResponse { method, route } => {
                 is_quest_list(method, route) || is_quest_answer(method, route)
             }
-            EventKind::Send { .. } => false,
+            EventKind::Send { op } => {
+                *op == spoof::PRESENCE_UPDATE || *op == spoof::VOICE_STATE_UPDATE
+            }
         }
     }
 
-    /// READY and the guild dispatches feed the heartbeat channel lookup.
+    /// READY and the guild dispatches feed the heartbeat channel lookup; the presence and voice
+    /// sends feed the GAME and STREAM paths; timers send the fake game's presence.
     fn wants_gateway(&self) -> bool {
         true
     }
@@ -2428,7 +2525,13 @@ impl Plugin for QuestMaster {
             }
             Event::Dispatch { name, payload, .. } if DISPATCHES.contains(&name) => {
                 let d = payload.get("d").unwrap_or(payload);
-                st.observe(name, d);
+                if name == "VOICE_STATE_UPDATE" {
+                    if host.self_id().is_some() && d.id_at(&["user_id"]) == host.self_id() {
+                        st.voice_seen(d);
+                    }
+                } else {
+                    st.observe(name, d);
+                }
                 if !st.pending.is_empty() {
                     st.run_cmds(host);
                 }
@@ -2438,6 +2541,14 @@ impl Plugin for QuestMaster {
                     if flag(host, "autoStart", true) {
                         st.open(host, None);
                     }
+                }
+            }
+            Event::Send { op, payload } if op == spoof::VOICE_STATE_UPDATE => {
+                st.voice_seen(payload.get("d").unwrap_or(payload));
+            }
+            Event::Send { op, payload } if op == spoof::PRESENCE_UPDATE => {
+                if st.presence_sent(&*host, payload) {
+                    return Verdict::Changed;
                 }
             }
             Event::RestRequest {

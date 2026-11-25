@@ -81,3 +81,7 @@ quest_master-st-enroll = нужно действие: примите задан�
 quest_master-st-claimable = выполнено, заберите награду: `/phoecord quests claim { $id }`
 quest_master-st-claim-waiting = получаю награду...
 quest_master-st-claim-failed = нужно действие: проверьте капчу в Discord
+quest_master-consent-none = Нет авторизации, ожидающей ответа.
+quest_master-consent-other = Ожидающая авторизация относится к приложению `{ $id }`.
+quest_master-consent-yes = Авторизую приложение `{ $id }` для задания с достижением.
+quest_master-consent-no = Приложение `{ $id }` не авторизуется.
