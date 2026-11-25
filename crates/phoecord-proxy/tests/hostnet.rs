@@ -263,9 +263,12 @@ fn per_plugin_and_global_caps_apply() {
     sign_in(&s, "tok");
     let mut h = ProxyHost::new(&s, &cfg);
     h.begin_plugin("solo");
-    h.rest("GET", "/users/@me", None).unwrap();
+    // A burst of five is fine; the sixth within 5 s is refused with the wait.
+    for _ in 0..5 {
+        h.rest("GET", "/users/@me", None).unwrap();
+    }
     let e = h.rest("GET", "/users/@me", None).unwrap_err();
-    assert!(e.contains("per plugin"), "{e}");
+    assert!(e.contains("per plugin") && e.contains("retry in"), "{e}");
     // Six more plugins in the same second run into the global cap of five.
     let mut errs = Vec::new();
     for i in 0..6 {
@@ -410,11 +413,15 @@ fn rest_files_sends_multipart_with_the_clients_session() {
         v[0].header("content-type")
     );
     drop(v);
-    // Same caps as rest: a second call from the same plugin within a second is refused.
+    // Same caps as rest: the sixth call from the same plugin within 5 s is refused.
+    for _ in 0..4 {
+        h.rest_files("POST", "/channels/9/messages", None, &files)
+            .unwrap();
+    }
     let e = h
         .rest_files("POST", "/channels/9/messages", None, &files)
         .unwrap_err();
-    assert!(e.contains("rate limited"), "{e}");
+    assert!(e.contains("rate limited") && e.contains("retry in"), "{e}");
 }
 
 /// A plugin that calls both from inside the chain.
