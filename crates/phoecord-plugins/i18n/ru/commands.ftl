@@ -43,6 +43,7 @@ voice_chat_utilities-need-target = Для move нужен целевой гол�
 voice_chat_utilities-bad-target = `{ $channel }` не другой голосовой канал этого сервера.
 voice_chat_utilities-empty = В <#{ $channel }> никого нет.
 voice_chat_utilities-nobody = В <#{ $channel }> никого, кроме вас.
+
 # rmcord: команда запущена, но плагин не обработал взаимодействие (показывает плагин команд).
 rmcord-no-reply = Команда rmcord не сработала. Плагин включён? Включите: `/phoecord toggle rmcord`.
 

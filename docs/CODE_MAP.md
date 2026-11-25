@@ -143,6 +143,8 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/anti_rickroll.rs` | AntiRickroll (owner's userplugin, MIT): known hosts/video IDs + custom rules over messages and history pages; `/phoecord rickrolls` | Read-only, no outside calls |
 | `src/local_dev_badges.rs` | localDevBadges (owner's userplugin): adds STAFF / Early Verified Bot Developer / Active Developer badges and flags to your own user in READY, USER_UPDATE, `/users/@me` and your profile | Inbound rewrite for self only |
 | `src/voice_chat_utilities.rs` | VoiceChatUtilities (owner's userplugin): `/phoecord vcu` PATCHes every member of a voice channel (disconnect, mute, deafen, move), one per timer step with the script's `waitAfter` / `waitSeconds` | Retries a member after a local refusal or a 429 |
+| `src/rmcord.rs` | rmcord (owner's userplugin, GPL-3.0): the script's search-and-delete engine as a timer state machine; `/phoecord rmcord` (handled from its own `POST /interactions` so timers and REST run as rmcord) | A local refusal counts as a 429 |
+| `src/silent_delete.rs` | SilentDelete (owner's userplugin): placeholder post, `deleteDelay`, delete; `/phoecord silentdelete`, `/phoecord silentpurge` (handled from its own `POST /interactions`) | Any error ends the job, as in the script |
 | `src/state.rs` | Shared gateway-state trackers for data parts: `Shared<T>`, `Guilds`, `VoiceStates`/`VoiceChange`, bounded `Users` and `Ring<T>` | Trackers keep ids, names and counts only |
 | `src/testutil.rs` | Test helpers shared by the plugin tests: `Cfg`, recording `Rec` with scripted `rest`, `j` | |
 | `src/game_activity_toggle.rs` | GameActivityToggle: removes "Playing" activities from op 3 presence updates | The proxy re-sends the last presence on toggle |

@@ -132,6 +132,8 @@ plugin-desc-follow_user = Follow a user from voice channel to voice channel
 plugin-desc-anti_rickroll = Find rickroll links in messages
 plugin-desc-local_dev_badges = Show staff and developer badges on your own profile, locally only
 plugin-desc-voice_chat_utilities = Move, mute, deafen or disconnect everyone in a voice channel
+plugin-desc-rmcord = Delete your own messages in bulk
+plugin-desc-silent_delete = Replace a message, then delete it, so loggers keep the replacement
 
 # CLI: log
 cli-log-empty = nothing logged yet ({ $path })

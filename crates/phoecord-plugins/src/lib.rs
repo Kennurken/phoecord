@@ -35,9 +35,11 @@ pub mod pause_invites_forever;
 pub mod platform_indicators;
 pub mod read_all_notifications;
 pub mod relationship_notifier;
+pub mod rmcord;
 pub mod send_timestamps;
 pub mod show_hidden_channels;
 pub mod show_hidden_things;
+pub mod silent_delete;
 pub mod silent_message_toggle;
 pub mod silent_typing;
 pub mod state;
@@ -109,6 +111,18 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "ru",
         include_str!("../i18n/ru/voice_chat_utilities.ftl"),
     ),
+    ("rmcord", "en", include_str!("../i18n/en/rmcord.ftl")),
+    ("rmcord", "ru", include_str!("../i18n/ru/rmcord.ftl")),
+    (
+        "silent_delete",
+        "en",
+        include_str!("../i18n/en/silent_delete.ftl"),
+    ),
+    (
+        "silent_delete",
+        "ru",
+        include_str!("../i18n/ru/silent_delete.ftl"),
+    ),
 ];
 
 /// Hand [`I18N`] to the host's plugin strings, which answer `Host::t`.
@@ -166,6 +180,10 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let anti_rickroll_command = anti_rickroll.command();
     let voice_chat_utilities = voice_chat_utilities::VoiceChatUtilities::new();
     let voice_chat_utilities_command = voice_chat_utilities.command();
+    let rmcord = rmcord::Rmcord::new();
+    let rmcord_command = rmcord.command();
+    let silent_delete = silent_delete::SilentDelete::new();
+    let silent_delete_commands = silent_delete.commands();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(silent_typing::SilentTyping::new()),
@@ -207,6 +225,8 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(anti_rickroll),
         Box::new(local_dev_badges::LocalDevBadges::new()),
         Box::new(voice_chat_utilities),
+        Box::new(rmcord),
+        Box::new(silent_delete),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
@@ -237,7 +257,11 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         .with(fake_deafen_command)
         .with(fake_deafen_detector_command)
         .with(anti_rickroll_command)
-        .with(voice_chat_utilities_command);
+        .with(voice_chat_utilities_command)
+        .with(rmcord_command);
+    for c in silent_delete_commands {
+        commands = commands.with(c);
+    }
     for c in follow_user_commands {
         commands = commands.with(c);
     }
