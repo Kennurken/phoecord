@@ -62,6 +62,84 @@ pub trait Subcommand: Send + Sync {
     fn run(&self, host: &mut dyn Host, args: &Args) -> String;
 }
 
+/// The body of a [`FnCmd`]: gets the host and the parsed arguments, returns the text to show.
+pub type CmdFn = Box<dyn Fn(&mut dyn Host, &Args) -> String + Send + Sync>;
+
+/// A `/phoecord <name>` command made from a closure, owned by one plugin: it answers "the plugin
+/// is off" by itself while that plugin is disabled, so the closure only runs when it is on.
+/// Plugins of stages 1.2.16 and 1.2.18 use it to show what their data part collected.
+pub struct FnCmd {
+    name: &'static str,
+    description: &'static str,
+    options: Vec<CommandOption>,
+    plugin_id: &'static str,
+    run: CmdFn,
+}
+
+impl FnCmd {
+    pub fn new(
+        plugin_id: &'static str,
+        name: &'static str,
+        description: &'static str,
+        run: impl Fn(&mut dyn Host, &Args) -> String + Send + Sync + 'static,
+    ) -> FnCmd {
+        FnCmd {
+            name,
+            description,
+            options: Vec::new(),
+            plugin_id,
+            run: Box::new(run),
+        }
+    }
+
+    /// Add a string option.
+    pub fn option(
+        mut self,
+        name: &'static str,
+        description: &'static str,
+        required: bool,
+    ) -> FnCmd {
+        self.options.push(CommandOption {
+            name,
+            description,
+            required,
+        });
+        self
+    }
+
+    pub fn boxed(self) -> Box<dyn Subcommand> {
+        Box::new(self)
+    }
+}
+
+impl Subcommand for FnCmd {
+    fn name(&self) -> &str {
+        self.name
+    }
+    fn description(&self) -> &str {
+        self.description
+    }
+    fn options(&self) -> Vec<CommandOption> {
+        self.options
+            .iter()
+            .map(|o| CommandOption {
+                name: o.name,
+                description: o.description,
+                required: o.required,
+            })
+            .collect()
+    }
+    fn run(&self, host: &mut dyn Host, args: &Args) -> String {
+        if host.plugin_enabled(self.plugin_id) == Some(false) {
+            return format!(
+                "The `{id}` plugin is off. Switch it on with `/phoecord toggle {id}`.",
+                id = self.plugin_id
+            );
+        }
+        (self.run)(host, args)
+    }
+}
+
 /// A plugin as `/phoecord plugins` shows it.
 #[derive(Clone, Debug)]
 pub struct PluginInfo {
@@ -781,5 +859,27 @@ mod tests {
         assert!(a.parse::<u64>().unwrap() > 1 << 40);
         let t = timestamp();
         assert!(t.starts_with("20") && t.ends_with("+00:00"), "{t}");
+    }
+}
+
+#[cfg(test)]
+mod fn_cmd_tests {
+    use super::*;
+    use crate::testutil::Rec;
+
+    #[test]
+    fn fn_cmd_runs_only_while_its_plugin_is_on() {
+        let cmd = FnCmd::new("demo", "demo", "Show demo", |_, a: &Args| {
+            format!("got {}", a.get("x").unwrap_or("-"))
+        })
+        .option("x", "a value", false);
+        assert_eq!(cmd.options().len(), 1);
+        let args = Args {
+            options: vec![("x".into(), "1".into())],
+        };
+        let mut host = Rec::default();
+        assert_eq!(cmd.run(&mut host, &args), "got 1");
+        host.plugins.insert("demo".into(), false);
+        assert!(cmd.run(&mut host, &args).contains("is off"));
     }
 }

@@ -21,6 +21,7 @@ pub mod relationship_notifier;
 pub mod send_timestamps;
 pub mod silent_message_toggle;
 pub mod silent_typing;
+pub mod state;
 pub mod text_replace;
 
 #[cfg(test)]
