@@ -4,6 +4,10 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+
+- Twelve data parts from 1.2.16 (MemberCount, MessageLinkEmbeds, ReadAllNotificationsButton, PauseInvitesForever, PlatformIndicators, UserVoiceShow, TypingIndicator, VcNarrator, NewGuildSettings, ValidReply, ValidUser, OverrideForumDefaults) read gateway dispatches as bare data while the proxy hands plugins the whole `{op, t, d}` frame, so they saw nothing in a real session; they now read `d` through `state::dispatch_data`, with a real-frame test each.
+
 ## [0.5.0] - 2026-11-25
 
 ### Added
