@@ -107,7 +107,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **1.5.3** 🔴 | Client version detection and `signatures/*.toml` | Nanda | ✅ 23.11, PR #10 |
 | **1.5.4** 🔴 | Inline detours and hook removal | Nanda | ✅ 23.11, PR #10 |
 | **1.5.5** 🟡 | Loader ↔ proxy IPC | Nanda | ⏳ |
-| **1.5.6** 🟡 | Reinstall after a Discord update | Kennurken | ⏳ |
+| **1.5.6** 🟡 | Reinstall after a Discord update | Kennurken | 🔎 in review (`setup --loader` installs `version.dll`, `run`/`launch` put it back after an update; tests on fake Windows folders, no real Windows run yet) |
 | **1.5.7** 🔴 | Verify on 3 client versions | Nanda | ✅ 24.11 on Canary 1.0.1355 (loaded in all 7 processes, build detected, no crash). After the release: the 10-minute run on 3 consecutive client versions |
 | **1.5.8** 🟡 | Loader cost: act only in the main client process (skip `--type=` child processes) and hash `.text` from the mapped image instead of reading the whole exe (224 MB, about 140 ms in each of 7 processes) | Nanda | ⏳ |
 | **1.6.1** 🔴 | A map of GPUI | Nanda | ✅ 23.11, PR #12 |
