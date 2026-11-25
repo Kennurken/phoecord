@@ -148,15 +148,22 @@ impl Chain {
         &self,
         host: &mut dyn Host,
         kind: &EventKind,
+        call: impl FnMut(&dyn Plugin, &mut dyn Host) -> Verdict,
+    ) -> Outcome {
+        self.run_on(&self.active(), host, kind, call)
+    }
+
+    /// [`Chain::run`] over `plugins` (already filtered to enabled ones): the `wants` check,
+    /// `begin_plugin`, panic isolation and the verdict fold.
+    fn run_on(
+        &self,
+        plugins: &[Arc<dyn Plugin>],
+        host: &mut dyn Host,
+        kind: &EventKind,
         mut call: impl FnMut(&dyn Plugin, &mut dyn Host) -> Verdict,
     ) -> Outcome {
         let mut changed = false;
-        for p in self
-            .active()
-            .iter()
-            .map(Arc::as_ref)
-            .filter(|p| p.wants(kind))
-        {
+        for p in plugins.iter().map(Arc::as_ref).filter(|p| p.wants(kind)) {
             host.begin_plugin(&p.manifest().id);
             host.set_fetch_hosts(&p.manifest().fetch);
             let verdict = match catch_unwind(AssertUnwindSafe(|| call(p, host))) {
@@ -262,6 +269,39 @@ impl Chain {
             )
         })
     }
+
+    /// A gateway dispatch for one plugin only (a timer it scheduled, see
+    /// [`phoecord_core::TIMER_EVENT`]), with the same rules as the whole chain: the plugin must be
+    /// enabled, not crashed and want the event; `begin_plugin` scopes the host to it and a panic
+    /// disables it. `None` when the plugin did not run (unknown, off, crashed or not interested).
+    pub fn dispatch_to(
+        &self,
+        host: &mut dyn Host,
+        plugin_id: &str,
+        name: &str,
+        payload: &mut Val,
+        extra: &mut Vec<Val>,
+    ) -> Option<Outcome> {
+        let kind = EventKind::Dispatch { name };
+        let target: Vec<Arc<dyn Plugin>> = self
+            .active()
+            .into_iter()
+            .filter(|p| p.manifest().id == plugin_id && p.wants(&kind))
+            .collect();
+        if target.is_empty() {
+            return None;
+        }
+        Some(self.run_on(&target, host, &kind, |p, h| {
+            p.on_event(
+                h,
+                Event::Dispatch {
+                    name,
+                    payload,
+                    extra,
+                },
+            )
+        }))
+    }
 }
 
 /// A [`Host`] that remembers nothing, for tests and the self-test.
@@ -274,6 +314,8 @@ pub struct NullHost {
     pub plugins: std::collections::HashMap<String, bool>,
     /// `(file, line)` pairs passed to `append_data`.
     pub data: Vec<(String, String)>,
+    /// `(after_ms, tag)` pairs passed to `schedule` (`cancel_schedule` removes a tag's entries).
+    pub scheduled: Vec<(u64, String)>,
 }
 
 impl Host for NullHost {
@@ -318,6 +360,13 @@ impl Host for NullHost {
     fn append_data(&mut self, file: &str, line: &str) -> Result<(), String> {
         self.data.push((file.into(), line.into()));
         Ok(())
+    }
+    fn schedule(&mut self, after_ms: u64, tag: &str) -> Result<(), String> {
+        self.scheduled.push((after_ms, tag.into()));
+        Ok(())
+    }
+    fn cancel_schedule(&mut self, tag: &str) {
+        self.scheduled.retain(|(_, t)| t != tag);
     }
 }
 
@@ -399,6 +448,83 @@ mod tests {
         assert_eq!(
             chain.rest_request(&mut h, "GET", "/x", None),
             Outcome::Changed
+        );
+    }
+
+    /// Counts its events and wants only the timer dispatch.
+    struct Timed(Manifest, std::sync::atomic::AtomicUsize);
+
+    impl Plugin for Timed {
+        fn manifest(&self) -> &Manifest {
+            &self.0
+        }
+        fn wants(&self, k: &EventKind) -> bool {
+            matches!(k, EventKind::Dispatch { name } if *name == phoecord_core::TIMER_EVENT)
+        }
+        fn on_event(&self, h: &mut dyn Host, _: Event<'_>) -> Verdict {
+            self.1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            h.log(&format!("ran {}", self.0.id));
+            Verdict::Changed
+        }
+    }
+
+    #[test]
+    fn dispatch_to_reaches_only_the_target_and_skips_a_disabled_one() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let a = Arc::new(Timed(manifest("a"), AtomicUsize::new(0)));
+        let b = Arc::new(Timed(manifest("b"), AtomicUsize::new(0)));
+        let chain = Chain::default();
+        chain.replace_dynamic(vec![
+            a.clone(),
+            b.clone(),
+            Arc::from(fixed("c", Verdict::Drop)),
+        ]);
+        let mut h = NullHost::default();
+        let (mut p, mut extra) = (Val::map(), Vec::new());
+        let t = phoecord_core::TIMER_EVENT;
+        assert_eq!(
+            chain.dispatch_to(&mut h, "a", t, &mut p, &mut extra),
+            Some(Outcome::Changed)
+        );
+        assert_eq!(a.1.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            b.1.load(Ordering::Relaxed),
+            0,
+            "the other plugin never sees it"
+        );
+        assert_eq!(h.logs, vec!["ran a".to_string()]);
+        // "c" would drop it, but it is not the target.
+        chain.set_enabled(["b".to_string(), "c".to_string()]);
+        assert_eq!(chain.dispatch_to(&mut h, "a", t, &mut p, &mut extra), None);
+        assert_eq!(
+            a.1.load(Ordering::Relaxed),
+            1,
+            "a disabled plugin is skipped"
+        );
+        assert_eq!(
+            chain.dispatch_to(&mut h, "b", "OTHER", &mut p, &mut extra),
+            None,
+            "an event the plugin does not want"
+        );
+        assert_eq!(
+            chain.dispatch_to(&mut h, "nobody", t, &mut p, &mut extra),
+            None
+        );
+    }
+
+    #[test]
+    fn dispatch_to_isolates_a_panic() {
+        let mut h = NullHost::default();
+        let chain = Chain::new(vec![Box::new(Panics(manifest("bad")))]);
+        let (mut p, mut extra) = (Val::map(), Vec::new());
+        assert_eq!(
+            chain.dispatch_to(&mut h, "bad", "X", &mut p, &mut extra),
+            Some(Outcome::Untouched)
+        );
+        assert_eq!(chain.crashed_ids(), vec!["bad".to_string()]);
+        assert_eq!(
+            chain.dispatch_to(&mut h, "bad", "X", &mut p, &mut extra),
+            None
         );
     }
 

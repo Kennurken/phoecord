@@ -103,6 +103,16 @@ fn dispatch(name: &str) -> Outcome {
             Err(e) => denied(e),
         },
         "DATA" => answer(host::append_data("log.jsonl", "{}")),
+        // Two timers and a cancelled third; a timer answers with a log line naming its tag.
+        "SCHEDULE" => {
+            let r = host::schedule(1000, "tick").and_then(|()| host::schedule(10, "drop"));
+            host::cancel_schedule("drop");
+            answer(r.and_then(|()| host::schedule(200, "tock")))
+        }
+        "PHOECORD_TIMER" => {
+            host::log("timer fired");
+            outcome(Verdict::Pass)
+        }
         "KV" => {
             let _ = host::kv_set("seen", &touched());
             let got = host::kv_get("seen");

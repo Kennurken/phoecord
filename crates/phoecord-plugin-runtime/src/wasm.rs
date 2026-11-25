@@ -245,6 +245,8 @@ enum HostCall {
     SetPluginEnabled(String, bool),
     AppendData(String, String),
     T(String, Vec<(String, String)>),
+    Schedule(u64, String),
+    CancelSchedule(String),
 }
 
 enum HostReply {
@@ -471,6 +473,13 @@ impl wit_host::Host for State {
             _ => key,
         }
     }
+    fn schedule(&mut self, after_ms: u64, tag: String) -> Result<(), String> {
+        // No right needed: a timer only ever wakes this plugin, and only for events it lets in.
+        self.call_done(HostCall::Schedule(after_ms, tag))
+    }
+    fn cancel_schedule(&mut self, tag: String) {
+        let _ = self.call_unit(HostCall::CancelSchedule(tag));
+    }
 }
 
 /// Start the clock for one guest call.
@@ -521,6 +530,11 @@ fn serve(host: &mut dyn Host, call: HostCall) -> HostReply {
             let args: Vec<(&str, &str)> =
                 args.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
             HostReply::Text(host.t(&key, &args))
+        }
+        HostCall::Schedule(after_ms, tag) => HostReply::Done(host.schedule(after_ms, &tag)),
+        HostCall::CancelSchedule(tag) => {
+            host.cancel_schedule(&tag);
+            HostReply::Unit
         }
     }
 }
