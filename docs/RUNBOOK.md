@@ -63,6 +63,16 @@ Discord works without PhoeCord but not through it: the proxy connects to Discord
 
 If you start `phoecord` from a packaged (MSIX / Store) app, for example the Claude desktop app's terminal, Windows redirects its AppData and HKCU writes into that app's private cache: setup seems to work but nothing lands in your real profile. Run PhoeCord from a normal terminal (Windows Terminal, PowerShell from the Start menu).
 
+## 3d. Antivirus or SmartScreen blocks PhoeCord
+
+Releases are unsigned, so Windows SmartScreen shows "Windows protected your PC" (click **More info**, **Run anyway**) and macOS Gatekeeper blocks the first start (right-click, **Open**). First check the file against `SHA256SUMS` from the same release (`Get-FileHash <file> -Algorithm SHA256` on Windows, `shasum -a 256 <file>` on macOS, `sha256sum -c SHA256SUMS --ignore-missing` on Linux). If the hash matches and Defender still quarantines `version.dll`, it is a false positive: tell Nanda the release and the detection name, so the file is (re)submitted to Microsoft ([`GOVERNANCE.md`](GOVERNANCE.md#releases)). If the hash does not match, do not run it and report it privately (§5).
+
+## 3e. A release run failed
+
+- `tag matches Cargo.toml` failed: the tag and `[workspace.package] version` differ. Delete the tag, merge a version bump, tag again.
+- A build or installer job failed: nothing was published (publishing waits for every job). Fix on `main`, delete the tag and push it again.
+- `publish the release` failed after the release was created: delete the half-made release on GitHub, then re-run the failed job.
+
 ## 4. Removing everything
 
 ```bash
