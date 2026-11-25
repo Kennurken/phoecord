@@ -18,7 +18,7 @@
 //! Not ported: the hover trigger, the fake profile badges and the profile fetch-failure dispatch
 //! (they only exist for the client's user popout, Phase 2).
 
-use crate::state::{Shared, Users, is_one_of};
+use crate::state::{Shared, Users, dispatch_data, dispatch_data_mut, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -262,14 +262,14 @@ impl Plugin for ValidUser {
         match event {
             Event::Dispatch { name, payload, .. } if is_message_event(name) => {
                 let mut st = self.state.lock();
-                if fix_message(host, &mut st, payload) {
+                if fix_message(host, &mut st, dispatch_data_mut(payload)) {
                     Verdict::Changed
                 } else {
                     Verdict::Pass
                 }
             }
             Event::Dispatch { name, payload, .. } if is_one_of(name, Users::EVENTS) => {
-                self.state.lock().seen.observe(name, payload);
+                self.state.lock().seen.observe(name, dispatch_data(payload));
                 Verdict::Pass
             }
             Event::RestResponse {
@@ -346,6 +346,36 @@ mod tests {
             Verdict::Changed
         );
         assert_eq!(h.rest_calls.len(), 1);
+    }
+
+    #[test]
+    fn unknown_mention_is_added_in_a_real_gateway_frame() {
+        use phoecord_plugin_runtime::{Chain, Outcome};
+        let chain = Chain::new(vec![Box::new(ValidUser::new())]);
+        let mut h = Rec::default().answer("GET", "/users/55", 200, USER);
+        let mut frame = j(
+            r#"{"op":0,"t":"MESSAGE_CREATE","s":1,"d":{"id":"1","content":"hello <@55>","mentions":[],
+               "author":{"id":"9","username":"a"}}}"#,
+        );
+        let out = chain.dispatch(&mut h, "MESSAGE_CREATE", &mut frame, &mut Vec::new());
+        assert_eq!(out, Outcome::Changed);
+        let m = &frame.at(&["d", "mentions"]).unwrap().as_list()[0];
+        assert_eq!(m.str_at(&["username"]), Some("zed"));
+    }
+
+    #[test]
+    fn users_seen_in_a_real_gateway_frame_cost_no_lookup() {
+        use phoecord_plugin_runtime::{Chain, Outcome};
+        let chain = Chain::new(vec![Box::new(ValidUser::new())]);
+        let mut h = Rec::default();
+        let mut presence = j(
+            r#"{"op":0,"t":"PRESENCE_UPDATE","s":1,"d":{"user":{"id":"55","username":"zed"},"status":"online"}}"#,
+        );
+        chain.dispatch(&mut h, "PRESENCE_UPDATE", &mut presence, &mut Vec::new());
+        let mut msg = j(r#"{"op":0,"t":"MESSAGE_CREATE","s":2,"d":{"content":"<@55>"}}"#);
+        let out = chain.dispatch(&mut h, "MESSAGE_CREATE", &mut msg, &mut Vec::new());
+        assert_eq!(out, Outcome::Untouched);
+        assert!(h.rest_calls.is_empty());
     }
 
     #[test]
