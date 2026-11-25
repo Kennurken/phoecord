@@ -96,7 +96,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
-| **2.3.1** 🔴 | Theme engine: `theme.toml` → GPUI palette, live switching | matvee | ⏳ |
+| **2.3.1** 🔴 | Theme engine: `theme.toml` → GPUI palette, live switching | matvee | ⏳ part 1 in review (branch `feat/theme-engine`: format, colour parsing, 2 s file watcher; the palette hook and default theme wait for 2.1) |
 | **2.3.2** 🟡 | 3 built-in themes + import of Vencord themes where they translate to a palette | — | ⏳ |
 | **2.3.3** 🔴 | PhoeCord settings tab in Phoenix: plugins, settings, install / remove packages with rights shown, en + ru | matvee | ⏳ |
 | **2.3.4** 🔴 | MessageLogger UI: deleted messages struck through, edit history on hover | matvee | ⏳ |
