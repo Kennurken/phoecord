@@ -1,8 +1,8 @@
 //! The install steps in order: data folder and CA, trust, autostart. Each step is idempotent and
 //! logged to `install.log`; see [`crate::uninstall::uninstall_all`] for the way back.
 //!
-//! Installing the loader DLL into a client (stage 1.5) will add its own steps here, taking the
-//! [`crate::discover::Client`] to patch.
+//! The loader DLL (opt-in, Windows only) is a separate step: [`crate::loader::install_loader`] at
+//! setup, and [`crate::loader::ensure_loader`] on every start to follow Discord's updates.
 
 use crate::Channel;
 use crate::autostart::install_autostart;

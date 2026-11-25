@@ -31,6 +31,16 @@ pub enum Step {
     LaunchAgent { label: String, plist: PathBuf },
     /// Linux systemd user unit enabled (the file itself is a separate `File` step).
     SystemdUnit { unit: String },
+    /// `phoecord setup --loader`: the user wants the loader DLL in the client whose channel folder
+    /// (holding the `app-x.y.z` builds) is `client_dir`. Changes nothing by itself; it tells
+    /// [`crate::loader::ensure_loader`] what to keep in place after Discord updates.
+    LoaderWanted {
+        channel: String,
+        client_dir: PathBuf,
+    },
+    /// The loader DLL was copied to `path` (`<app-x.y.z>\version.dll`); `sha256` (hex) is the hash
+    /// of what was written. Uninstall removes the file only while it still has that hash.
+    LoaderCopy { path: PathBuf, sha256: String },
 }
 
 impl Step {
@@ -45,6 +55,8 @@ impl Step {
             Step::RunKey { name, .. } => format!("Run key value {name}"),
             Step::LaunchAgent { label, .. } => format!("LaunchAgent {label}"),
             Step::SystemdUnit { unit } => format!("systemd user unit {unit}"),
+            Step::LoaderWanted { channel, .. } => format!("loader opt-in for Discord {channel}"),
+            Step::LoaderCopy { path, .. } => format!("loader DLL {}", path.display()),
         }
     }
 }

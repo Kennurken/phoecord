@@ -106,6 +106,26 @@ plugin-desc-text_replace = Replace text in the messages you send
 plugin-desc-send_timestamps = Turn `12:34` in your messages into a Discord timestamp
 plugin-desc-anonymise_file_names = Anonymise uploaded file names
 plugin-desc-silent_message_toggle = Send messages without notifications
+plugin-desc-better_sessions = Exact times for your sessions and alerts about new ones
+plugin-desc-experiments = Discord experiments and developer features
+plugin-desc-implicit_relationships = People you talk to a lot but are not friends with
+plugin-desc-member_count = Online, total and voice member counts per server
+plugin-desc-message_latency = Messages that took a long time to send
+plugin-desc-message_link_embeds = Previews of linked Discord messages
+plugin-desc-mutual_group_dms = The group DMs you share with someone
+plugin-desc-new_guild_settings = Mute new servers and apply your other settings when you join
+plugin-desc-override_forum_defaults = Your own default forum layout and sort order
+plugin-desc-pause_invites_forever = Pause invites to a server indefinitely
+plugin-desc-platform_indicators = See whether people are on desktop, mobile or web
+plugin-desc-read_all_notifications_button = Mark all server notifications as read at once
+plugin-desc-show_hidden_channels = List channels you cannot open
+plugin-desc-show_hidden_things = Show timeouts, paused invites and other hidden things
+plugin-desc-typing_indicator = See who is typing in each channel
+plugin-desc-user_voice_show = See who is in voice channels
+plugin-desc-valid_reply = Fix “Message could not be loaded” in replies
+plugin-desc-valid_user = Fix mentions of unknown users that show as @unknown-user
+plugin-desc-vc_narrator = Notify you when people join or leave your voice channel (no speech)
+plugin-desc-who_reacted = Who reacted to a message
 
 # CLI: log
 cli-log-empty = nothing logged yet ({ $path })
@@ -381,3 +401,18 @@ gui-onboard-done-sub = PhoeCord will be set up for { $name }. It takes a few sec
 
 ## Installer window: credits
 gui-credits = Credits
+
+# Loader install and reinstall (1.5.6)
+cli-step-loader-wanted = loader opt-in for Discord { $channel }
+cli-step-loader-copy = loader DLL { $path }
+cli-kept-not-ours = changed by another program, left in place
+cli-arg-setup-loader = Also install the native loader (version.dll) into the chosen Discord; Windows only. Every `phoecord launch` and autostart puts it back after a Discord update
+cli-loader-installed = loader installed for Discord { $channel }: { $path }
+cli-loader-up-to-date = loader for Discord { $channel } is already in place: { $path }
+cli-loader-foreign = loader not installed for Discord { $channel }: { $path } belongs to another program, so PhoeCord leaves it alone. Remove or rename it yourself if you want the PhoeCord loader there.
+cli-loader-source-missing = loader not installed for Discord { $channel }: { $path } is missing (it ships next to the phoecord program)
+cli-loader-no-build = loader not installed for Discord { $channel }: no app-x.y.z build in { $path }
+cli-loader-failed = loader for Discord { $channel } could not be put in place: { $why }
+cli-loader-unsupported = The loader is Windows-only; nothing was installed.
+cli-loader-skipped = No loader installed: { $why }
+cli-loader-check-failed = could not check the loader: { $why }

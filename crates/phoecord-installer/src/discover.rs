@@ -201,23 +201,33 @@ fn version_key(v: &str) -> Vec<u64> {
     v.split('.').map(|p| p.parse().unwrap_or(0)).collect()
 }
 
+/// The newest `app-x.y.z` folder (with the client's executable in it) inside a Windows channel
+/// folder such as `%LOCALAPPDATA%\DiscordCanary`, and its version. `None` when the folder name is
+/// not a known channel folder or holds no complete build.
+pub fn newest_app_dir(channel_dir: &Path) -> Option<(String, PathBuf)> {
+    let name = channel_dir.file_name()?.to_string_lossy().into_owned();
+    let (exe, _) = windows_channel(&name)?;
+    newest_build(channel_dir, exe)
+}
+
+fn newest_build(channel_dir: &Path, exe: &str) -> Option<(String, PathBuf)> {
+    std::fs::read_dir(channel_dir)
+        .ok()?
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let ver = name.strip_prefix("app-")?.to_string();
+            e.path().join(exe).is_file().then(|| (ver, e.path()))
+        })
+        .max_by_key(|(v, _)| version_key(v))
+}
+
 fn windows(roots: &Roots, out: &mut Vec<Client>) {
     let Some(local) = &roots.local_app_data else {
         return;
     };
     for (dir, exe, channel) in WINDOWS_CHANNELS {
-        let Ok(rd) = std::fs::read_dir(local.join(dir)) else {
-            continue;
-        };
-        let newest = rd
-            .flatten()
-            .filter_map(|e| {
-                let name = e.file_name().to_string_lossy().into_owned();
-                let ver = name.strip_prefix("app-")?.to_string();
-                e.path().join(exe).is_file().then(|| (ver, e.path()))
-            })
-            .max_by_key(|(v, _)| version_key(v));
-        if let Some((version, root)) = newest {
+        if let Some((version, root)) = newest_build(&local.join(dir), exe) {
             out.push(Client {
                 channel,
                 source: Source::Native,

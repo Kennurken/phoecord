@@ -31,6 +31,7 @@ pub mod ca;
 pub mod discover;
 pub mod install;
 pub mod launch;
+pub mod loader;
 pub mod log;
 pub mod shortcut;
 pub mod system;

@@ -1,8 +1,9 @@
 name: Package
 
 # Native installers for the installer window: setup .exe (NSIS) and .msi (WiX) on Windows,
-# PhoeCord.app in a .dmg on macOS. Unsigned (stage 1.4.5: no signing yet). The files are kept as
-# workflow artifacts for 14 days; releases attach them with SHA256SUMS.
+# PhoeCord.app in a .dmg on macOS. Unsigned (no code signing at any stage). The files are kept as
+# workflow artifacts for 14 days. release.yml calls this workflow (workflow_call) on a `v*` tag and
+# attaches the installers to the GitHub release, so there is no tag trigger here.
 
 on:
   pull_request:
@@ -13,9 +14,8 @@ on:
       - "scripts/package/**"
       - ".github/workflows/package.yml"
       - "Cargo.lock"
-  push:
-    tags: ["v*"]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -68,7 +68,7 @@ jobs:
           if command -v sha256sum >/dev/null; then sum="sha256sum"; else sum="shasum -a 256"; fi
           find . -maxdepth 1 -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \) \
             -exec $sum {} + | sed 's#\./##' | tee SHA256SUMS-${{ matrix.os }}.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: phoecord-installers-${{ matrix.os }}
           path: |

@@ -39,3 +39,11 @@ A secret that reached the repository, a chat, a log or a screenshot counts as le
 | GitHub access | Revoke the token or remove the collaborator, review recent pushes and releases |
 
 Tell Nanda right away in every case. Write access is granted and revoked by Nanda; when someone leaves, their access is revoked the same day.
+
+## Releases
+
+- **Who tags.** Only Nanda pushes release tags (`v<major>.<minor>.<patch>`, a `-` suffix such as `v0.5.0-rc.1` makes a prerelease). Contributors never push `v*` tags, to the main repository or to a fork.
+- **Before the tag.** `[workspace.package] version` in `Cargo.toml` equals the tag without `v` (the release run stops otherwise, because installer names and `phoecord --version` come from it), and `docs/CHANGELOG.md` has a `## [<version>]` section: it becomes the release notes. Without one, GitHub's generated notes are used.
+- **What CI does.** `.github/workflows/release.yml` builds the CLI for Linux, Windows and macOS (Intel and Apple Silicon) and the loader `version.dll` on Windows, packs each with `LICENSE`, `NOTICE`, `LICENSES/` and the terms, adds the installers from `package.yml`, writes one `SHA256SUMS` over every file and publishes the GitHub release with the unsigned-build note. It uses only `GITHUB_TOKEN`; no secrets. A manual run (`workflow_dispatch`, dry run by default) builds everything and publishes nothing.
+- **Unsigned.** No code signing at any stage ([`DECISIONS.md`](DECISIONS.md)). After each release Nanda submits the release's `version.dll` to the [Microsoft Defender false-positive portal](https://www.microsoft.com/en-us/wdsi/filesubmission) ("Software developer", the file from the release archive, the release link in the notes).
+

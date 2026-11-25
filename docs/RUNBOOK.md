@@ -45,6 +45,8 @@ Write down right away: when it started (UTC), Discord client and version, PhoeCo
 |:---|:---|
 | Network plugins broke | Run `phoecord selftest`; a Gateway encoding/compression change shows up there. Fix in `phoecord-proxy::codec`, not in plugins |
 | UI plugins are off, notice "waiting for a signature update" | Expected degradation: the client build is unknown. New signatures go into `signatures/*.toml` (Phase 2, 2.2) |
+| Loader missing after a Discord update (Windows, `setup --loader`) | Discord updated into a new `app-x.y.z` folder. Start Discord with `phoecord launch` (or let autostart run): it copies `version.dll` into the newest folder first. If it does not, read the warning `run`/`launch` print: `version.dll` missing next to `phoecord` (reinstall PhoeCord), no `app-x.y.z` build, or the copy failed (quit Discord fully: a running client keeps the old DLL locked) |
+| "belongs to another program": a foreign `version.dll` is in the way | Another tool put its own `version.dll` in the `app-x.y.z` folder; PhoeCord never overwrites a file whose hash it did not record. Decide which one you want: remove or rename the other file, then `phoecord launch` installs PhoeCord's. `uninstall` likewise leaves a `version.dll` that is no longer the one PhoeCord wrote ("changed by another program") |
 | Client crashes on start with the loader installed | Remove the loader (`phoecord-installer`, "Uninstall") and file a bug with the client version: a hook is wrong |
 
 ## 3b. Starting Discord through PhoeCord
@@ -63,10 +65,20 @@ Discord works without PhoeCord but not through it: the proxy connects to Discord
 
 If you start `phoecord` from a packaged (MSIX / Store) app, for example the Claude desktop app's terminal, Windows redirects its AppData and HKCU writes into that app's private cache: setup seems to work but nothing lands in your real profile. Run PhoeCord from a normal terminal (Windows Terminal, PowerShell from the Start menu).
 
+## 3d. Antivirus or SmartScreen blocks PhoeCord
+
+Releases are unsigned, so Windows SmartScreen shows "Windows protected your PC" (click **More info**, **Run anyway**) and macOS Gatekeeper blocks the first start (right-click, **Open**). First check the file against `SHA256SUMS` from the same release (`Get-FileHash <file> -Algorithm SHA256` on Windows, `shasum -a 256 <file>` on macOS, `sha256sum -c SHA256SUMS --ignore-missing` on Linux). If the hash matches and Defender still quarantines `version.dll`, it is a false positive: tell Nanda the release and the detection name, so the file is (re)submitted to Microsoft ([`GOVERNANCE.md`](GOVERNANCE.md#releases)). If the hash does not match, do not run it and report it privately (§5).
+
+## 3e. A release run failed
+
+- `tag matches Cargo.toml` failed: the tag and `[workspace.package] version` differ. Delete the tag, merge a version bump, tag again.
+- A build or installer job failed: nothing was published (publishing waits for every job). Fix on `main`, delete the tag and push it again.
+- `publish the release` failed after the release was created: delete the half-made release on GitHub, then re-run the failed job.
+
 ## 4. Removing everything
 
 ```bash
-phoecord uninstall         # undo autostart, CA trust and the files setup created
+phoecord uninstall         # undo autostart, CA trust, loader DLL copies and the files setup created
 ```
 
 Your `config.toml` stays; delete it and the binary by hand if you want nothing left. If `uninstall` reports a failed step, run it again: the step stays in `install.log` until it succeeds.
