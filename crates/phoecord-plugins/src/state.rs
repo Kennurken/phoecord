@@ -44,6 +44,22 @@ pub fn is_one_of(name: &str, events: &[&str]) -> bool {
     events.contains(&name)
 }
 
+/// The event data of a dispatch or send payload. The proxy hands plugins the whole gateway frame
+/// (`{"op":0,"t":..,"s":..,"d":{..}}`); the data is in `d`. A payload without `d` is taken as the
+/// data itself, so callers that already pass a bare `d` keep working.
+pub fn dispatch_data(payload: &Val) -> &Val {
+    payload.get("d").unwrap_or(payload)
+}
+
+/// [`dispatch_data`] for rewriting: the `d` of the frame, or the payload itself without one.
+pub fn dispatch_data_mut(payload: &mut Val) -> &mut Val {
+    if payload.get("d").is_some() {
+        payload.get_mut("d").expect("d checked above")
+    } else {
+        payload
+    }
+}
+
 /// One guild channel as the trackers keep it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Channel {
@@ -451,6 +467,20 @@ impl<T> Ring<T> {
 mod tests {
     use super::*;
     use crate::testutil::j;
+
+    #[test]
+    fn dispatch_data_reads_d_or_the_bare_payload() {
+        let frame = j(r#"{"op":0,"t":"X","s":1,"d":{"id":"5"}}"#);
+        assert_eq!(dispatch_data(&frame).str_at(&["id"]), Some("5"));
+        let bare = j(r#"{"id":"6"}"#);
+        assert_eq!(dispatch_data(&bare).str_at(&["id"]), Some("6"));
+        let mut frame = frame;
+        dispatch_data_mut(&mut frame).set("id", j(r#""7""#));
+        assert_eq!(frame.str_at(&["d", "id"]), Some("7"));
+        let mut bare = bare;
+        dispatch_data_mut(&mut bare).set("id", j(r#""8""#));
+        assert_eq!(bare.str_at(&["id"]), Some("8"));
+    }
 
     #[test]
     fn guilds_follow_ready_create_update_delete() {
