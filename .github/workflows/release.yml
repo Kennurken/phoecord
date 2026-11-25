@@ -1,0 +1,191 @@
+name: Release
+
+# A `v*` tag builds the CLI (and the loader `version.dll` on Windows) for Linux, Windows and macOS,
+# calls package.yml for the native installers, writes SHA256SUMS over every file and publishes a
+# GitHub release. Everything is unsigned (no code signing at any stage) and uses only GITHUB_TOKEN.
+# `workflow_dispatch` with dry_run builds and checksums but publishes nothing.
+# Tags are pushed by the owner only (docs/GOVERNANCE.md, "Releases"). A tag with `-` is a prerelease.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and checksum only, do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: tag matches Cargo.toml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compare the tag with the workspace version
+        shell: bash
+        run: |
+          # Installer file names and `phoecord --version` come from Cargo.toml, so a tag that does not
+          # match would publish files with the wrong version. Bump [workspace.package] version first.
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n1)
+          echo "Cargo.toml version: $version"
+          if [ "$GITHUB_REF_TYPE" != tag ]; then echo "not a tag run, nothing to compare"; exit 0; fi
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $version (expected v$version)"
+            exit 1
+          fi
+
+  binaries:
+    name: binaries (${{ matrix.name }})
+    needs: version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux-x86_64, windows: false }
+          - { os: windows-latest, name: windows-x86_64, windows: true }
+          - { os: macos-latest, name: macos-aarch64, windows: false }
+          - { os: macos-15-intel, name: macos-x86_64, windows: false }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Release tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else tag="dev-${GITHUB_SHA::7}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Build the CLI
+        run: cargo build --release --locked -p phoecord-cli
+      - name: Build the loader (version.dll)
+        if: matrix.windows
+        run: cargo build --release --locked -p phoecord-loader
+      - name: Archive
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          NAME: ${{ matrix.name }}
+          WINDOWS: ${{ matrix.windows }}
+        run: |
+          base="phoecord-$TAG-$NAME"
+          mkdir -p "dist/$base"
+          if [ "$WINDOWS" = true ]; then
+            cp target/release/phoecord.exe "dist/$base/"
+            # The cdylib is built as phoecord_loader.dll; the client loads it as version.dll.
+            cp target/release/phoecord_loader.dll "dist/$base/version.dll"
+          else
+            cp target/release/phoecord "dist/$base/"
+          fi
+          for f in LICENSE NOTICE TERMS.md TERMS.ru.md; do
+            if [ -f "$f" ]; then cp "$f" "dist/$base/"; fi
+          done
+          if [ -d LICENSES ]; then cp -R LICENSES "dist/$base/"; fi
+          mkdir -p out
+          cd dist
+          if [ "$WINDOWS" = true ]; then
+            7z a -tzip "../out/$base.zip" "$base" > /dev/null
+          else
+            tar -czf "../out/$base.tar.gz" "$base"
+          fi
+          ls -l ../out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phoecord-binaries-${{ matrix.name }}
+          path: out/*
+          if-no-files-found: error
+          retention-days: 14
+
+  installers:
+    name: installers
+    needs: version
+    uses: ./.github/workflows/package.yml
+
+  checksums:
+    name: SHA256SUMS
+    needs: [binaries, installers]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phoecord-*
+          path: parts
+          merge-multiple: true
+      - name: Collect and checksum
+        run: |
+          mkdir release
+          # The per-OS checksum lists of package.yml are replaced by the one SHA256SUMS below.
+          find parts -type f ! -name 'SHA256SUMS-*.txt' -exec cp {} release/ \;
+          cd release
+          # Written outside the folder first, so the list never contains itself.
+          find . -maxdepth 1 -type f -printf '%P\0' | LC_ALL=C sort -z | xargs -0 sha256sum > ../SHA256SUMS
+          mv ../SHA256SUMS SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: publish the release
+    needs: checksums
+    if: github.ref_type == 'tag' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: release
+      - name: Release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # The body of "## [<version>]" in docs/CHANGELOG.md, up to the next "## " heading.
+          awk -v v="$version" '
+            /^## / { on = (index($0, "## [" v "]") == 1); next }
+            on { print }
+          ' docs/CHANGELOG.md > changelog-section.md
+          {
+            if grep -q '[^[:space:]]' changelog-section.md; then
+              cat changelog-section.md
+              echo
+            fi
+            cat <<'NOTE'
+          ## Before you install
+
+          These builds are **not signed**. Check them against `SHA256SUMS` before you run them.
+
+          - **Windows:** SmartScreen shows "Windows protected your PC". Click **More info**, then **Run anyway**. Verify a file with `Get-FileHash .\<file> -Algorithm SHA256` and compare it with the line in `SHA256SUMS`.
+          - **macOS:** Gatekeeper blocks the app on first start. Right-click it, choose **Open**, then **Open** again. If macOS still refuses, open System Settings, Privacy and Security, and choose **Open Anyway**.
+          - **Linux and anything else:** put the files and `SHA256SUMS` in one folder and run `sha256sum -c SHA256SUMS --ignore-missing`.
+          NOTE
+          } | sed 's/^          //' > notes.md
+          if grep -q '[^[:space:]]' changelog-section.md; then echo "AUTO_NOTES=" >> "$GITHUB_ENV"; else echo "AUTO_NOTES=--generate-notes" >> "$GITHUB_ENV"; fi
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          flags=()
+          case "$GITHUB_REF_NAME" in *-*) flags+=(--prerelease) ;; esac
+          if [ -n "$AUTO_NOTES" ]; then flags+=(--generate-notes); fi
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            --verify-tag \
+            "${flags[@]}"
