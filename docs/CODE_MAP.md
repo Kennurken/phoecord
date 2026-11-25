@@ -112,6 +112,7 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `tests/strings.rs` | `Host::t` for packages: a string from the package's own `.ftl`, English fallback, hot reload of an edited `.ftl`, unload | Uses the guest's `STRINGS` dispatch |
 | `tests/clear_urls_wasm.rs` | Builds `examples/plugins/clear_urls`, loads it as a package (also into a running chain) and checks it behaves like the native plugin | Needs the `wasm32-wasip2` target |
 | `tests/hello_plugin_wasm.rs` | Builds `examples/hello-plugin`, loads it and checks that it logs each `MESSAGE_CREATE` without the text | Needs the `wasm32-wasip2` target |
+| `tests/hello_plugin_ts_wasm.rs` | Builds `examples/hello-plugin-ts` with npm, loads it and checks the same logs as the Rust example | `#[ignore]`: needs Node.js; the `typescript-template` CI job runs it in release |
 | `benches/overhead.rs` | Per-event cost of a WASM plugin vs a native one on a MESSAGE_CREATE payload (`cargo bench`) | Input for benchmark task 1.1.10 |
 | `wit/phoecord.wit` (repo root) | The `plugin` world and `host` interface; mirrors `phoecord-core::plugin` | Change together with `plugin.rs` |
 
@@ -141,6 +142,9 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/spotify_share_commands.rs` | SpotifyShareCommands: remembers your Spotify activity from presence sends (op 3) and `SESSIONS_REPLACE`; `/phoecord track`, `album`, `artist` send the link | Activity field names unverified on a live client; the presence is never changed |
 | `src/unsuppress_embeds.rs` | UnsuppressEmbeds data part: `/phoecord unsuppress` reads a message's flags and flips `SUPPRESS_EMBEDS` with `PATCH` | Keep the other flag bits |
 | `src/view_raw.rs` | ViewRaw data part: `/phoecord viewraw` shows a message, channel, guild, role or user as 4-space JSON (`sortKeys`, `stripSensitiveData`) | Answers are cut at 2000 characters; code fences inside are broken with a zero-width space |
+| `src/review_db.rs` | ReviewDB data part: `/phoecord reviews` reads `manti.vendicated.dev/api/reviewdb/users/{id}/reviews` (50 a page), hides blocked authors | Read-only: writes need an `Authorization` header `fetch_with` refuses |
+| `src/translate.rs` | Translate data part: Google translation (Vencord's endpoint, key and language table) for `/phoecord translate` and `autoTranslate` on sent messages | DeepL / Kagi fall back to Google (header rules) |
+| `src/voice_messages.rs` | VoiceMessages data part: Ogg Opus parsing (duration, packet sizes), Vencord-shaped waveform, upload with flag `1 << 13` | The waveform approximates loudness from Opus bytes per ms |
 | `src/i_love_spam.rs` | iLoveSpam: clears the likely-spammer bit (`1<<20`) from user `flags` / `public_flags` in messages, history and member events | Keep every other bit |
 | `src/no_blocked_messages.rs` | NoBlockedMessages: learns blocked (type 2) and ignored users, drops their live messages; settings `apply_to_ignored_users` (true), `filter_history` (false) | Filtering history makes pages shorter than `limit`, which can stop the client loading older messages; that is why it is off by default |
 | `src/no_reply_mention.rs` | NoReplyMention: sets `allowed_mentions.replied_user = false` on replies per Vencord's rules; settings `user_list`, `role_list`, `should_ping_listed`; remembers authors of 5000 messages | An unknown replied-to message counts as "not listed" |
@@ -211,6 +215,10 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/hooks/guard.rs` | `Breaker`: `catch_unwind(AssertUnwindSafe)` around every hook entry; a panic logs and trips the hook, a bad input only falls back | The fallback is always "pass the traffic through" |
 | `src/hooks/http.rs`, `src/hooks/gateway.rs` | Bridge to `Engine::on_request` / `on_response` and `on_dispatch` (client JSON in, verdict out; changed bodies only without an allocator → pass) | Detour ABI shims (2.1.5-2.1.7) are not here yet |
 | `src/hooks/mod.rs` | `HookRuntime` (the three guarded entry points), `install` / `runtime` | Needs the `dll` feature (pulls `phoecord-transport`) |
+| `src/theme/mod.rs` | `Theme::from_toml` / `load` (`name`, `[colors]` → `Hsla`, bad entries skipped as `Problem`s), `ThemeWatcher::poll` (mtime + length, every `POLL_INTERVAL` = 2 s; `Loaded` / `Removed`) | Field names are free-form until Phoenix's palette is known (2.1); no hook yet |
+| `src/theme/parse.rs` | `parse_color`: hex, `rgb(a)`, `hsl(a)` → `Hsla` (standard RGB → HSL) | Pure, tested on every OS |
+| `src/locators/mod.rs` | `Found<T>`, `LocatorError`, `Located<T>`; `exactly_one`, `winner`; `Image` (`.text`, `.rdata`, `.pdata` by RVA: `from_pe`, `find_bytes`, `find_str`, `function_of`) | Pure, mock sections in tests; never fall back to an offset from another build |
+| `src/locators/index.rs` | `CallIndex::build`: `call rel32` to function starts and RIP-relative `lea` / `mov` into `.text` / `.rdata`; `calls_to`, `refs_to`, `callers`, `loaders` | A byte scan, not a decoder: targets are checked, and locators should intersect several facts |
 | `src/hook.rs` | Inline detours (`retour`), installed with other threads suspended, `uninstall_all` | Hooks must be removed before `FreeLibrary` |
 | `examples/host.rs` | Throwaway exe that loads `version.dll` from its folder for manual checks | |
 
@@ -294,6 +302,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 | `scripts/check_i18n.py` | Every key of `crates/*/i18n/en/*.ftl` exists in the `ru` file with the same variables; exit 1 otherwise |
 | `examples/plugins/clear_urls/` | The first third-party plugin example: `clear_urls` as a WASM package (`plugin.toml` id `clear_urls_wasm`, `wit-bindgen`), its own cargo workspace, excluded from the main one; README shows build and install |
 | `examples/hello-plugin/` | The smallest SDK plugin (`hello_plugin`): logs `MESSAGE_CREATE` ids; its own cargo workspace, built by the `sdk-example` CI job | `Cargo.lock` is committed and CI builds with `--locked` |
+| `examples/hello-plugin-ts/` | The TypeScript template (`hello_plugin_ts`): the same plugin; `build.mjs` (esbuild + `componentize-js` with WASI features off), `src/tree.ts` (value tree helpers) | `package-lock.json` is committed, versions pinned; `types/`, `dist/`, `plugin.wasm` are build output |
 | `scripts/update_contributors.py` | Rewrites the README contributors block (avatars between `<!-- contributors:* -->` markers) from GitHub's contributors list, bots left out; `--check` exits 1 if stale. Run after merging a new contributor's PR |
 | `scripts/package/make_art.py`, `scripts/package/name-files.sh`, `scripts/package/README.md` | Renders the app icons and installer pictures from `icon.svg`; renames the packaged `.exe`/`.msi` to `PhoeCord_<version>_…`; how to build the installers locally (`cargo packager`, config in `crates/phoecord-installer-gui/Cargo.toml`) |
 | `scripts/dev/New-TestVm.ps1` | Creates a throwaway Hyper-V VM (Gen 2, Secure Boot, vTPM, Default Switch) for the manual checks 1.4.6 and 1.5.7, so they never touch your own Discord; run elevated |

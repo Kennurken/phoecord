@@ -85,7 +85,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.2.2** 🔴 | HTTP transport hook: inline entry on `send`, vtable swap for `poll`, allocator-safe body replacement | Nanda | ⏳ |
 | **2.2.3** 🔴 | Gateway registry detours: per-event handler swap, `Engine::on_dispatch` wiring | Nanda | ⏳ |
 | **2.2.4** 🟡 | Outgoing gateway hook (if found in 2.1.6): `Engine::on_send` wiring | ken | ⏳ |
-| **2.2.5** 🔴 | Typed locators (`Found<T>`) for decoded structures: struct sizes, field offsets, handler ABI | matvee | ⏳ |
+| **2.2.5** 🔴 | Typed locators (`Found<T>`) for decoded structures: struct sizes, field offsets, handler ABI | matvee | ⏳ part 1 in review (branch `feat/locators`: `Found<T>`, errors, `Image`, `CallIndex`, string anchors; the target locators wait for 2.1.5 / 2.1.6) |
 | **2.2.6** 🔴 | `phoecord check <exe>`: run all locators against a binary, CI on `.text` dumps | buslan | ⏳ |
 | **2.2.7** 🔴 | In-process transport wired to `Engine`: REST and Gateway through the hook layer, `Effects` delivery | ken | ⏳ |
 | **2.2.8** 🔴 | Phoenix installer: loader placement (or injection), reconcile after Phoenix updates, uninstall | buslan | ⏳ |
@@ -96,7 +96,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
-| **2.3.1** 🔴 | Theme engine: `theme.toml` → GPUI palette, live switching | matvee | ⏳ |
+| **2.3.1** 🔴 | Theme engine: `theme.toml` → GPUI palette, live switching | matvee | ⏳ part 1 in review (branch `feat/theme-engine`: format, colour parsing, 2 s file watcher; the palette hook and default theme wait for 2.1) |
 | **2.3.2** 🟡 | 3 built-in themes + import of Vencord themes where they translate to a palette | — | ⏳ |
 | **2.3.3** 🔴 | PhoeCord settings tab in Phoenix: plugins, settings, install / remove packages with rights shown, en + ru | matvee | ⏳ |
 | **2.3.4** 🔴 | MessageLogger UI: deleted messages struck through, edit history on hover | matvee | ⏳ |
