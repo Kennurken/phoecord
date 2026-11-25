@@ -16,7 +16,7 @@
 //! here). At most 2000 typing entries are kept.
 
 use crate::commands::{Args, FnCmd, Subcommand};
-use crate::state::{Guilds, Shared, Users, is_one_of};
+use crate::state::{Guilds, Shared, Users, dispatch_data, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::HashMap;
@@ -188,7 +188,9 @@ impl Plugin for TypingIndicator {
             && wanted(name)
         {
             let me = host.self_id();
-            self.state.lock().observe(name, payload, me, Instant::now());
+            self.state
+                .lock()
+                .observe(name, dispatch_data(payload), me, Instant::now());
         }
         Verdict::Pass
     }
@@ -251,6 +253,33 @@ mod tests {
         );
         let text = cmd.run(&mut h, &Args { options: vec![] });
         assert!(!text.contains("ann"), "{text}");
+    }
+
+    #[test]
+    fn shows_who_types_from_real_gateway_frames() {
+        let plugin = TypingIndicator::new();
+        let cmd = plugin.command();
+        let chain = Chain::new(vec![Box::new(plugin)]);
+        let mut h = Rec {
+            self_id: Some(1),
+            ..Rec::default()
+        };
+        feed(
+            &chain,
+            &mut h,
+            "GUILD_CREATE",
+            r#"{"op":0,"t":"GUILD_CREATE","s":1,"d":{"id":"10","name":"Alpha",
+               "channels":[{"id":"20","name":"general","type":0}]}}"#,
+        );
+        feed(
+            &chain,
+            &mut h,
+            "TYPING_START",
+            r#"{"op":0,"t":"TYPING_START","s":2,"d":{"channel_id":"20","user_id":"5",
+               "member":{"user":{"id":"5","username":"ann"}}}}"#,
+        );
+        let text = cmd.run(&mut h, &Args { options: vec![] });
+        assert!(text.contains("#general (Alpha): ann typing"), "{text}");
     }
 
     #[test]
