@@ -19,7 +19,7 @@
 //! settings `toolTip`, `memberList`, `voiceActivity`, which only change how they look.
 
 use crate::commands::{Args, FnCmd, Subcommand};
-use crate::state::{Guilds, Shared, VoiceStates, is_one_of};
+use crate::state::{Guilds, Shared, VoiceStates, dispatch_data, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::{HashMap, HashSet};
@@ -212,7 +212,7 @@ impl Plugin for MemberCount {
         if let Event::Dispatch { name, payload, .. } = event
             && wanted(name)
         {
-            self.state.lock().observe(name, payload);
+            self.state.lock().observe(name, dispatch_data(payload));
         }
         Verdict::Pass
     }
@@ -282,6 +282,25 @@ mod tests {
         assert!(
             cmd.run(&mut h, &args(Some("zzz")))
                 .contains("No server matches")
+        );
+    }
+
+    #[test]
+    fn counts_from_a_real_gateway_frame() {
+        let plugin = MemberCount::new();
+        let cmd = plugin.command();
+        let chain = Chain::new(vec![Box::new(plugin)]);
+        let mut h = Cfg::default();
+        let mut frame = j(
+            r#"{"op":0,"t":"GUILD_CREATE","s":1,"d":{"id":"1","name":"Alpha","member_count":100,
+               "presences":[{"user":{"id":"5"},"status":"online"}],
+               "voice_states":[{"user_id":"5","channel_id":"12"}]}}"#,
+        );
+        let out = chain.dispatch(&mut h, "GUILD_CREATE", &mut frame, &mut Vec::new());
+        assert_eq!(out, Outcome::Untouched);
+        assert_eq!(
+            cmd.run(&mut h, &args(None)),
+            "Alpha: 1 online (seen), 100 total, 1 in voice"
         );
     }
 
