@@ -20,7 +20,7 @@
 //! Not ported: speech itself and its settings `voice`, `volume`, `rate`, `latinOnly`, and the
 //! "test" button (Phase 2 or never; the proxy cannot speak).
 
-use crate::state::{Guilds, Shared, Users, VoiceChange, VoiceStates, is_one_of};
+use crate::state::{Guilds, Shared, Users, VoiceChange, VoiceStates, dispatch_data, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::HashMap;
@@ -213,6 +213,7 @@ impl Plugin for VcNarrator {
         if !wanted(name) {
             return Verdict::Pass;
         }
+        let payload = dispatch_data(payload);
         let messages = {
             let mut st = self.state.lock();
             if name == "VOICE_STATE_UPDATE" {
@@ -333,6 +334,35 @@ mod tests {
         assert_eq!(h.notes[2].1, "u5 joined");
         feed(&chain, &mut h, "VOICE_STATE_UPDATE", &vs("5", "null", ""));
         assert_eq!(h.notes[3].1, "u5 left");
+    }
+
+    #[test]
+    fn announces_from_real_gateway_frames() {
+        let chain = Chain::new(vec![Box::new(VcNarrator::new())]);
+        let mut h = Rec {
+            self_id: Some(1),
+            ..Rec::default()
+        };
+        let frame = |t: &str, s: u32, d: &str| format!(r#"{{"op":0,"t":"{t}","s":{s},"d":{d}}}"#);
+        feed(
+            &chain,
+            &mut h,
+            "GUILD_CREATE",
+            &frame(
+                "GUILD_CREATE",
+                1,
+                r#"{"id":"10","name":"Alpha","channels":[{"id":"20","name":"Lounge","type":2}],
+                   "voice_states":[{"user_id":"1","channel_id":"20"}]}"#,
+            ),
+        );
+        let out = feed(
+            &chain,
+            &mut h,
+            "VOICE_STATE_UPDATE",
+            &frame("VOICE_STATE_UPDATE", 2, &vs("5", r#""20""#, "")),
+        );
+        assert_eq!(out, Outcome::Untouched);
+        assert_eq!(h.notes, [("Voice".to_string(), "u5 joined".to_string())]);
     }
 
     #[test]
