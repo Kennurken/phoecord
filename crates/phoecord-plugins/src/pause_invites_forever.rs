@@ -20,7 +20,7 @@
 //! Not ported: the link in the dialog and its permission check (Phase 2; here Discord decides).
 
 use crate::commands::{FnCmd, Subcommand};
-use crate::state::{Guilds, Shared, is_one_of};
+use crate::state::{Guilds, Shared, dispatch_data, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 
@@ -199,7 +199,7 @@ impl Plugin for PauseInvitesForever {
 
     fn on_event(&self, _host: &mut dyn Host, event: Event<'_>) -> Verdict {
         if let Event::Dispatch { name, payload, .. } = event {
-            self.guilds.lock().observe(name, payload);
+            self.guilds.lock().observe(name, dispatch_data(payload));
         }
         Verdict::Pass
     }
@@ -290,5 +290,22 @@ mod tests {
                 .contains("Unknown action")
         );
         assert_eq!(h.rest_calls.len(), 1, "only the first GET went out");
+    }
+
+    #[test]
+    fn guild_names_come_from_a_real_gateway_frame() {
+        use phoecord_plugin_runtime::Chain;
+        let p = PauseInvitesForever::new();
+        let cmd = p.command();
+        let chain = Chain::new(vec![Box::new(p)]);
+        let mut h = Rec::default().answer("GET", "/guilds/7", 403, "{}");
+        let mut frame = j(
+            r#"{"op":0,"t":"GUILD_CREATE","s":1,"d":{"id":"7","name":"Club House","channels":[]}}"#,
+        );
+        chain.dispatch(&mut h, "GUILD_CREATE", &mut frame, &mut Vec::new());
+        assert!(
+            cmd.run(&mut h, &args("club", None))
+                .contains("Manage Server")
+        );
     }
 }
