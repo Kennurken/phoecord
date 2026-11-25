@@ -25,7 +25,7 @@
 //! the client's onboarding module; there is no stable REST call for it).
 
 use crate::commands::{FnCmd, Subcommand};
-use crate::state::{Shared, is_one_of};
+use crate::state::{Shared, dispatch_data, is_one_of};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{Event, EventKind, Host, Layer, Manifest, Plugin, Val, Verdict};
 use std::collections::HashSet;
@@ -181,6 +181,7 @@ impl Plugin for NewGuildSettings {
         let Event::Dispatch { name, payload, .. } = event else {
             return Verdict::Pass;
         };
+        let payload = dispatch_data(payload);
         match name {
             "READY" => {
                 let mut st = self.state.lock();
@@ -267,6 +268,22 @@ mod tests {
         // The same guild again (reconnect): nothing more.
         dispatch(&p, &mut h, "GUILD_CREATE", r#"{"id":"9"}"#);
         assert_eq!(h.rest_calls.len(), 1);
+    }
+
+    #[test]
+    fn new_guild_is_muted_from_real_gateway_frames() {
+        use phoecord_plugin_runtime::Chain;
+        let chain = Chain::new(vec![Box::new(NewGuildSettings::new())]);
+        let mut h = rec().with("messages", Val::Int(1));
+        let mut send = |name: &str, d: &str| {
+            let mut frame = j(&format!(r#"{{"op":0,"t":"{name}","s":1,"d":{d}}}"#));
+            chain.dispatch(&mut h, name, &mut frame, &mut Vec::new());
+        };
+        send("READY", r#"{"guilds":[{"id":"5"}]}"#);
+        send("GUILD_CREATE", r#"{"id":"5","name":"old"}"#);
+        send("GUILD_CREATE", r#"{"id":"9","owner_id":"2"}"#);
+        assert_eq!(h.rest_calls.len(), 1);
+        assert_eq!(h.rest_calls[0].0, "PATCH /users/@me/guilds/9/settings");
     }
 
     #[test]
