@@ -31,6 +31,11 @@
 //! Settings (`[plugins.voice_chat_utilities]`, the script's names and defaults): `waitAfter`
 //! (`5`, actions before waiting), `waitSeconds` (`2`, seconds to wait).
 //!
+//! How the command reaches the job: a `/phoecord` subcommand runs inside the command plugin, whose
+//! timers and REST calls would belong to it. So this plugin reads the `POST /interactions` of its
+//! own `vcu` subcommand (it must sit before the command plugin in the chain), does the work as
+//! itself, and the subcommand only hands back the text.
+//!
 //! Not ported: the context menu itself (UI, Phase 2). The script sends all its requests at once
 //! and only awaits them one after another, so its waits never delayed a request; here each wait
 //! delays the next PATCH, as asked for the port. The member order is by user id, not the order
@@ -117,6 +122,8 @@ struct State {
     guilds: Guilds,
     jobs: Vec<Job>,
     next_id: u64,
+    /// The text for the subcommand to show, set when the interaction is read.
+    reply: Option<String>,
 }
 
 pub struct VoiceChatUtilities {
@@ -396,17 +403,12 @@ impl VoiceChatUtilities {
             PLUGIN_ID,
             "vcu",
             "Act on everyone in a voice channel (disconnect, mute, unmute, deafen, undeafen, move)",
-            move |host, args: &Args| {
-                let raw = args.get("action").unwrap_or("").trim().to_ascii_lowercase();
-                let mut st = state.lock();
-                match raw.as_str() {
-                    "stop" => st.stop(host),
-                    "status" => st.status(&*host),
-                    other => match Action::parse(other) {
-                        Some(a) => st.start(host, args, a),
-                        None => host.t("voice_chat_utilities-bad-action", &[("action", other)]),
-                    },
-                }
+            move |host, _: &Args| {
+                state
+                    .lock()
+                    .reply
+                    .take()
+                    .unwrap_or_else(|| host.t("voice_chat_utilities-no-reply", &[]))
             },
         )
         .option(
@@ -421,6 +423,60 @@ impl VoiceChatUtilities {
             false,
         )
         .boxed()
+    }
+}
+
+/// `POST /interactions`.
+fn is_interaction(method: &str, route: &str) -> bool {
+    method == "POST" && route.trim_end_matches('/') == "/interactions"
+}
+
+fn text_of(v: &Val) -> Option<String> {
+    match v {
+        Val::Bin(b) | Val::Charlist(b) => Some(String::from_utf8_lossy(b).into_owned()),
+        v => v.as_str().map(str::to_string),
+    }
+}
+
+/// `(subcommand, options)` of a `/phoecord <sub>` interaction.
+fn parse_interaction(body: &Val) -> Option<(String, Args)> {
+    let data = body.get("data")?;
+    if data.get("name").and_then(text_of).as_deref() != Some("phoecord") {
+        return None;
+    }
+    let sub = data
+        .get("options")?
+        .as_list()
+        .iter()
+        .find(|o| o.get("type").and_then(Val::as_i64) == Some(1))?;
+    let name = sub.get("name").and_then(text_of)?;
+    let options = sub
+        .get("options")
+        .map(Val::as_list)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|o| {
+            let v = match o.get("value")? {
+                Val::Int(n) => n.to_string(),
+                v => text_of(v)?,
+            };
+            Some((text_of(o.get("name")?)?, v))
+        })
+        .collect();
+    Some((name, Args { options }))
+}
+
+impl State {
+    fn handle(&mut self, host: &mut dyn Host, args: &Args) -> String {
+        let raw = args.get("action").unwrap_or("").trim().to_ascii_lowercase();
+        match raw.as_str() {
+            "stop" => self.stop(host),
+            "status" => self.status(&*host),
+            other => match Action::parse(other) {
+                Some(a) => self.start(host, args, a),
+                None => host.t("voice_chat_utilities-bad-action", &[("action", other)]),
+            },
+        }
     }
 }
 
@@ -440,7 +496,11 @@ impl Plugin for VoiceChatUtilities {
     }
 
     fn wants(&self, event: &EventKind) -> bool {
-        matches!(event, EventKind::Dispatch { name } if wanted(name))
+        match event {
+            EventKind::RestRequest { method, route } => is_interaction(method, route),
+            EventKind::Dispatch { name } => wanted(name),
+            _ => false,
+        }
     }
 
     fn wants_gateway(&self) -> bool {
@@ -448,6 +508,23 @@ impl Plugin for VoiceChatUtilities {
     }
 
     fn on_event(&self, host: &mut dyn Host, event: Event<'_>) -> Verdict {
+        if let Event::RestRequest {
+            method,
+            route,
+            body: Some(body),
+        } = &event
+            && is_interaction(method, route)
+        {
+            if let Some((sub, args)) = parse_interaction(body)
+                && sub == "vcu"
+                && host.plugin_enabled(PLUGIN_ID) != Some(false)
+            {
+                let mut st = self.state.lock();
+                let reply = st.handle(host, &args);
+                st.reply = Some(reply);
+            }
+            return Verdict::Pass;
+        }
         if let Event::Dispatch { name, payload, .. } = event {
             // A gateway frame is `{"op","t","d"}`; accept a bare `d` too.
             let d = payload.get("d").unwrap_or(&*payload);
@@ -510,6 +587,22 @@ mod tests {
         }
     }
 
+    /// Run `/phoecord vcu` as the client does: the interaction goes through the chain, then the
+    /// subcommand hands back the text.
+    fn go(chain: &Chain, h: &mut Rec, cmd: &dyn Subcommand, a: &Args) -> String {
+        let opts: Vec<String> = a
+            .options
+            .iter()
+            .map(|(k, v)| format!(r#"{{"type":3,"name":"{k}","value":"{v}"}}"#))
+            .collect();
+        let mut body = j(&format!(
+            r#"{{"type":2,"data":{{"name":"phoecord","options":[{{"type":1,"name":"vcu","options":[{}]}}]}}}}"#,
+            opts.join(",")
+        ));
+        chain.rest_request(h, "POST", "/interactions", Some(&mut body));
+        cmd.run(h, a)
+    }
+
     fn tick(chain: &Chain, h: &mut Rec, tag: &str) {
         let mut f = Rec::timer_frame(tag);
         chain.dispatch(h, TIMER_EVENT, &mut f, &mut Vec::new());
@@ -518,7 +611,12 @@ mod tests {
     #[test]
     fn mute_patches_everyone_but_me_one_step_at_a_time() {
         let (chain, mut h, cmd) = setup();
-        let out = cmd.run(&mut h, &args(&[("action", "mute"), ("channel", "100")]));
+        let out = go(
+            &chain,
+            &mut h,
+            cmd.as_ref(),
+            &args(&[("action", "mute"), ("channel", "100")]),
+        );
         assert!(out.contains("mute"));
         // First call at once, body as the script's.
         assert_eq!(h.rest_calls.len(), 1);
@@ -530,10 +628,7 @@ mod tests {
         assert_eq!(h.rest_calls[1].0, "PATCH /guilds/9/members/8");
         // Last member done: no more timers, job gone.
         assert_eq!(h.scheduled.len(), 1);
-        assert!(
-            cmd.run(&mut h, &args(&[("action", "status")]))
-                .contains("No")
-        );
+        assert!(go(&chain, &mut h, cmd.as_ref(), &args(&[("action", "status")])).contains("No"));
     }
 
     #[test]
@@ -541,8 +636,10 @@ mod tests {
         let (chain, mut h, cmd) = setup();
         h.settings.insert("waitSeconds".into(), Val::Float(0.5));
         h.settings.insert("waitAfter".into(), Val::Int(2));
-        cmd.run(
+        go(
+            &chain,
             &mut h,
+            cmd.as_ref(),
             &args(&[("action", "move"), ("channel", "<#100>"), ("target", "200")]),
         );
         assert_eq!(h.rest_calls[0].0, "PATCH /guilds/9/members/1");
@@ -563,8 +660,13 @@ mod tests {
             ("undeafen", r#"{"deaf":false}"#),
             ("unmute", r#"{"mute":false}"#),
         ] {
-            let (_c, mut h, cmd) = setup();
-            cmd.run(&mut h, &args(&[("action", a), ("channel", "100")]));
+            let (chain, mut h, cmd) = setup();
+            go(
+                &chain,
+                &mut h,
+                cmd.as_ref(),
+                &args(&[("action", a), ("channel", "100")]),
+            );
             assert_eq!(h.rest_calls[0].1, Some(j(body)), "{a}");
         }
     }
@@ -578,7 +680,12 @@ mod tests {
             429,
             r#"{"retry_after":1.5}"#,
         );
-        cmd.run(&mut h, &args(&[("action", "mute"), ("channel", "100")]));
+        go(
+            &chain,
+            &mut h,
+            cmd.as_ref(),
+            &args(&[("action", "mute"), ("channel", "100")]),
+        );
         assert_eq!(h.scheduled, vec![(1500, "vcu:1".to_string())]);
         tick(&chain, &mut h, "vcu:1");
         // Still member 7: it was not skipped.
@@ -596,7 +703,12 @@ mod tests {
     fn failures_are_logged_and_the_job_goes_on() {
         let (chain, mut h, cmd) = setup();
         h = h.answer("PATCH", "/guilds/9/members/7", 403, "{}");
-        cmd.run(&mut h, &args(&[("action", "mute"), ("channel", "100")]));
+        go(
+            &chain,
+            &mut h,
+            cmd.as_ref(),
+            &args(&[("action", "mute"), ("channel", "100")]),
+        );
         assert!(h.logs.iter().any(|l| l.contains('7')));
         tick(&chain, &mut h, "vcu:1");
         assert_eq!(h.rest_calls.len(), 2);
@@ -605,12 +717,14 @@ mod tests {
     #[test]
     fn stop_status_and_bad_input_do_not_panic() {
         let (chain, mut h, cmd) = setup();
-        cmd.run(&mut h, &args(&[("action", "mute"), ("channel", "100")]));
-        assert!(
-            cmd.run(&mut h, &args(&[("action", "status")]))
-                .contains("100")
+        go(
+            &chain,
+            &mut h,
+            cmd.as_ref(),
+            &args(&[("action", "mute"), ("channel", "100")]),
         );
-        cmd.run(&mut h, &args(&[("action", "stop")]));
+        assert!(go(&chain, &mut h, cmd.as_ref(), &args(&[("action", "status")])).contains("100"));
+        go(&chain, &mut h, cmd.as_ref(), &args(&[("action", "stop")]));
         assert_eq!(h.cancelled, vec!["vcu:1".to_string()]);
         tick(&chain, &mut h, "vcu:1");
         assert_eq!(h.rest_calls.len(), 1);
@@ -626,7 +740,7 @@ mod tests {
             args(&[("action", "mute"), ("channel", "200")]),
             args(&[]),
         ] {
-            cmd.run(&mut h, &a);
+            go(&chain, &mut h, cmd.as_ref(), &a);
         }
         assert_eq!(h.rest_calls.len(), 1);
         for f in [
@@ -644,7 +758,46 @@ mod tests {
             r#"{{"op":0,"t":"VOICE_STATE_UPDATE","d":{{"user_id":"7","guild_id":"{GUILD}","channel_id":null}}}}"#
         ));
         chain.dispatch(&mut h, "VOICE_STATE_UPDATE", &mut left, &mut Vec::new());
-        cmd.run(&mut h, &args(&[("action", "mute"), ("channel", "100")]));
+        go(
+            &chain,
+            &mut h,
+            cmd.as_ref(),
+            &args(&[("action", "mute"), ("channel", "100")]),
+        );
         assert_eq!(h.rest_calls[0].0, "PATCH /guilds/9/members/8");
+    }
+
+    #[test]
+    fn the_job_runs_as_vcu_even_with_the_command_plugin_in_the_chain() {
+        use crate::commands::{Commands, PluginInfo};
+        let p = VoiceChatUtilities::new();
+        let info = PluginInfo::of(&p);
+        let cmd = p.command();
+        let commands = Commands::new(vec![info]).with(cmd);
+        // VCU before the command plugin, as builtin() must order them.
+        let chain = Chain::new(vec![Box::new(p), Box::new(commands)]);
+        let mut h = Rec {
+            self_id: Some(ME),
+            ..Rec::default()
+        };
+        let mut g = j(&format!(
+            r#"{{"op":0,"t":"GUILD_CREATE","d":{{"id":"{GUILD}","name":"G","channels":[{{"id":"{SRC}","type":2,"name":"a"}}],
+            "voice_states":[{{"user_id":"7","channel_id":"{SRC}"}},{{"user_id":"8","channel_id":"{SRC}"}}]}}}}"#
+        ));
+        chain.dispatch(&mut h, "GUILD_CREATE", &mut g, &mut Vec::new());
+        let mut body = j(
+            r#"{"type":2,"channel_id":"5","data":{"name":"phoecord","options":[{"type":1,"name":"vcu","options":[
+            {"type":3,"name":"action","value":"mute"},{"type":3,"name":"channel","value":"100"}]}]}}"#,
+        );
+        chain.rest_request(&mut h, "POST", "/interactions", Some(&mut body));
+        // The PATCH and the next-step timer were issued by VCU's own event, once.
+        assert_eq!(h.rest_calls.len(), 1);
+        assert_eq!(h.rest_calls[0].0, "PATCH /guilds/9/members/7");
+        assert_eq!(h.scheduled, vec![(2000, "vcu:1".to_string())]);
+        // The commands plugin showed VCU's stored text.
+        let shown = format!("{:?}", h.dispatched);
+        assert!(shown.contains("Started mute"), "{shown}");
+        tick(&chain, &mut h, "vcu:1");
+        assert_eq!(h.rest_calls.len(), 2);
     }
 }
