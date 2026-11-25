@@ -511,6 +511,32 @@ dev-build-failed = сборка не удалась: { $why }
 dev-installed = Установлено (сборка { $build } мс, копирование { $copy } мс); запущенный PhoeCord перезагрузит плагин сам
 dev-install-failed = не удалось установить сборку: { $why }
 
+# phoecord dev inspect-pe (задача 2.1.2)
+cmd-dev-inspect-pe = Осмотреть PE-исполняемый файл (только чтение): импортируемые DLL, ограничения поиска DLL, TLS-колбэки и раскладка секций
+cli-arg-dev-inspect-pe-file = PE-файл для осмотра (например Discord.exe)
+cli-arg-dev-inspect-pe-functions = Вывести имена импортируемых функций каждой DLL, а не только их число
+dev-pe-err-read = не удаётся прочитать { $path }
+dev-pe-err-parse = { $path } не является корректным PE-файлом
+dev-pe-header = { $bits } { $machine }, { $subsystem }, точка входа RVA { $entry }, база образа { $base }
+dev-pe-yes = да
+dev-pe-no = нет
+dev-pe-clr = Метаданные .NET (CLR): { $value }
+dev-pe-imports = Импортируемые DLL ({ $count }); * отмечает кандидата для подмены
+dev-pe-delay-imports = DLL с отложенной загрузкой ({ $count })
+dev-pe-import-line = { $mark } { $name }, функций: { $count }
+dev-pe-candidates = Импортируются кандидаты для подмены: { $list }
+dev-pe-candidates-none = Кандидатов для подмены нет (искали: { $list })
+dev-pe-dllchars = DllCharacteristics: { $value } ({ $names })
+dev-pe-loadconfig-absent = Каталог Load Configuration: отсутствует
+dev-pe-loadconfig = Каталог Load Configuration: размер { $size }
+dev-pe-dlf = DependentLoadFlags: { $value } ({ $names })
+dev-pe-dlf-zero = DependentLoadFlags: 0 (образ не задаёт ограничений)
+dev-pe-dlf-short = DependentLoadFlags: нет (структура слишком короткая)
+dev-pe-search-note = Примечание: это только то, что записано в образе. Манифест и вызовы SetDefaultDllDirectories во время работы не учтены.
+dev-pe-tls = Каталог TLS: { $present }, колбэков: { $count } (RVA: { $list })
+dev-pe-sections = Секции ({ $count })
+dev-pe-sections-head =   имя        вирт адр  вирт разм  смещ в файле  разм в файле  флаги
+
 # Каталог плагинов (1.3.11): `phoecord install | update | remove | catalog` и список «Каталог» в окне.
 cmd-install = Поставить плагин из каталога по id или по https://-ссылке на .zip
 cmd-update = Обновить плагины из каталога, у которых есть новая версия (все или один)

@@ -3304,6 +3304,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "object",
  "phoecord-catalog",
  "phoecord-core",
  "phoecord-i18n",
@@ -3379,6 +3380,10 @@ dependencies = [
 name = "phoecord-loader"
 version = "0.5.0"
 dependencies = [
+ "phoecord-core",
+ "phoecord-plugin-runtime",
+ "phoecord-plugins",
+ "phoecord-transport",
  "retour",
  "serde",
  "serde_json",

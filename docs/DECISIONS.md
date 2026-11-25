@@ -54,3 +54,9 @@ Source: `docs/phase-1/ai/ledger.md`, decisions: 46.
 - Ruling: the remaining plugins' notifications and `/phoecord` answers are not translated; only the plugins already translated in 1.7.4 speak Russian (owner Nanda, 2026-11-25, "переводы плагинов не нужны" (translated: "plugin translations are not needed")) — why: the owner's priority — risk: Russian users see English plugin answers
 - Ruling: Kennurken takes the post-release checks: the macOS check of the 0.5.1 fixes (1.4.10), the loader check inside Discord Canary (1.5.9) and the antivirus submissions per release (1.4.11) (owner Nanda, 2026-11-25, "Исправление macOS на кена, загрузчик и отправка тоже на кена" (translated: "the macOS fix check to Ken, the loader and the submissions to Ken too")) — why: Kennurken has a Mac and runs the releases — risk: none
 - Ruling: PRs #97, #98, #99 (1.3.9-1.3.11) and their review fixes go straight into main without a PR, the PR branches are deleted, and CI is not waited for: a failure is fixed afterwards (owner Nanda, 2026-11-25, "все фиксы сразу в main без PR, другие ветки удаляй, ci не жди фиксанем если упадет" (translated: "all fixes straight into main without a PR, delete the other branches, don't wait for CI, we'll fix it if it fails")) — why: the three tasks overlap and were reviewed together — risk: main can be red until a follow-up fix; nobody else reviewed the fixes
+
+## Phase 2. Phoenix Canary release
+
+Source: `docs/phase-2/ai/ledger.md`, decisions: 1.
+
+- Ruling: task 2.2.1 (Ghidra / IDA project) is reassigned from matvee to Nanda (owner Nanda, 2026-11-25, "move 2.2.1 to Nanda" (translated)) — why: the project feeds the hook targets of 2.1.5–2.1.6 and 2.2.2, which Nanda owns — risk: Nanda's RE load grows; 2.2.5 (matvee) depends on the project

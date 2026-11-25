@@ -1,6 +1,7 @@
 //! `phoecord dev …`: tools for plugin authors. Each subcommand lives in its own file.
 
 pub mod console;
+mod inspect_pe;
 mod watch;
 
 use anyhow::Result;
@@ -14,11 +15,14 @@ pub enum DevCmd {
     Console(console::Args),
     /// Rebuild a plugin when its sources change and hot-reload it in the running proxy.
     Watch(watch::WatchArgs),
+    /// Read-only inspection of a PE executable: imports, DLL search restrictions, sections.
+    InspectPe(inspect_pe::InspectPeArgs),
 }
 
 pub fn run(cmd: DevCmd, paths: &Paths, l10n: &Localizer) -> Result<()> {
     match cmd {
         DevCmd::Console(args) => console::run(args, paths, l10n),
         DevCmd::Watch(args) => watch::run(args, paths, l10n),
+        DevCmd::InspectPe(args) => inspect_pe::run(args, l10n),
     }
 }

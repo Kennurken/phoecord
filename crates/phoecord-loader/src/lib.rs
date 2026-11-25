@@ -29,6 +29,10 @@ pub mod version;
 #[cfg(windows)]
 pub mod pipe;
 
+/// In-process hooks: locators, panic guards and the bridge to `Engine` (tasks 2.2.2, 2.2.3).
+#[cfg(feature = "dll")]
+pub mod hooks;
+
 #[cfg(all(windows, feature = "dll"))]
 pub mod entry;
 #[cfg(all(windows, feature = "dll"))]

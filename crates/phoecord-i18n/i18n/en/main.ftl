@@ -506,6 +506,32 @@ dev-build-failed = build failed: { $why }
 dev-installed = Installed (build { $build } ms, copy { $copy } ms); the running PhoeCord reloads it by itself
 dev-install-failed = could not install the build: { $why }
 
+# phoecord dev inspect-pe (task 2.1.2)
+cmd-dev-inspect-pe = Inspect a PE executable (read-only): imported DLLs, DLL search restrictions, TLS callbacks and the section layout
+cli-arg-dev-inspect-pe-file = The PE executable to inspect (for example Discord.exe)
+cli-arg-dev-inspect-pe-functions = List the imported function names of every DLL, not only the counts
+dev-pe-err-read = cannot read { $path }
+dev-pe-err-parse = { $path } is not a valid PE executable
+dev-pe-header = { $bits } { $machine }, { $subsystem }, entry point RVA { $entry }, image base { $base }
+dev-pe-yes = yes
+dev-pe-no = no
+dev-pe-clr = .NET (CLR) metadata: { $value }
+dev-pe-imports = Imported DLLs ({ $count }); * marks a sideload candidate
+dev-pe-delay-imports = Delay-loaded DLLs ({ $count })
+dev-pe-import-line = { $mark } { $name }, functions: { $count }
+dev-pe-candidates = Sideload candidates imported: { $list }
+dev-pe-candidates-none = No sideload candidate imported (looked for: { $list })
+dev-pe-dllchars = DllCharacteristics: { $value } ({ $names })
+dev-pe-loadconfig-absent = Load Configuration directory: absent
+dev-pe-loadconfig = Load Configuration directory: size { $size }
+dev-pe-dlf = DependentLoadFlags: { $value } ({ $names })
+dev-pe-dlf-zero = DependentLoadFlags: 0 (the image sets no restriction)
+dev-pe-dlf-short = DependentLoadFlags: not present (the structure is too short)
+dev-pe-search-note = Note: these flags are only what the image records. The manifest and SetDefaultDllDirectories calls at run time are not covered.
+dev-pe-tls = TLS directory: { $present }, callbacks: { $count } (RVA: { $list })
+dev-pe-sections = Sections ({ $count })
+dev-pe-sections-head =   name       virt addr  virt size  raw offset   raw size  flags
+
 # Plugin catalog (1.3.11): `phoecord install | update | remove | catalog`, and the Catalog list in the window.
 cmd-install = Install a plugin from the catalog by id, or from an https:// link to a .zip
 cmd-update = Update catalog plugins that have a newer version (all, or the one given)

@@ -26,6 +26,8 @@ dirs.workspace = true
 clap = { version = "4", features = ["derive"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 http-body-util = "0.1"
+# PE parsing for `phoecord dev inspect-pe`; already in the tree through wasmtime.
+object = { version = "0.37", default-features = false, features = ["read_core", "pe"] }
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 rustls.workspace = true

@@ -133,7 +133,7 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 
 ## Stage 2.2. Reverse engineering and AOB signatures
 
-### 2.2.1. Ghidra / IDA project (matvee)
+### 2.2.1. Ghidra / IDA project (Nanda)
 
 **Files:** local only (the project file is never committed); `docs/research/phoenix-recon.md` (symbol import notes)
 

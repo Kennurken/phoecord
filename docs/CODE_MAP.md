@@ -207,6 +207,10 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/pipe.rs` | Windows named pipe: `PipeServer` (user-only DACL from the user's SID, `PIPE_REJECT_REMOTE_CLIENTS`, first instance), `connect`, `send_all`, `current_user_sid` | All the IPC `unsafe` lives here, each block with `// SAFETY:`; no work under the loader lock (only the worker calls it) |
 | `src/pe.rs`, `src/version.rs` | PE parsing (file or mapped image: `Pe::parse_mapped`, `Pe::image_size`), file version resource, `.text` SHA-256 (`detect` for a file, `detect_mapped` for memory, same hash), `is_child_process` | Pure, tested on every OS; the hash must stay equal for file and image, `signatures/*.toml` depend on it |
 | `src/signatures.rs` | `SignatureSet::load_dir`, `select`, `resolve_all` (`find_unique` + `rip`) | Format documented in `signatures/README.md` |
+| `src/hooks/found.rs` | `Found<T>` typed locators over `signatures/*.toml` (`http_send`, `http_poll`, `rust_alloc` + `rust_dealloc`, `gateway_registry`), `HookPlan`: each miss (missing, none, several, outside the image) turns off only its hook | "Unique or off"; one allocator shim alone is no allocator |
+| `src/hooks/guard.rs` | `Breaker`: `catch_unwind(AssertUnwindSafe)` around every hook entry; a panic logs and trips the hook, a bad input only falls back | The fallback is always "pass the traffic through" |
+| `src/hooks/http.rs`, `src/hooks/gateway.rs` | Bridge to `Engine::on_request` / `on_response` and `on_dispatch` (client JSON in, verdict out; changed bodies only without an allocator → pass) | Detour ABI shims (2.1.5-2.1.7) are not here yet |
+| `src/hooks/mod.rs` | `HookRuntime` (the three guarded entry points), `install` / `runtime` | Needs the `dll` feature (pulls `phoecord-transport`) |
 | `src/hook.rs` | Inline detours (`retour`), installed with other threads suspended, `uninstall_all` | Hooks must be removed before `FreeLibrary` |
 | `examples/host.rs` | Throwaway exe that loads `version.dll` from its folder for manual checks | |
 
@@ -276,7 +280,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 |:---|:---|:---|
 | `src/main.rs` | Commands: `run`, `launch`, `setup` (installer `install()`), `uninstall` (installer `uninstall_all()`), `trust`, `untrust`, `plugins`, `enable`, `disable`, `toggle`, `log`, `selftest`, `paths`; `run` loads WASM packages | `plugins`/`enable` know built-ins only, not WASM packages; every user-facing string comes from `crates/phoecord-i18n/i18n/{en,ru}/main.ftl`; `setup` asks to accept `TERMS.md` first (`--accept-terms` skips the prompt); `setup --loader` installs the loader DLL, and `run`/`launch` call `ensure_loader` first |
 | `src/help.rs` | `--help` built at runtime from the `Localizer` (clap needs static strings, so the help is rebuilt per language); `lang_from_args` reads `--lang` before clap runs | A new subcommand or flag needs `cmd-*` / `cli-arg-*` keys in both `.ftl` files |
-| `src/dev/mod.rs`, `src/dev/watch.rs` | `phoecord dev ...` (one file per tool); `dev watch <source>`: `cargo build --target wasm32-wasip2 --release`, atomic copy into `plugins/<id>/`, rebuild on source changes | The proxy side is `Proxy::start_package_watcher` (`phoecord-proxy/src/lib.rs`); `help.rs` localizes second-level commands by `cmd-<parent>-<child>` / `cli-arg-<parent>-<child>-<arg id>` |
+| `src/dev/mod.rs`, `src/dev/watch.rs`, `src/dev/inspect_pe.rs` | `phoecord dev ...` (one file per tool); `dev inspect-pe <exe> [--functions]` (2.1.2): read-only PE report with the `object` crate: imported and delay-loaded DLLs (sideload candidates marked), `DllCharacteristics`, Load Configuration `DependentLoadFlags`, TLS callbacks, CLR flag, section layout (virtual address and raw offset); `dev watch <source>`: `cargo build --target wasm32-wasip2 --release`, atomic copy into `plugins/<id>/`, rebuild on source changes | The proxy side is `Proxy::start_package_watcher` (`phoecord-proxy/src/lib.rs`); `help.rs` localizes second-level commands by `cmd-<parent>-<child>` / `cli-arg-<parent>-<child>-<arg id>` |
 
 | `src/catalog.rs` | `phoecord install <id\|https link\|path>`, `update [id]`, `remove <id>`, `catalog` (1.3.11): stage through `phoecord-catalog`, print what the plugin asks for, ask (`--yes` skips; no terminal and no `--yes` means no) | `uninstall` stays the undo of `setup`, so removing a plugin is `remove`; an install from a link or a path has no hash and says so |
 | `src/log.rs`, `src/selftest.rs` | `phoecord log` output, `phoecord selftest` | |
@@ -303,6 +307,7 @@ See [`README.md`](README.md) in this folder. Project-level documents live here t
 |:---|:---|
 | `docs/phase-1/` | Phase 1 plan, task table, agent rules, spec, implementation plan and ledger |
 | `docs/phase-2/` | Phase 2 plan (Phoenix Canary → v1.0): `README.md` (task table), `AGENTS.md`, `ai/spec.md`, `ai/plan.md`, `ai/ledger.md` |
+| `docs/re/` | Reverse-engineering notes on the Phoenix client: `gpui-lifecycle.md` (GPUI init chain, main window, injection points) |
 | `docs/research/` | Research documents: `phoenix-desktop.md` (sunbird study), `gpui.md` (GPUI map) |
 
 ## 6. Config, environment and files on disk

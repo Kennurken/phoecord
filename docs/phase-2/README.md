@@ -53,7 +53,7 @@ New decisions for Phase 2 (made when the research answers them):
 | | Nanda | ken | buslan | matvee |
 |:---|:---|:---|:---|:---|
 | Area | core RE (binary, hooks), decisions, Plugin API, security, release, review and merging | proxy, transport, wire format, degradation | discovery, tooling, installer, signatures | RE support, locators, UI hooks, theme engine |
-| Tasks | 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.2, 2.2.3; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.4, 2.2.7; 2.3.7 | 2.1.1; 2.2.6, 2.2.8, 2.2.9, 2.2.10; 2.4.5 | 2.1.9; 2.2.1, 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
+| Tasks | 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1, 2.2.2, 2.2.3; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.4, 2.2.7; 2.3.7 | 2.1.1; 2.2.6, 2.2.8, 2.2.9, 2.2.10; 2.4.5 | 2.1.9; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
 
 Unassigned contributor tasks: 2.3.2 (themes), 2.3.5, 2.3.6; 2.4.1, 2.4.2, 2.4.4.
 
@@ -68,11 +68,11 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
 | **2.1.1** 🔴 | Phoenix discovery: install paths on Windows and Linux, update `discover` module, `phoecord launch --channel phoenix` | buslan | ⏳ |
-| **2.1.2** 🔴 | Binary inspection: PE headers, import table, DLL search restrictions, dependent-load flags, update scheme | Nanda | ⏳ |
+| **2.1.2** 🔴 | Binary inspection: PE headers, import table, DLL search restrictions, dependent-load flags, update scheme | Nanda | ✅ |
 | **2.1.3** 🔴 | Proxy behavior: does Phoenix honour `HTTPS_PROXY`, the system proxy, the system CA store; does it pin | ken | ⏳ |
 | **2.1.4** 🔴 | Gateway wire format for the proxy fallback: encoding (JSON / ETF), compression (zlib / zstd), new events and fields | ken | ⏳ |
-| **2.1.5** 🔴 | Locate the HTTP transport in the binary: `ReqwestTransport::send`, the vtable, type layouts, allocator shims | Nanda | ⏳ |
-| **2.1.6** 🔴 | Locate the Gateway registry: per-domain tables, seed events, handler ABI, READY handling; search for outgoing send | Nanda | ⏳ |
+| **2.1.5** 🔴 | Locate the HTTP transport in the binary: `ReqwestTransport::send`, the vtable, type layouts, allocator shims. _Verified: `__rust_alloc` + `handle_alloc_error` addresses ([recon](../research/phoenix-recon.md) §Allocator). Pending: `__rust_dealloc` RVA and the `Transport`/`Request` layout (`Method`, URL, `HeaderMap`, body) + send-future — not in the current dump, need a transport-sliced one._ | Nanda | 🚧 |
+| **2.1.6** 🔴 | Locate the Gateway registry: per-domain tables, seed events, handler ABI, READY handling; search for outgoing send. _Verified: handler ABI, registry at `ctx+0x18`, sret out-pointer, `Result`/poll niche ([recon](../research/phoenix-recon.md) §Gateway dispatcher ABI). Pending: outgoing client→server send and any out-of-band READY path — not observed (dump is inbound-only)._ | Nanda | 🚧 |
 | **2.1.7** 🔴 | Loading path decision and prototype: sideload vs launcher; hook timing test | Nanda | ⏳ |
 | **2.1.8** 🔴 | Proxy reach decision and fallback: option 1 / 2 / 3 from `ARCHITECTURE.md`; implement the chosen path | ken | ⏳ |
 | **2.1.9** 🟡 | Recon report: `docs/research/phoenix-recon.md` with all findings, decisions for 2.2–2.4; update `ARCHITECTURE.md` | matvee | ⏳ |
@@ -81,7 +81,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
-| **2.2.1** 🔴 | Ghidra / IDA project on Phoenix Canary: GPUI symbols imported from the reference build (1.6) | matvee | ⏳ |
+| **2.2.1** 🔴 | Ghidra / IDA project on Phoenix Canary: GPUI symbols imported from the reference build (1.6) | Nanda | ⏳ |
 | **2.2.2** 🔴 | HTTP transport hook: inline entry on `send`, vtable swap for `poll`, allocator-safe body replacement | Nanda | ⏳ |
 | **2.2.3** 🔴 | Gateway registry detours: per-event handler swap, `Engine::on_dispatch` wiring | Nanda | ⏳ |
 | **2.2.4** 🟡 | Outgoing gateway hook (if found in 2.1.6): `Engine::on_send` wiring | ken | ⏳ |
