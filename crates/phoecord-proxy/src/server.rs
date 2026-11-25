@@ -35,6 +35,7 @@ fn allowed(peer: &SocketAddr) -> bool {
 }
 
 pub async fn serve(app: Arc<Proxy>, listener: TcpListener) -> Result<()> {
+    app.spawn_timers();
     loop {
         let (sock, peer) = listener.accept().await?;
         if !allowed(&peer) {

@@ -4,6 +4,7 @@
 use crate::account::Account;
 use crate::config::Config;
 use crate::hostnet::{GLOBAL_PER_SECOND, Net};
+use crate::timers::Timers;
 use phoecord_core::{FilePart, Host, HostResponse, Val};
 use phoecord_i18n::PluginStrings;
 use std::collections::{HashMap, VecDeque};
@@ -29,18 +30,26 @@ impl RateLimiter {
 
     /// Record a hit for `key` at `now` and say whether it is within the limit.
     pub fn allow(&mut self, key: &str, now: Instant) -> bool {
+        self.check(key, now).is_ok()
+    }
+
+    /// Record a hit for `key` at `now`, or refuse it with how long until the next hit fits.
+    pub fn check(&mut self, key: &str, now: Instant) -> Result<(), Duration> {
         let q = self.hits.entry(key.to_string()).or_default();
         while q
             .front()
-            .is_some_and(|t| now.duration_since(*t) >= self.window)
+            .is_some_and(|t| now.saturating_duration_since(*t) >= self.window)
         {
             q.pop_front();
         }
         if q.len() >= self.max {
-            return false;
+            let oldest = q.front().copied().unwrap_or(now);
+            return Err(self
+                .window
+                .saturating_sub(now.saturating_duration_since(oldest)));
         }
         q.push_back(now);
-        true
+        Ok(())
     }
 }
 
@@ -109,6 +118,11 @@ pub fn desktop_notify(title: &str, body: &str) {
 
 type Notifier = Box<dyn Fn(&str, &str) + Send + Sync>;
 
+/// Discord API calls (`Host::rest`, `Host::rest_files`) one plugin may make per
+/// [`PLUGIN_REST_WINDOW`]: the same 1 a second on average, with room for a short burst.
+pub const PLUGIN_REST_BURST: usize = 5;
+pub const PLUGIN_REST_WINDOW: Duration = Duration::from_secs(5);
+
 /// State shared by every [`ProxyHost`]. Each lock is taken per call, never held across the chain.
 pub struct Shared {
     pub account: Mutex<Account>,
@@ -123,6 +137,8 @@ pub struct Shared {
     notify_limit: Mutex<RateLimiter>,
     rest_limit: Mutex<RateLimiter>,
     notifier: Notifier,
+    /// Pending plugin timers (`Host::schedule`), fired by the proxy's timer driver.
+    pub timers: Arc<Timers>,
     /// The plugins' own strings (`Host::t`): built-in bundles and the `i18n/` of WASM packages.
     pub strings: Arc<PluginStrings>,
     /// `--lang`, the first source of the language `Host::t` answers in.
@@ -170,9 +186,10 @@ impl Shared {
             config_lock: Mutex::new(()),
             // 5 notifications a minute per plugin.
             notify_limit: Mutex::new(RateLimiter::new(5, Duration::from_secs(60))),
-            // 1 Discord API call a second per plugin.
-            rest_limit: Mutex::new(RateLimiter::new(1, Duration::from_secs(1))),
+            // Discord API calls per plugin: 1 a second on average, in bursts of up to 5.
+            rest_limit: Mutex::new(RateLimiter::new(PLUGIN_REST_BURST, PLUGIN_REST_WINDOW)),
             notifier,
+            timers: Arc::new(Timers::default()),
             strings: Arc::new(PluginStrings::new()),
             lang_flag: RwLock::new(None),
             os_lang: OnceLock::new(),
@@ -273,6 +290,16 @@ impl Host for ProxyHost<'_> {
         self.locals.push(payload);
     }
 
+    fn schedule(&mut self, after_ms: u64, tag: &str) -> Result<(), String> {
+        self.shared
+            .timers
+            .schedule(&self.plugin, after_ms, tag, Instant::now())
+    }
+
+    fn cancel_schedule(&mut self, tag: &str) {
+        self.shared.timers.cancel(&self.plugin, tag);
+    }
+
     fn plugin_enabled(&self, id: &str) -> Option<bool> {
         Some(self.config.is_enabled(id))
     }
@@ -370,19 +397,28 @@ impl ProxyHost<'_> {
         if !self.shared.net.signed_in() {
             return Err("client not signed in yet".into());
         }
-        let now = Instant::now();
-        if !self
+        self.rest_limits(Instant::now())
+    }
+
+    /// The per-plugin and global caps at `now`. A refusal says how long to wait, like a 429.
+    fn rest_limits(&mut self, now: Instant) -> Result<(), String> {
+        let per_plugin = self
             .shared
             .rest_limit
             .lock()
             .unwrap()
-            .allow(&self.plugin, now)
-        {
-            return Err("rate limited: at most 1 Discord API call per second per plugin".into());
-        }
-        if !self.shared.rest_global.lock().unwrap().allow("all", now) {
+            .check(&self.plugin, now);
+        if let Err(wait) = per_plugin {
             return Err(format!(
-                "rate limited: at most {GLOBAL_PER_SECOND} Discord API calls per second in total"
+                "rate limited: at most {PLUGIN_REST_BURST} Discord API calls per {} s per plugin, retry in {:.1}s",
+                PLUGIN_REST_WINDOW.as_secs(),
+                wait.as_secs_f32()
+            ));
+        }
+        if let Err(wait) = self.shared.rest_global.lock().unwrap().check("all", now) {
+            return Err(format!(
+                "rate limited: at most {GLOBAL_PER_SECOND} Discord API calls per second in total, retry in {:.1}s",
+                wait.as_secs_f32()
             ));
         }
         Ok(())
@@ -511,6 +547,72 @@ mod tests {
         assert!(!r.allow("a", t));
         assert!(r.allow("b", t), "keys are independent");
         assert!(r.allow("a", t + Duration::from_secs(61)));
+    }
+
+    #[test]
+    fn a_plugin_may_burst_five_discord_calls_and_keeps_one_a_second_on_average() {
+        let shared = Shared::new(temp("rest-limit"));
+        let cfg = Config::default();
+        let mut h = ProxyHost::new(&shared, &cfg);
+        h.begin_plugin("p");
+        let t = Instant::now();
+        let ms = |n: u64| t + Duration::from_millis(n);
+        // Five quick calls (200 ms apart, like an edit then a delete) are fine.
+        for i in 0..5 {
+            h.rest_limits(ms(i * 200)).unwrap();
+        }
+        let err = h.rest_limits(ms(1000)).unwrap_err();
+        assert!(
+            err.starts_with(
+                "rate limited: at most 5 Discord API calls per 5 s per plugin, retry in "
+            ),
+            "{err}"
+        );
+        assert!(err.ends_with("retry in 4.0s"), "{err}");
+        assert!(h.rest_limits(ms(4999)).is_err());
+        // The first call leaves the window after 5 s.
+        h.rest_limits(ms(5000)).unwrap();
+        // Over a long run the average stays at one call a second.
+        let mut ok = 6;
+        for i in 0..200u64 {
+            if h.rest_limits(ms(5001 + i * 100)).is_ok() {
+                ok += 1;
+            }
+        }
+        // 25.1 s in total: at most 5 per started 5 s window.
+        assert!(ok <= 30, "{ok} calls in about 25 s");
+        // Another plugin has its own budget; the global cap still applies across plugins.
+        let shared = Shared::new(temp("rest-global"));
+        let mut h = ProxyHost::new(&shared, &cfg);
+        for id in ["a", "b", "c", "d", "e"] {
+            h.begin_plugin(id);
+            h.rest_limits(t).unwrap();
+        }
+        h.begin_plugin("f");
+        let err = h.rest_limits(t).unwrap_err();
+        assert!(
+            err.starts_with(
+                "rate limited: at most 5 Discord API calls per second in total, retry in "
+            ),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn timers_are_scheduled_for_the_current_plugin() {
+        let shared = Shared::new(temp("timers"));
+        let cfg = Config::default();
+        let mut h = ProxyHost::new(&shared, &cfg);
+        assert!(h.schedule(100, "x").is_err(), "no plugin announced yet");
+        h.begin_plugin("p");
+        h.schedule(100, "x").unwrap();
+        h.schedule(100, "x").unwrap();
+        h.begin_plugin("q");
+        h.schedule(100, "x").unwrap();
+        h.cancel_schedule("x");
+        assert_eq!(shared.timers.pending("p"), 2, "q cancels only its own");
+        assert_eq!(shared.timers.pending("q"), 0);
+        assert!(h.schedule(24 * 60 * 60 * 1000 + 1, "far").is_err());
     }
 
     #[test]

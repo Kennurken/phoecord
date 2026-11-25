@@ -174,6 +174,9 @@ where
     // when the set changes (config reload) it is replayed through the chain, so a switch applies at once.
     let mut last_presence: Option<Val> = None;
     let mut active = app.chain.enabled_ids();
+    // Payloads plugins queue outside a gateway frame (REST events, timers) arrive here while this
+    // connection is the newest one; `_live` unregisters it when the bridge ends.
+    let (_live, mut live_rx) = app.live.register();
 
     loop {
         tokio::select! {
@@ -210,8 +213,8 @@ where
                 for p in out {
                     c_tx.send(frame(codec, Some(&mut deflater), p)?).await?;
                 }
-                for (op, payload) in sends {
-                    u_tx.send(queued(send_codec, op, payload)?).await?;
+                for v in app.chain_queued(sends) {
+                    u_tx.send(frame(send_codec, None, send_codec.encode(&v))?).await?;
                 }
             }
             m = c_rx.next() => {
@@ -247,9 +250,13 @@ where
                 if let Some(msg) = msg {
                     u_tx.send(msg).await?;
                 }
-                for (op, payload) in sends {
-                    u_tx.send(queued(send_codec, op, payload)?).await?;
+                for v in app.chain_queued(sends) {
+                    u_tx.send(frame(send_codec, None, send_codec.encode(&v))?).await?;
                 }
+            }
+            Some(v) = live_rx.recv() => {
+                // A plugin send from outside a frame, already through the Send chain.
+                u_tx.send(frame(send_codec, None, send_codec.encode(&v))?).await?;
             }
             Ok(v) = locals.recv() => {
                 // A payload a plugin made for this client alone (e.g. a slash command answer).
@@ -265,8 +272,8 @@ where
                             u_tx.send(frame(send_codec, None, send_codec.encode(&p))?).await?;
                             tracing::info!("status re-sent (plugins changed)");
                         }
-                        for (op, payload) in r.sends {
-                            u_tx.send(queued(send_codec, op, payload)?).await?;
+                        for v in app.chain_queued(r.sends) {
+                            u_tx.send(frame(send_codec, None, send_codec.encode(&v))?).await?;
                         }
                     }
                 }
@@ -276,12 +283,4 @@ where
     let _ = c_tx.close().await;
     let _ = u_tx.close().await;
     Ok(())
-}
-
-/// A payload a plugin queued with `Host::emit_send`: `{"op": op, "d": payload}`.
-fn queued(codec: Codec, op: i64, payload: Val) -> Result<Message> {
-    let mut v = Val::map();
-    v.set("op", Val::Int(op));
-    v.set("d", payload);
-    frame(codec, None, codec.encode(&v))
 }

@@ -11,19 +11,22 @@ pub mod egress;
 pub mod gateway;
 pub mod host;
 pub mod hostnet;
+pub mod live;
 pub mod process;
 pub mod rest;
 pub mod server;
+pub mod timers;
 pub mod trust;
 
 use anyhow::Result;
 use ca::Authority;
 use config::{Config, Paths};
 use host::{ProxyHost, Shared};
-use phoecord_core::{EventKind, Val};
+use live::LiveGateways;
+use phoecord_core::{EventKind, TIMER_EVENT, Val};
 use phoecord_plugin_runtime::package::PackageSet;
 use phoecord_plugin_runtime::{Chain, Outcome};
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, SystemTime};
 use tokio::sync::{broadcast, watch};
@@ -77,6 +80,10 @@ pub struct Proxy {
     /// Server → client payloads made locally (`Host::emit_dispatch` from a REST event); every
     /// gateway connection sends what it receives to its client.
     pub locals: broadcast::Sender<Val>,
+    /// Bridged gateway connections, for payloads plugins queue outside a gateway frame.
+    pub live: LiveGateways,
+    /// Whether the timer driver runs (it is started once, by [`Proxy::spawn_timers`]).
+    timers_started: AtomicBool,
     /// Decode (and re-encode) the gateway even when no plugin needs it (self-test).
     pub force_decode: bool,
     pub stats: Stats,
@@ -118,6 +125,8 @@ impl Proxy {
             upstream_tls: upstream_tls(None),
             reloads: watch::channel(0).0,
             locals: broadcast::channel(64).0,
+            live: LiveGateways::default(),
+            timers_started: AtomicBool::new(false),
             force_decode,
             stats: Stats::default(),
         });
@@ -208,6 +217,71 @@ impl Proxy {
         });
     }
 
+    /// Start the task that fires plugin timers (`Host::schedule`). Only the first call starts
+    /// it; [`server::serve`] calls this. The task ends when the proxy is dropped.
+    pub fn spawn_timers(self: &Arc<Self>) {
+        if self.timers_started.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        tokio::spawn(timers::drive(
+            Arc::downgrade(self),
+            self.shared.timers.clone(),
+        ));
+    }
+
+    /// A due timer: a [`TIMER_EVENT`] dispatch for `plugin` alone (skipped when it is off or does
+    /// not want it). What it queues goes out at once: sends to the live gateway through the Send
+    /// chain, client payloads to the client.
+    pub fn fire_timer(&self, plugin: &str, tag: &str) {
+        let cfg = self.cfg();
+        let mut payload = timers::timer_payload(tag);
+        let mut extra = Vec::new();
+        let mut host = ProxyHost::new(&self.shared, &cfg);
+        let ran = self
+            .chain
+            .dispatch_to(&mut host, plugin, TIMER_EVENT, &mut payload, &mut extra);
+        if ran.is_none() {
+            tracing::debug!(
+                plugin,
+                tag,
+                "timer skipped: the plugin is off or not listening"
+            );
+        }
+        extra.append(&mut host.locals);
+        self.publish(extra);
+        self.push_sends(host.sends);
+    }
+
+    /// Run sends plugins queued with `Host::emit_send` through the Send chain once and return
+    /// the frames (`{"op":…,"d":…}`) to send, in order. A send the chain drops is left out; sends
+    /// plugins queue while this runs follow the frame as they are (never chained again, so a
+    /// plugin cannot loop).
+    pub fn chain_queued(&self, sends: Vec<(i64, Val)>) -> Vec<Val> {
+        if sends.is_empty() {
+            return Vec::new();
+        }
+        let cfg = self.cfg();
+        let mut out = Vec::new();
+        for (op, payload) in sends {
+            let mut frame = queued_frame(op, payload);
+            let mut host = ProxyHost::new(&self.shared, &cfg);
+            let outcome = self.chain.send(&mut host, op, &mut frame);
+            self.publish(std::mem::take(&mut host.locals));
+            if !matches!(outcome, Outcome::Dropped { .. } | Outcome::Replied { .. }) {
+                out.push(frame);
+            }
+            out.extend(host.sends.into_iter().map(|(op, p)| queued_frame(op, p)));
+        }
+        out
+    }
+
+    /// Sends queued outside a gateway frame (REST events, timers): through the Send chain, then
+    /// to the newest live gateway connection at once (none: dropped with a log line).
+    fn push_sends(&self, sends: Vec<(i64, Val)>) {
+        let frames = self.chain_queued(sends);
+        self.live.push(frames);
+    }
+
     pub fn gateway_active(&self) -> bool {
         self.force_decode || self.chain.wants_gateway()
     }
@@ -231,7 +305,8 @@ impl Proxy {
         let outcome = self
             .chain
             .rest_request(&mut host, method, route, body.as_mut());
-        self.publish(host.locals);
+        self.publish(std::mem::take(&mut host.locals));
+        self.push_sends(host.sends);
         match outcome {
             Outcome::Untouched => RequestOutcome::Forward { changed: false },
             Outcome::Changed => RequestOutcome::Forward { changed: true },
@@ -256,7 +331,8 @@ impl Proxy {
         let outcome = self
             .chain
             .rest_response(&mut host, method, route, status, body);
-        self.publish(host.locals);
+        self.publish(std::mem::take(&mut host.locals));
+        self.push_sends(host.sends);
         outcome == Outcome::Changed
     }
 
@@ -326,6 +402,14 @@ impl Proxy {
             sends: host.sends,
         }
     }
+}
+
+/// A payload a plugin queued with `Host::emit_send`, as a gateway frame: `{"op": op, "d": payload}`.
+pub fn queued_frame(op: i64, payload: Val) -> Val {
+    let mut v = Val::map();
+    v.set("op", Val::Int(op));
+    v.set("d", payload);
+    v
 }
 
 #[cfg(test)]
@@ -400,6 +484,203 @@ mod tests {
             )
             .unwrap(),
         )
+    }
+
+    fn manifest(id: &str) -> Manifest {
+        Manifest {
+            id: id.into(),
+            name: id.into(),
+            version: "0".into(),
+            description: String::new(),
+            authors: vec![],
+            vencord: None,
+            layers: vec![Layer::Network],
+            api: API_VERSION,
+            fetch: Vec::new(),
+        }
+    }
+
+    /// Wants its timer and `POST /ping`; both queue a send (op 3 from a timer, op 4 from REST),
+    /// a timer also answers the client. Counts its timer events.
+    struct Ticker(Manifest, AtomicU64);
+
+    impl Plugin for Ticker {
+        fn manifest(&self) -> &Manifest {
+            &self.0
+        }
+        fn wants(&self, e: &EventKind) -> bool {
+            matches!(e, EventKind::Dispatch { name } if *name == TIMER_EVENT)
+                || matches!(e, EventKind::RestRequest { route: "/ping", .. })
+        }
+        fn on_event(&self, host: &mut dyn Host, e: Event<'_>) -> Verdict {
+            match e {
+                Event::Dispatch { payload, .. } => {
+                    self.1.fetch_add(1, Ordering::Relaxed);
+                    let tag = payload.str_at(&["d", "tag"]).unwrap_or("").to_string();
+                    let mut d = Val::map();
+                    d.set("tag", Val::Str(tag));
+                    host.emit_send(3, d);
+                    host.emit_dispatch(queued_frame(0, Val::Str("local".into())));
+                }
+                Event::RestRequest { .. } => host.emit_send(4, Val::map()),
+                _ => {}
+            }
+            Verdict::Pass
+        }
+    }
+
+    /// Stamps every client → server payload with `d.n += 1`, queues op 5 behind each op 3 and
+    /// drops op 9.
+    struct Stamp(Manifest);
+
+    impl Plugin for Stamp {
+        fn manifest(&self) -> &Manifest {
+            &self.0
+        }
+        fn wants(&self, e: &EventKind) -> bool {
+            matches!(e, EventKind::Send { .. })
+        }
+        fn on_event(&self, host: &mut dyn Host, e: Event<'_>) -> Verdict {
+            let Event::Send { op, payload } = e else {
+                return Verdict::Pass;
+            };
+            if op == 9 {
+                return Verdict::Drop;
+            }
+            if let Some(d) = payload.get_mut("d") {
+                let n = d.get("n").and_then(Val::as_i64).unwrap_or(0);
+                d.set("n", Val::Int(n + 1));
+            }
+            if op == 3 {
+                host.emit_send(5, Val::map());
+            }
+            Verdict::Changed
+        }
+    }
+
+    fn timer_proxy(enabled: &[&str]) -> (Arc<Proxy>, Arc<Ticker>, Arc<Ticker>) {
+        static N: AtomicU64 = AtomicU64::new(0);
+        let n = N.fetch_add(1, Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("phoecord-test-timers-{}-{n}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let paths = Paths {
+            config: dir.join("config.toml"),
+            data: dir.join("data"),
+        };
+        let ticker = Arc::new(Ticker(manifest("ticker"), AtomicU64::new(0)));
+        let other = Arc::new(Ticker(manifest("other"), AtomicU64::new(0)));
+        let chain = Chain::new(vec![Box::new(Stamp(manifest("stamp")))]);
+        chain.replace_dynamic(vec![ticker.clone(), other.clone()]);
+        let mut cfg = Config::default();
+        for id in ["ticker", "other", "stamp"] {
+            cfg.set_enabled(id, enabled.contains(&id)).unwrap();
+        }
+        let proxy = Proxy::new(paths, cfg, chain, false).unwrap();
+        (proxy, ticker, other)
+    }
+
+    fn schedule_for(p: &Proxy, plugin: &str, after_ms: u64, tag: &str) {
+        let cfg = p.cfg();
+        let mut h = ProxyHost::new(&p.shared, &cfg);
+        h.begin_plugin(plugin);
+        h.schedule(after_ms, tag).unwrap();
+    }
+
+    async fn next(rx: &mut live::LiveRx) -> Val {
+        tokio::time::timeout(Duration::from_secs(5), rx.recv())
+            .await
+            .expect("a frame within 5 s")
+            .expect("the channel is open")
+    }
+
+    #[tokio::test]
+    async fn a_due_timer_fires_into_its_plugin_and_its_send_reaches_the_live_gateway() {
+        let (p, ticker, other) = timer_proxy(&["ticker", "other", "stamp"]);
+        let (_guard, mut rx) = p.live.register();
+        let mut client = p.locals.subscribe();
+        p.spawn_timers();
+        p.spawn_timers(); // a second call starts nothing
+        schedule_for(&p, "ticker", 0, "hb");
+        schedule_for(&p, "ticker", 60_000, "later");
+        let sent = next(&mut rx).await;
+        assert_eq!(sent.get("op").and_then(Val::as_i64), Some(3));
+        assert_eq!(sent.str_at(&["d", "tag"]), Some("hb"));
+        assert_eq!(
+            sent.get("d").and_then(|d| d.get("n")).and_then(Val::as_i64),
+            Some(1),
+            "the queued send went through the Send chain once"
+        );
+        let behind = next(&mut rx).await;
+        assert_eq!(behind.get("op").and_then(Val::as_i64), Some(5));
+        assert_eq!(
+            behind.get("d").and_then(|d| d.get("n")),
+            None,
+            "a send queued while chaining is not chained again"
+        );
+        let local = tokio::time::timeout(Duration::from_secs(5), client.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(local.get("d"), Some(&Val::Str("local".into())));
+        assert_eq!(ticker.1.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            other.1.load(Ordering::Relaxed),
+            0,
+            "only the scheduler gets it"
+        );
+        assert_eq!(p.shared.timers.pending("ticker"), 1, "the later one waits");
+        p.shared.timers.cancel("ticker", "later");
+        assert_eq!(p.shared.timers.pending("ticker"), 0);
+    }
+
+    #[tokio::test]
+    async fn a_timer_of_a_disabled_plugin_is_skipped() {
+        let (p, ticker, _) = timer_proxy(&["stamp"]);
+        let (_guard, mut rx) = p.live.register();
+        p.fire_timer("ticker", "hb");
+        assert_eq!(ticker.1.load(Ordering::Relaxed), 0);
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn a_rest_path_send_reaches_the_live_gateway_at_once() {
+        let (p, _, _) = timer_proxy(&["ticker", "stamp"]);
+        let mut body = None;
+        // No connection yet: dropped, nothing breaks.
+        p.on_request("POST", "/ping", &mut body);
+        let (_guard, mut rx) = p.live.register();
+        assert_eq!(
+            p.on_request("POST", "/ping", &mut body),
+            RequestOutcome::Forward { changed: false }
+        );
+        let sent = rx.try_recv().expect("sent before on_request returned");
+        assert_eq!(sent.get("op").and_then(Val::as_i64), Some(4));
+        assert_eq!(
+            sent.get("d").and_then(|d| d.get("n")).and_then(Val::as_i64),
+            Some(1)
+        );
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn queued_sends_pass_the_send_chain_once_and_a_drop_holds() {
+        let (p, _, _) = timer_proxy(&["stamp"]);
+        let out = p.chain_queued(vec![(3, Val::map()), (8, Val::map())]);
+        let ops: Vec<_> = out
+            .iter()
+            .map(|v| v.get("op").and_then(Val::as_i64).unwrap())
+            .collect();
+        assert_eq!(ops, vec![3, 5, 8]);
+        let n = |v: &Val| v.get("d").and_then(|d| d.get("n")).and_then(Val::as_i64);
+        assert_eq!(n(&out[0]), Some(1));
+        assert_eq!(n(&out[1]), None);
+        assert_eq!(n(&out[2]), Some(1));
+        assert!(p.chain_queued(vec![(9, Val::map())]).is_empty(), "dropped");
+        // With the Send plugin off the frames pass untouched.
+        let (p, _, _) = timer_proxy(&[]);
+        let out = p.chain_queued(vec![(3, Val::map())]);
+        assert_eq!(out, vec![queued_frame(3, Val::map())]);
     }
 
     #[test]
