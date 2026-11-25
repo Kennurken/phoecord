@@ -109,6 +109,7 @@ plugin-desc-relationship_notifier = Notify you when you're unfriended or removed
 plugin-desc-silent_typing = Your typing indicator is never sent
 plugin-desc-clear_urls = Strip tracking parameters from links you send
 plugin-desc-unindent = Strip shared indentation from code blocks you send
+plugin-desc-voice_messages = Send an .ogg file as a voice message with /phoecord voicemessage
 plugin-desc-review_db = Read the reviews people left on a user with /phoecord reviews
 plugin-desc-translate = Translate messages, and optionally everything you send
 plugin-desc-dearrow = Less sensational YouTube embed titles and thumbnails (DeArrow)

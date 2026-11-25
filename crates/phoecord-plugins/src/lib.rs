@@ -71,6 +71,7 @@ pub mod valid_user;
 pub mod vc_narrator;
 pub mod view_raw;
 pub mod voice_chat_utilities;
+pub mod voice_messages;
 pub mod who_reacted;
 
 #[cfg(test)]
@@ -242,6 +243,16 @@ pub const I18N: &[(&str, &str, &str)] = &[
         "ru",
         include_str!("../i18n/ru/voice_chat_utilities.ftl"),
     ),
+    (
+        "voice_messages",
+        "en",
+        include_str!("../i18n/en/voice_messages.ftl"),
+    ),
+    (
+        "voice_messages",
+        "ru",
+        include_str!("../i18n/ru/voice_messages.ftl"),
+    ),
 ];
 
 /// Hand [`I18N`] to the host's plugin strings, which answer `Host::t`.
@@ -330,6 +341,8 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let ignore_activities_commands = ignore_activities.commands();
     let auto_dnd_while_playing = auto_dnd_while_playing::AutoDndWhilePlaying::new();
     // Stage 1.2.17 plugins (off by default).
+    let voice_messages = voice_messages::VoiceMessages::new();
+    let voice_messages_command = voice_messages.command();
     let review_db = review_db::ReviewDb::new();
     let review_db_command = review_db.command();
     let translate = translate::Translate::new();
@@ -385,6 +398,7 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(rmcord),
         Box::new(silent_delete),
         Box::new(quest_master),
+        Box::new(voice_messages),
         Box::new(review_db),
         Box::new(translate),
         Box::new(friend_invites),
@@ -454,6 +468,7 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         commands = commands.with(c);
     }
     commands = commands.with(review_db_command);
+    commands = commands.with(voice_messages_command);
     plugins.push(Box::new(commands));
     plugins
 }
