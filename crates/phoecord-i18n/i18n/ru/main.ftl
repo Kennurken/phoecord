@@ -111,6 +111,26 @@ plugin-desc-text_replace = Заменяет текст в отправляемы
 plugin-desc-send_timestamps = Превращает `12:34` в сообщениях в метку времени Discord
 plugin-desc-anonymise_file_names = Заменяет имена загружаемых файлов на случайные, расширение сохраняется
 plugin-desc-silent_message_toggle = Отправляет сообщения без уведомлений
+plugin-desc-better_sessions = Точное время ваших сессий и предупреждения о новых
+plugin-desc-experiments = Эксперименты Discord и функции для разработчиков
+plugin-desc-implicit_relationships = Люди, с которыми вы много общаетесь, но не дружите
+plugin-desc-member_count = Число участников в сети, всего и в голосе по серверам
+plugin-desc-message_latency = Сообщения, которые долго отправлялись
+plugin-desc-message_link_embeds = Предпросмотр сообщений по ссылкам на Discord
+plugin-desc-mutual_group_dms = Общие групповые чаты с человеком
+plugin-desc-new_guild_settings = Заглушает новые серверы и применяет ваши настройки при входе
+plugin-desc-override_forum_defaults = Свой вид и сортировка форумов по умолчанию
+plugin-desc-pause_invites_forever = Приостанавливает приглашения на сервер бессрочно
+plugin-desc-platform_indicators = Показывает, с компьютера, телефона или из браузера сидит человек
+plugin-desc-read_all_notifications_button = Отмечает все уведомления серверов прочитанными разом
+plugin-desc-show_hidden_channels = Список каналов, которые вам нельзя открыть
+plugin-desc-show_hidden_things = Показывает тайм-ауты, приостановленные приглашения и другое скрытое
+plugin-desc-typing_indicator = Показывает, кто печатает в каждом канале
+plugin-desc-user_voice_show = Показывает, кто сидит в голосовых каналах
+plugin-desc-valid_reply = Исправляет «Не удалось загрузить сообщение» в ответах
+plugin-desc-valid_user = Исправляет упоминания неизвестных пользователей (@unknown-user)
+plugin-desc-vc_narrator = Уведомляет, когда кто-то заходит в ваш голосовой канал или выходит (без озвучки)
+plugin-desc-who_reacted = Кто поставил реакцию на сообщение
 
 # CLI: log
 cli-log-empty = пока ничего не записано ({ $path })

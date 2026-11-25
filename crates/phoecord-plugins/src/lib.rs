@@ -8,21 +8,41 @@
 use phoecord_core::Plugin;
 
 pub mod anonymise_file_names;
+pub mod better_sessions;
 pub mod clear_urls;
 pub mod commands;
+pub mod experiments;
 pub mod fake_nitro;
 pub mod game_activity_toggle;
 pub mod i_love_spam;
+pub mod implicit_relationships;
+pub mod member_count;
+pub mod message_latency;
+pub mod message_link_embeds;
 pub mod message_logger;
+pub mod mutual_group_dms;
+pub mod new_guild_settings;
 pub mod no_blocked_messages;
 pub mod no_reply_mention;
 pub mod no_track;
+pub mod override_forum_defaults;
+pub mod pause_invites_forever;
+pub mod platform_indicators;
+pub mod read_all_notifications;
 pub mod relationship_notifier;
 pub mod send_timestamps;
+pub mod show_hidden_channels;
+pub mod show_hidden_things;
 pub mod silent_message_toggle;
 pub mod silent_typing;
 pub mod state;
 pub mod text_replace;
+pub mod typing_indicator;
+pub mod user_voice_show;
+pub mod valid_reply;
+pub mod valid_user;
+pub mod vc_narrator;
+pub mod who_reacted;
 
 #[cfg(test)]
 mod testutil;
@@ -31,6 +51,40 @@ mod testutil;
 pub fn builtin() -> Vec<Box<dyn Plugin>> {
     let silent = silent_message_toggle::SilentMessageToggle::new();
     let silent_command = silent.command();
+    // Stage 1.2.16 / 1.2.18 data parts (off by default); the ones with a `/phoecord` command
+    // share their state with it.
+    let message_link_embeds = message_link_embeds::MessageLinkEmbeds::new();
+    let message_link_embeds_command = message_link_embeds.command();
+    let new_guild_settings = new_guild_settings::NewGuildSettings::new();
+    let new_guild_settings_command = new_guild_settings.command();
+    let pause_invites_forever = pause_invites_forever::PauseInvitesForever::new();
+    let pause_invites_forever_command = pause_invites_forever.command();
+    let read_all_notifications = read_all_notifications::ReadAllNotificationsButton::new();
+    let read_all_notifications_command = read_all_notifications.command();
+    let platform_indicators = platform_indicators::PlatformIndicators::new();
+    let platform_indicators_command = platform_indicators.command();
+    let typing_indicator = typing_indicator::TypingIndicator::new();
+    let typing_indicator_command = typing_indicator.command();
+    let user_voice_show = user_voice_show::UserVoiceShow::new();
+    let user_voice_show_command = user_voice_show.command();
+    let member_count = member_count::MemberCount::new();
+    let member_count_command = member_count.command();
+    let better_sessions = better_sessions::BetterSessions::new();
+    let better_sessions_command = better_sessions.command();
+    let implicit_relationships = implicit_relationships::ImplicitRelationships::new();
+    let implicit_relationships_command = implicit_relationships.command();
+    let mutual_group_dms = mutual_group_dms::MutualGroupDms::new();
+    let mutual_group_dms_command = mutual_group_dms.command();
+    let who_reacted = who_reacted::WhoReacted::new();
+    let who_reacted_command = who_reacted.command();
+    let message_latency = message_latency::MessageLatency::new();
+    let message_latency_command = message_latency.command();
+    let show_hidden_channels = show_hidden_channels::ShowHiddenChannels::new();
+    let show_hidden_channels_command = show_hidden_channels.command();
+    let show_hidden_things = show_hidden_things::ShowHiddenThings::new();
+    let show_hidden_things_command = show_hidden_things.command();
+    let experiments = experiments::Experiments::new();
+    let experiments_command = experiments.command();
     let mut plugins: Vec<Box<dyn Plugin>> = vec![
         Box::new(no_track::NoTrack::new()),
         Box::new(silent_typing::SilentTyping::new()),
@@ -46,6 +100,26 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         Box::new(send_timestamps::SendTimestamps::new()),
         Box::new(anonymise_file_names::AnonymiseFileNames::new()),
         Box::new(silent),
+        Box::new(valid_user::ValidUser::new()),
+        Box::new(valid_reply::ValidReply::new()),
+        Box::new(message_link_embeds),
+        Box::new(new_guild_settings),
+        Box::new(override_forum_defaults::OverrideForumDefaults::new()),
+        Box::new(pause_invites_forever),
+        Box::new(read_all_notifications),
+        Box::new(platform_indicators),
+        Box::new(typing_indicator),
+        Box::new(user_voice_show),
+        Box::new(vc_narrator::VcNarrator::new()),
+        Box::new(member_count),
+        Box::new(better_sessions),
+        Box::new(implicit_relationships),
+        Box::new(mutual_group_dms),
+        Box::new(who_reacted),
+        Box::new(message_latency),
+        Box::new(show_hidden_channels),
+        Box::new(show_hidden_things),
+        Box::new(experiments),
     ];
     // `/phoecord plugins` lists everything above and the commands plugin itself. Register more
     // `/phoecord` subcommands here with `Commands::with`.
@@ -56,7 +130,24 @@ pub fn builtin() -> Vec<Box<dyn Plugin>> {
         .collect();
     infos.push(commands::PluginInfo::of(&commands));
     plugins.push(Box::new(
-        commands::Commands::new(infos).with(silent_command),
+        commands::Commands::new(infos)
+            .with(silent_command)
+            .with(message_link_embeds_command)
+            .with(new_guild_settings_command)
+            .with(pause_invites_forever_command)
+            .with(read_all_notifications_command)
+            .with(platform_indicators_command)
+            .with(typing_indicator_command)
+            .with(user_voice_show_command)
+            .with(member_count_command)
+            .with(better_sessions_command)
+            .with(implicit_relationships_command)
+            .with(mutual_group_dms_command)
+            .with(who_reacted_command)
+            .with(message_latency_command)
+            .with(show_hidden_channels_command)
+            .with(show_hidden_things_command)
+            .with(experiments_command),
     ));
     plugins
 }
