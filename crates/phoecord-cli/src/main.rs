@@ -79,6 +79,8 @@ enum Cmd {
         accept_terms: bool,
         #[arg(long, value_enum, hide_possible_values = true)]
         channel: Option<ChannelArg>,
+        #[arg(long)]
+        loader: bool,
     },
     Uninstall,
     Trust,
@@ -203,12 +205,14 @@ fn dispatch(cli: Cli, paths: Paths, resolved: &Resolved, l10n: &Localizer) -> Re
         Cmd::Setup {
             accept_terms,
             channel,
+            loader,
         } => setup(
             &paths,
             l10n,
             &resolved.lang,
             accept_terms,
             channel.map(Into::into),
+            loader,
         ),
         Cmd::Uninstall => uninstall(l10n),
         Cmd::Trust => {
@@ -280,7 +284,61 @@ fn ca_warning(ca_pem: &std::path::Path, l10n: &Localizer) -> Option<String> {
     )
 }
 
+/// Put the loader DLL back into the newest build of every client the user opted in for (Discord
+/// moves to a new `app-x.y.z` folder on each update). Never fails the caller: problems are logged.
+fn reconcile_loader(l10n: &Localizer) {
+    use phoecord_installer::loader::{self, Outcome};
+    let Ok(env) = phoecord_installer::system::Env::system() else {
+        return;
+    };
+    for r in loader::ensure_loader(&env, &loader::default_source(&env)) {
+        match &r.outcome {
+            Outcome::UpToDate { .. } | Outcome::Unsupported(_) => {}
+            Outcome::Installed { .. } => {
+                tracing::info!("{}", loader_line(l10n, &r.channel, &r.outcome))
+            }
+            _ => tracing::warn!("{}", loader_line(l10n, &r.channel, &r.outcome)),
+        }
+    }
+}
+
+/// What happened to the loader of Discord `channel`, in words.
+fn loader_line(
+    l10n: &Localizer,
+    channel: &str,
+    outcome: &phoecord_installer::loader::Outcome,
+) -> String {
+    use phoecord_installer::loader::Outcome;
+    let (key, path) = match outcome {
+        Outcome::Unsupported(_) => return l10n.t("cli-loader-unsupported"),
+        Outcome::Installed { path } => ("cli-loader-installed", path),
+        Outcome::UpToDate { path } => ("cli-loader-up-to-date", path),
+        Outcome::Foreign { path } => ("cli-loader-foreign", path),
+        Outcome::SourceMissing { source } => ("cli-loader-source-missing", source),
+        Outcome::NoBuild { client_dir } => ("cli-loader-no-build", client_dir),
+        // No channel: install.log itself could not be read.
+        Outcome::Failed(why) if channel.is_empty() => {
+            return tf(l10n, "cli-loader-check-failed", &[("why", why)]);
+        }
+        Outcome::Failed(why) => {
+            return tf(
+                l10n,
+                "cli-loader-failed",
+                &[("channel", channel), ("why", why)],
+            );
+        }
+    };
+    tf(
+        l10n,
+        key,
+        &[("channel", channel), ("path", &path.display().to_string())],
+    )
+}
+
 async fn run(paths: Paths, launch: Option<Launch>, l10n: &Localizer) -> Result<()> {
+    // `run` is what autostart starts and `launch` starts the client: both keep the loader in place,
+    // before Discord can load the DLL.
+    reconcile_loader(l10n);
     let cfg = Config::load_or_init(&paths.config)?;
     let listen = cfg.listen.clone();
     if let Some(l) = &launch {
@@ -439,6 +497,7 @@ fn setup(
     lang: &str,
     accept_terms: bool,
     want: Option<phoecord_installer::Channel>,
+    loader: bool,
 ) -> Result<()> {
     // Same rules as `launch`: `--channel` must be installed (checked before anything changes); with
     // no flag the only installed client gets the shortcut, and with none or several setup goes on
@@ -447,21 +506,19 @@ fn setup(
         .map(|c| c.clients)
         .unwrap_or_default();
     let clients = phoecord_installer::discover::discover_with(&extra);
-    let channel = match phoecord_installer::launch::choose(&clients, want) {
-        Ok(c) => Some(c.channel),
+    let chosen = match phoecord_installer::launch::choose(&clients, want) {
+        Ok(c) => Some(c),
         Err(e) if want.is_some() => return Err(e),
         Err(e) => {
-            println!(
-                "{}",
-                tf(
-                    l10n,
-                    "cli-shortcut-skipped",
-                    &[("why", &describe_error(&e, l10n))]
-                )
-            );
+            let why = describe_error(&e, l10n);
+            println!("{}", tf(l10n, "cli-shortcut-skipped", &[("why", &why)]));
+            if loader {
+                println!("{}", tf(l10n, "cli-loader-skipped", &[("why", &why)]));
+            }
             None
         }
     };
+    let channel = chosen.as_ref().map(|c| c.channel);
     ask_terms(l10n, lang, accept_terms)?;
     Config::load_or_init(&paths.config)?;
     println!("{}", config_line(l10n, paths));
@@ -502,8 +559,21 @@ fn setup(
         ),
         Outcome::NotRequested => {}
     }
+    // The loader DLL (opt-in): recorded in install.log, so every later start keeps it in place.
+    if loader && let Some(client) = &chosen {
+        use phoecord_installer::loader;
+        let o = loader::install_loader(
+            &env,
+            &phoecord_installer::log::InstallLog::in_dir(&env.data_dir),
+            client,
+            &loader::default_source(&env),
+        )?;
+        println!("{}", loader_line(l10n, client.channel.name(), &o));
+    }
+    let entries = phoecord_installer::log::InstallLog::in_dir(&env.data_dir).read()?;
+    let added = report.added + entries.len().saturating_sub(report.log.len());
     let mut a = Args::new();
-    a.set("count", report.added);
+    a.set("count", added);
     println!("{}", l10n.t_args("cli-setup-steps", &a));
     println!("\n{}", l10n.t("cli-setup-done"));
     Ok(())

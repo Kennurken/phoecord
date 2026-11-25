@@ -46,7 +46,8 @@ pub enum Outcome {
 /// One client [`ensure_loader`] looked at.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reconciled {
-    /// The channel name as recorded at setup (`stable`, `ptb`, `canary`).
+    /// The channel name as recorded at setup (`stable`, `ptb`, `canary`); empty when `install.log`
+    /// itself could not be read (the outcome is then [`Outcome::Failed`]).
     pub channel: String,
     pub outcome: Outcome,
 }
