@@ -139,6 +139,7 @@ plugin-desc-local_dev_badges = Значки сотрудника и разраб
 plugin-desc-voice_chat_utilities = Переместить, заглушить или отключить всех в голосовом канале
 plugin-desc-rmcord = Массово удалить свои сообщения
 plugin-desc-silent_delete = Подменить сообщение и удалить его, чтобы логгеры сохранили подмену
+plugin-desc-quest_master = Автоматически выполнять квесты Discord
 
 # CLI: log
 cli-log-empty = пока ничего не записано ({ $path })
