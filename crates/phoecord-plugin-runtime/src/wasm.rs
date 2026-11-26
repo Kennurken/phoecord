@@ -248,6 +248,7 @@ enum HostCall {
     T(String, Vec<(String, String)>),
     Schedule(u64, String),
     CancelSchedule(String),
+    RequestQuery,
 }
 
 enum HostReply {
@@ -259,6 +260,7 @@ enum HostReply {
     Flag(Option<bool>),
     Done(Result<(), String>),
     Text(String),
+    MaybeText(Option<String>),
 }
 
 /// Caller to worker.
@@ -481,6 +483,13 @@ impl wit_host::Host for State {
     fn cancel_schedule(&mut self, tag: String) {
         let _ = self.call_unit(HostCall::CancelSchedule(tag));
     }
+    fn request_query(&mut self) -> Option<String> {
+        // No right needed: it is part of the event the plugin is already handling.
+        match self.call(HostCall::RequestQuery) {
+            Ok(HostReply::MaybeText(q)) => q,
+            _ => None,
+        }
+    }
     fn fetch_with(
         &mut self,
         method: String,
@@ -552,6 +561,7 @@ fn serve(host: &mut dyn Host, call: HostCall) -> HostReply {
             host.cancel_schedule(&tag);
             HostReply::Unit
         }
+        HostCall::RequestQuery => HostReply::MaybeText(host.request_query()),
     }
 }
 

@@ -167,6 +167,19 @@ impl Guest for TestGuest {
         match event {
             Event::Dispatch(d) => dispatch(&d.name),
             Event::RestRequest(r) if r.route == "/drop" => outcome(Verdict::Drop),
+            // The call's query string, or 404 without one.
+            Event::RestRequest(r) if r.route == "/query" => match host::request_query() {
+                Some(q) => outcome(Verdict::Reply(Reply {
+                    status: 200,
+                    body: Some(Tree {
+                        nodes: vec![Node::String(q)],
+                    }),
+                })),
+                None => outcome(Verdict::Reply(Reply {
+                    status: 404,
+                    body: None,
+                })),
+            },
             Event::RestRequest(r) => Outcome {
                 verdict: Verdict::Changed,
                 payload: Some(touched()),

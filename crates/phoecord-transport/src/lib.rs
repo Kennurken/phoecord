@@ -169,6 +169,18 @@ impl Engine {
         route: &str,
         body: &mut Option<Val>,
     ) -> (RequestOutcome, Effects) {
+        self.on_request_with_query(method, route, None, body)
+    }
+
+    /// [`Engine::on_request`] for a call with a query string (`q=cat`, no leading `?`), which
+    /// plugins read with `Host::request_query`. `route` stays the path alone.
+    pub fn on_request_with_query(
+        &self,
+        method: &str,
+        route: &str,
+        query: Option<&str>,
+        body: &mut Option<Val>,
+    ) -> (RequestOutcome, Effects) {
         let cfg = self.cfg();
         self.shared
             .dev
@@ -184,7 +196,7 @@ impl Engine {
             .lock()
             .unwrap()
             .record_request(method, route, body.as_ref());
-        let mut host = ProxyHost::new(&self.shared, &cfg);
+        let mut host = ProxyHost::new(&self.shared, &cfg).with_query(query);
         let outcome = self
             .chain
             .rest_request(&mut host, method, route, body.as_mut());
@@ -215,6 +227,18 @@ impl Engine {
         status: u16,
         body: &mut Val,
     ) -> (bool, Effects) {
+        self.on_response_with_query(method, route, None, status, body)
+    }
+
+    /// [`Engine::on_response`] for a call with a query string, as [`Engine::on_request_with_query`].
+    pub fn on_response_with_query(
+        &self,
+        method: &str,
+        route: &str,
+        query: Option<&str>,
+        status: u16,
+        body: &mut Val,
+    ) -> (bool, Effects) {
         let cfg = self.cfg();
         self.shared
             .dev
@@ -226,7 +250,7 @@ impl Engine {
                     body: body.clone(),
                 }
             });
-        let mut host = ProxyHost::new(&self.shared, &cfg);
+        let mut host = ProxyHost::new(&self.shared, &cfg).with_query(query);
         let outcome = self
             .chain
             .rest_response(&mut host, method, route, status, body);

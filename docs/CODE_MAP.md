@@ -63,7 +63,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `src/lib.rs` | Re-exports `Val` and the Plugin API types | Anything re-exported here is public API for plugins |
 | `src/val.rs` | `Val`: one value type for JSON and ETF; keeps atoms, big ints, binaries, so ETF round-trips unchanged | Changing a variant changes how every Gateway frame re-encodes |
 | `src/etf.rs` | Erlang External Term Format decode/encode (the desktop client's Gateway encoding) | Compressed terms (tag 80) need `flate2` |
-| `src/route.rs` | `route_of` (`/api/v9/x` → `/x`), `message_route_channel` | Plugins match on the normalized route |
+| `src/route.rs` | `route_of` (`/api/v9/x` → `/x`), `message_route_channel`, `split_query` and `query_pairs` (for `Host::request_query`) | Plugins match on the normalized route |
 | `src/plugin.rs` | Plugin API v1: `API_VERSION`, `Layer`, `Manifest`, `Event`, `EventKind`, `Verdict`, `Host`, `Plugin` | **The contract.** Changes need an `api` PR and the owner's review |
 
 ### `phoecord-transport`

@@ -6,7 +6,7 @@ in its plan's `ai/ledger.md` first, then rerun the script.
 
 ## Phase 1. Before the Phoenix Canary public beta
 
-Source: `docs/phase-1/ai/ledger.md`, decisions: 53.
+Source: `docs/phase-1/ai/ledger.md`, decisions: 55.
 
 - Ruling: the repository is public on Nanda070's account (owner Nanda, 2026-11-23, "Public" (translated)) — why: open-source MIT project — risk: everything pushed is published at once; secrets rules in AGENTS.md and SECRETS.md
 - Ruling: the copyright holder is Cheterin Group, next to the retained upstream MIT copyright line (owner Nanda, 2026-11-23, "Copyright in LICENSE" (translated)) — why: project ownership — risk: none
@@ -61,6 +61,8 @@ Source: `docs/phase-1/ai/ledger.md`, decisions: 53.
 - Ruling: USRBG and Decor wait for a Phase 2 UI hook; the proxy does not intercept Discord's CDN for them (owner Nanda, 2026-11-26, "Phase 2 ui хук" (translated: "Phase 2 UI hook"), relayed by buslan07, the answer to the choice between CDN interception and a Phase 2 UI hook) — why: the owner's call; the client builds the picture URL from a hash on a host PhoeCord does not intercept — risk: both plugins stay missing until the hook exists, and no Phase 2 task is numbered for them yet
 - Ruling: plugin REST routes get the query string through an additive Plugin API change by the owner, which GifProviderSwitcher waits for (owner Nanda, 2026-11-26, "Да" (translated: "Yes"), relayed by buslan07, the answer to whether the owner adds the query string of `GET /gifs/search` to the Plugin API) — why: the search text is only in the query string — risk: plugins with the REST right see query values; GifProviderSwitcher stays blocked until the change is merged
 - Ruling: PhoeCord may use the third-party Tenor and Giphy keys that Vencord ships for GifProviderSwitcher (owner Nanda, 2026-11-26, "Да можно" (translated: "Yes, allowed"), relayed by buslan07, the answer to whether to use Vencord's keys or ask users for their own) — why: the owner's call, parity with Vencord — risk: the keys are public in this repository, belong to someone else and can be revoked or rate limited
+- Ruling: the plugin API gets `Host::request_query()` (WASM `request-query`, always allowed), the raw query string of the REST call a plugin is handling; `Event` routes stay the path alone, additive with `API_VERSION` 1 (owner Nanda, 2026-11-26, "Сделай это" (translated: "do it"), on the proposal to unblock GifProviderSwitcher this way) — why: `GET /gifs/search` carries the search text in the query string and plugin routes drop it (1.2.15 blocker, 2026-11-25 18:26); a new host method keeps native `Event` matches and already-built WASM plugins working, a new field in `Event` would not — risk: the query can hold what the user typed; hosts and plugins must not log it
+- Ruling: 1.2.15, GifProviderSwitcher uses the Tenor and Giphy API keys Vencord ships (owner Nanda, 2026-11-26, "Ключи из Vencord" (translated: "keys from Vencord")) — why: the answer to buslan07's question in the 1.2.15 entry of 2026-11-25 18:26 — risk: the keys are shared with Vencord; if a provider revokes or rate-limits them the plugin stops for everyone, so the plugin also takes the user's own key as a fallback
 
 ## Phase 2. Phoenix Canary release
 
