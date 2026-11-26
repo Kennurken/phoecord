@@ -294,7 +294,7 @@ Was task 1.5.9. On Windows with Discord Canary, from the next release or a `main
 
 **Done when:** 3 themes ship in `themes/`; `phoecord theme import <vencord-theme.css>` produces a `.toml`.
 
-### 2.3.3. Settings tab (matvee)
+### 2.3.3. Settings tab (ken)
 
 **Files:** `crates/phoecord-loader/src/ui/settings.rs`, `crates/phoecord-loader/src/ui/mod.rs`
 

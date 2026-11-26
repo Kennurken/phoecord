@@ -53,7 +53,7 @@ New decisions for Phase 2 (made when the research answers them):
 | | Nanda | ken | buslan | matvee |
 |:---|:---|:---|:---|:---|
 | Area | core RE (binary, hooks), decisions, Plugin API, security, release, review and merging | proxy, transport, wire format, degradation | discovery, tooling, installer, signatures | RE support, locators, UI hooks, theme engine |
-| Tasks | 2.1.1, 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1, 2.2.8; 2.4.2, 2.4.3, 2.4.4, 2.4.5, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.1, 2.4.8 | 2.2.6, 2.2.9, 2.2.10, 2.3.8, 2.3.9 | 2.1.9, 2.1.10; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
+| Tasks | 2.1.1, 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1, 2.2.8; 2.4.2, 2.4.3, 2.4.4, 2.4.5, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.3, 2.3.7; 2.4.1, 2.4.8 | 2.2.6, 2.2.9, 2.2.10, 2.3.8, 2.3.9 | 2.1.9, 2.1.10; 2.2.5; 2.3.1, 2.3.4 |
 
 Unassigned contributor tasks: 2.3.2 (themes), 2.3.5, 2.3.6.
 
@@ -100,7 +100,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 |:--|:--|:--|:--|
 | **2.3.1** 🔴 | Theme engine: `theme.toml` → GPUI palette, live switching | matvee | ⏳ part 1 merged, PR #102 (format, colour parsing, 2 s file watcher; the palette hook and default theme wait for 2.1) |
 | **2.3.2** 🟡 | 3 built-in themes + import of Vencord themes where they translate to a palette | — | ⏳ |
-| **2.3.3** 🔴 | PhoeCord settings tab in Phoenix: plugins, settings, install / remove packages with rights shown, en + ru | matvee | ⏳ |
+| **2.3.3** 🔴 | PhoeCord settings tab in Phoenix: plugins, settings, install / remove packages with rights shown, en + ru | ken | ⏳ moved from matvee (ruling, 2026-11-26) |
 | **2.3.4** 🔴 | MessageLogger UI: deleted messages struck through, edit history on hover | matvee | ⏳ |
 | **2.3.5** 🟡 | Message context menu: plugin action entries in right-click and `...` menus | — | ⏳ |
 | **2.3.6** 🟡 | Optimistic delete hook: `Store::delete_message` visible to plugins (MessageLogger sees local deletes) | — | ⏳ |
