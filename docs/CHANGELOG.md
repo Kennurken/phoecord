@@ -16,6 +16,8 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 - 2.3.7: the three degradation scenarios pass live on Windows (unknown build, one signature missing, loader beside an Electron client). Recon notes for 2.2.2 (response and body layouts), 2.2.3 (dispatch path), 2.2.4 (outgoing encoder) and 2.3.3 (settings render and builders) in `docs/research/phoenix-recon.md`.
 - 2.1.4: Phoenix gateway fixtures `tests/fixtures/phoenix/{HELLO,READY,MESSAGE_CREATE}.json` (scrubbed) and `crates/phoecord-transport/tests/phoenix_fixtures.rs`, which loads them and runs them through the engine. Recon: Phoenix connects with `encoding=json&v=9&compress=zstd-stream`; Discord Canary with `encoding=etf`, also `zstd-stream`; Phoenix's `READY` is partial (no guild channels, roles or emojis). 2.1.8: the fresh-install check passes (REST and gateway through the proxy with nothing set by hand). 2.1.3: signed-in start-up and idle hosts listed.
+- 2.2.7: in an `in-process` launch the loader starts the transport itself (`phoecord_loader::start`): it builds its own `Engine` from `config.toml` (built-in plugins and WASM packages, now linked into the DLL), runs the transport, the timer clock and the `send` detour, all or nothing, and marks the build failed in the launcher's cache when an entry point is missing in memory, so the next launch uses the proxy.
+
 ### Fixed
 
 - Uninstall also removes what a running PhoeCord left in its data folder: the dev console token, `launch.log`, the update state with any downloaded installer, the window's onboarding marker (so a reinstall shows the onboarding again) and an empty `plugins` folder. `config.toml` and plugin packages stay. Found on the owner's PC after removing 0.6.0 from Installed apps.
