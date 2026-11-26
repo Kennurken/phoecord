@@ -15,13 +15,19 @@
 //! signatures, detours, and the IPC to the proxy ([`ipc`], [`pipe`]). Survival of client updates
 //! is 1.5.6. Phase 2: the `theme.toml` format and its live reload ([`theme`], 2.3.1, the hook
 //! that applies it comes after the Phoenix reconnaissance), the degradation plan ([`plan`]) and the
-//! in-process transport that applies it (`transport`; no detour calls it yet).
+//! in-process transport that applies it (`transport`; no detour calls it yet). Getting into
+//! Phoenix itself ([`inject`], 2.1.7) is launcher injection, not sideload: live-confirmed on a
+//! real Phoenix process (via `phoecord dev inject`, `crates/phoecord-cli/src/dev/inject.rs`) —
+//! this crate's own `DllMain` and worker ran inside it, detected the build and degraded cleanly
+//! with no signature table for it yet, no crash.
 //!
 //! The `dll` feature (on by default) is the DLL itself. The proxy uses this crate without it, for
 //! the IPC protocol and the pipe server: that is the only way the `unsafe` of the pipe stays in
 //! this crate.
 
 pub mod aob;
+#[cfg(windows)]
+pub mod inject;
 pub mod ipc;
 pub mod locators;
 pub mod log;
