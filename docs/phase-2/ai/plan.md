@@ -131,6 +131,18 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 
 **Done when:** `phoenix-recon.md` is a complete, reviewable document. `ARCHITECTURE.md` reflects the confirmed decisions. The ledger has a summary line.
 
+### 2.1.10. Gateway fixtures (matvee)
+
+Was task 1.1.9 (moved when Phase 1 closed, ruling 2026-11-26). Coordinate with 2.1.4 (ken), which needs fixtures of Phoenix's JSON + zstd-stream gateway too.
+
+**Files:** `tests/fixtures/**`, `tests/fixtures/README.md`, `scripts/scrub_fixture.py`
+
+- Record READY, GUILD_CREATE, MESSAGE_CREATE/UPDATE/DELETE, PRESENCE_UPDATE, TYPING_START from a throwaway account, both encodings.
+- Scrub tokens, emails, phone numbers, real user ids and names (a script in `scripts/scrub_fixture.py`, `-I` safe).
+- README: how each fixture was recorded and scrubbed.
+
+**Done when:** fixtures load in tests and contain no personal data (reviewed by Nanda).
+
 ## Stage 2.2. Reverse engineering and AOB signatures
 
 ### 2.2.1. Ghidra / IDA project (Nanda)
@@ -347,6 +359,17 @@ Was blocked since Phase 1 (1.2.14, ruling 2026-11-26: a UI hook, not CDN interce
 - Panic guard, same as every other hook (`docs/phase-2/AGENTS.md`, "Hook targets are checked, not assumed"): a locator miss turns this feature off, nothing else.
 
 **Done when:** a banner set by USRBG, and a decoration set by Decor, show on Phoenix without the real Nitro entitlement; no change to how any other picture loads.
+
+### 2.3.9. FixImagesQuality's default mode on Phoenix (buslan)
+
+Was the open part of task 1.2.15 (moved when Phase 1 closed, ruling 2026-11-26). `fix_images_quality` already does `originalImagesInChat` for image attachments on the network layer; the default mode, which asks the client's media proxy for the original size of every image in chat, changes how the client builds image URLs, so it needs the picture-loading path found and hooked in 2.3.8.
+
+**Files:** `crates/phoecord-plugins/src/fix_images_quality.rs`, `crates/phoecord-loader/src/hooks/cdn.rs`
+
+- Reuse 2.3.8's locator and hook; add the size/quality rewrite for this plugin only, when its default mode is on.
+- Panic guard and a locator miss turning only this feature off, as for every hook.
+
+**Done when:** with the default mode on, images in chat load at original resolution on Phoenix; nothing changes with the plugin off, and the proxy-side behaviour on Electron stays as it is.
 
 ## Stage 2.4. Release v1.0
 

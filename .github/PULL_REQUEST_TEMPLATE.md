@@ -1,6 +1,6 @@
 ## What
 
-<!-- Briefly: what changed and why. PR title as type(scope): description, e.g. feat(proxy): wire gateway into plugin chain. If it closes a plan task, name it: docs/phase-1, task 1.1.4. -->
+<!-- Briefly: what changed and why. PR title as type(scope): description, e.g. feat(proxy): wire gateway into plugin chain. If it closes a plan task, name it: docs/phase-2, task 2.2.10. -->
 
 ## How to test
 

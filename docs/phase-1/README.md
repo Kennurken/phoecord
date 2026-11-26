@@ -6,7 +6,7 @@ The work plan until Phoenix Canary ships, written 23.11.2026 at Nanda's request.
 
 ## Status
 
-26.11.2026. 69 of 75 tasks are done; 1.4.10 moved to Phase 2 as 2.4.8, 1.5.9 as 2.2.11, and 1.4.11 is cancelled. Open: 1.1.9 (gateway fixtures, matvee), 1.2.14 (USRBG and Decor wait for the CDN picture hook, 2.3.8) and 1.2.15 (Dearrow and GifProviderSwitcher merged, PR #94 and PR #115; FixImagesQuality's default mode waits for a UI hook). Work continues in [Phase 2](../phase-2/README.md).
+**Phase 1 is closed** (26.11.2026, owner's ruling). 69 of 75 tasks are done and 1.4.11 is cancelled. The rest moved to Phase 2: 1.1.9 as 2.1.10, 1.4.10 as 2.4.8, 1.5.9 as 2.2.11, the USRBG and Decor part of 1.2.14 as 2.3.8, and FixImagesQuality's default mode from 1.2.15 as 2.3.9. This plan and its ledger stay as history; new work goes to [Phase 2](../phase-2/README.md).
 
 ## What we get
 
@@ -61,7 +61,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **1.1.6** 🔴 | Gateway through `Chain` | Nanda | ✅ |
 | **1.1.7** 🔴 | CLI: `run`, `launch`, `setup`, `trust`, `untrust`, `plugins`, `enable`, `disable`, `paths` | Nanda | ✅ |
 | **1.1.8** 🟡 | `selftest` against the real Discord | Nanda | ✅ |
-| **1.1.9** 🟡 | Gateway fixtures without personal data | matvee | ⏳ |
+| **1.1.9** 🟡 | Gateway fixtures without personal data | matvee | ➡ moved to Phase 2 as 2.1.10 |
 | **1.1.10** 🟡 | Chain benchmark: ≤ 1 ms p99 | Nanda | ✅ 25.11, PR #74 (MESSAGE_CREATE p99 < 0.1 ms; a 5 MB READY takes 130–300 ms, mostly the JSON codec: plan in `docs/chain-bench.md`) |
 | **1.1.11** 🟡 | Upstream proxy (SOCKS5 / HTTP) for outgoing connections, for VPN and zapret users | buslan07 | ✅ 24.11, PR #54 |
 | **1.1.12** 🟡 | Transport boundary: the proxy as one backend of the plugin chain, ready for an in-process backend | Nanda | ✅ 25.11, PR #85 (`phoecord-transport` with one `Engine` entry for REST request and response, dispatch, send and timers; the proxy goes through it, no behaviour change, bench unchanged) |
@@ -79,8 +79,8 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **1.2.11** 🟡 | Outgoing text: TextReplace, SendTimestamps, AnonymiseFileNames, SilentMessageToggle (`/phoecord silent`); BetterGifAltText is UI-only, moved to Phase 2 | Nanda | ✅ 23.11, PR #49 |
 | **1.2.12** 🟡 | Commands: CustomCommands, FriendInvites, petpet, SpotifyShareCommands, ServerInfo, ViewRaw, UnsuppressEmbeds | matvee | ✅ 25.11, PR #89 (all seven as `/phoecord` subcommands, off by default; ServerInfo, ViewRaw and UnsuppressEmbeds are data parts, their menus are Phase 2; synthetic payloads only, the invite body and the Spotify activity fields are unverified live) |
 | **1.2.13** 🟡 | Presence: CustomRPC, MusicRichPresence, IgnoreActivities, AutoDNDWhilePlaying, CustomIdle | matvee | ✅ 25.11, PR #92 (all five on the presence the client sends, off by default; synthetic frames only: the auto-idle presence shape and the Rich Presence asset routes are unverified live) |
-| **1.2.14** 🟡 | Profiles: NoProfileThemes, FakeProfileThemes, USRBG, Decor (data part) | buslan07 | ⏳ NoProfileThemes and FakeProfileThemes merged, PR #95 (off by default, synthetic tests only); USRBG and Decor wait for the CDN picture hook, now task 2.3.8 (owner's ruling, 2026-11-26) |
-| **1.2.15** 🟡 | External services: Dearrow, GifProviderSwitcher, FixImagesQuality | buslan07 | ⏳ Dearrow, FixImagesQuality (partial; its default mode needs a UI hook) and GifProviderSwitcher done (GifProviderSwitcher merged, PR #115; all off by default, synthetic tests only) |
+| **1.2.14** 🟡 | Profiles: NoProfileThemes, FakeProfileThemes, USRBG, Decor (data part) | buslan07 | ✅ NoProfileThemes and FakeProfileThemes merged, PR #95 (off by default, synthetic tests only); ➡ USRBG and Decor moved to Phase 2 as part of 2.3.8 |
+| **1.2.15** 🟡 | External services: Dearrow, GifProviderSwitcher, FixImagesQuality | buslan07 | ✅ Dearrow, FixImagesQuality (`originalImagesInChat`) and GifProviderSwitcher done (PR #94, PR #115; all off by default, synthetic tests only); ➡ FixImagesQuality's default mode moved to Phase 2 as 2.3.9 |
 | **1.2.16** 🟡 | Data parts of UI plugins: ValidUser, ValidReply, NewGuildSettings, OverrideForumDefaults, MessageLinkEmbeds, PlatformIndicators, TypingIndicator, MemberCount, MutualGroupDMs, WhoReacted, and the other 🌐 + 🎨 rows of `docs/PLUGINS.md` marked 1.2.16 | Kennurken | ✅ 25.11, PR #68 (17 data parts, off by default; synthetic payload tests only, a live test-account check is still due) |
 | **1.2.17** 🟡 | Translate, ReviewDB, VoiceMessages (data part), XSOverlay | matvee | ✅ PR #100 (Translate via Google, ReviewDB read only, VoiceMessages data part; off by default). XSOverlay dropped; DeepL, Kagi and ReviewDB writes stay out: `fetch_with` keeps refusing credential headers (owner's rulings, 2026-11-26) |
 | **1.2.18** 🟢 | ShowHiddenChannels, ShowHiddenThings, Experiments (data part) | Kennurken | ✅ 25.11, PR #68 (3 data parts, off by default; READY rewrites behind their own settings, also off; synthetic tests only) |

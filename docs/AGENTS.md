@@ -5,7 +5,7 @@ The single source of truth for how work is done here. [`CONTRIBUTING.md`](../CON
 ## First
 
 1. Read this file, [`CONTRIBUTING.md`](../CONTRIBUTING.md) and [`SECURITY.md`](../SECURITY.md).
-2. Working on a plan: read that plan's `AGENTS.md` (for Phase 1: [`docs/phase-1/AGENTS.md`](phase-1/AGENTS.md)) and the last 30 lines of its `ai/ledger.md`.
+2. Working on a plan: read that plan's `AGENTS.md` (now Phase 2: [`docs/phase-2/AGENTS.md`](phase-2/AGENTS.md); Phase 1 is closed) and the last 30 lines of its `ai/ledger.md`.
 3. Looking for a file: [`docs/CODE_MAP.md`](CODE_MAP.md). Looking for how something works: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Living docs: always update

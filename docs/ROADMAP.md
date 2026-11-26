@@ -23,9 +23,9 @@ Phase 2 started 25.11.2026: Phoenix Canary is available on the owner's account. 
 
 ---
 
-## Phase 1. Before the Phoenix Canary public beta
+## Phase 1. Before the Phoenix Canary public beta ✅
 
-What each stage covers. Task status: the table in [`docs/phase-1/README.md`](phase-1/README.md).
+Closed 26.11.2026; the tasks still open then moved to Phase 2 (2.1.10, 2.2.11, 2.3.8, 2.3.9, 2.4.8). What each stage covers. Task status: the table in [`docs/phase-1/README.md`](phase-1/README.md).
 
 ### 1.1 Core refactor: the proxy on the new API · `0.2`
 

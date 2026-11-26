@@ -127,7 +127,7 @@ Tests never touch the network and never need a Discord token.
 
 - `docs/PLUGINS.md`: set the plugin's "Where" cell to ✅ (or ✅ data part for 🌐 + 🎨).
 - `docs/CHANGELOG.md`: one line under "Unreleased".
-- The task status in `docs/phase-1/README.md` if it closes one.
+- The task status in the current plan's README (`docs/phase-2/README.md`) if it closes one.
 - PR title: `feat(plugins): port <PluginName>`.
 
 ---

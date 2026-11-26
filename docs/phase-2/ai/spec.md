@@ -37,9 +37,9 @@ At the end of Phase 2, PhoeCord v1.0 ships on Desktop Phoenix (Windows first) an
 | Phoenix research | `docs/research/phoenix-desktop.md` | sunbird study: loading model, HTTP transport, gateway registry, Mana UI, locators |
 | IPC | `crates/phoecord-loader/src/ipc.rs`, `pipe.rs` | named pipe, JSON lines, `hello`/`status`/`settings`/`ui.event` |
 
-### Open Phase 1 tasks (running in parallel)
+### Phase 1 tasks carried into Phase 2
 
-1.1.9, 1.2.14 (USRBG/Decor wait for a Phase 2 UI hook), 1.2.15 (FixImagesQuality partial). 1.4.10 and 1.5.9 moved into Phase 2 as 2.4.8 and 2.2.11. These do not block Phase 2.
+Phase 1 is closed (26.11.2026). What was left moved here: 1.1.9 as 2.1.10, the USRBG and Decor part of 1.2.14 as 2.3.8, FixImagesQuality's default mode from 1.2.15 as 2.3.9, 1.4.10 as 2.4.8 and 1.5.9 as 2.2.11.
 
 ## 3. What Phase 2 adds
 

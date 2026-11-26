@@ -327,7 +327,7 @@ See [`README.md`](README.md) in this folder. Project-level documents live here t
 
 | Path | What |
 |:---|:---|
-| `docs/phase-1/` | Phase 1 plan, task table, agent rules, spec, implementation plan and ledger |
+| `docs/phase-1/` | Phase 1 plan, task table, agent rules, spec, implementation plan and ledger (closed 26.11.2026, kept as history) |
 | `docs/phase-2/` | Phase 2 plan (Phoenix Canary → v1.0): `README.md` (task table), `AGENTS.md`, `ai/spec.md`, `ai/plan.md`, `ai/ledger.md` |
 | `docs/re/` | Reverse-engineering notes on the Phoenix client: `gpui-lifecycle.md` (GPUI init chain, main window, injection points) |
 | `docs/research/` | Research documents: `phoenix-desktop.md` (sunbird study), `gpui.md` (GPUI map), `phoenix-recon.md` (findings for 2.1.2, 2.1.5, 2.1.6; method and findings for 2.1.3, 2.1.4, 2.3.7; 2.1.9 completes it) |

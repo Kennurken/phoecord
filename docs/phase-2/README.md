@@ -6,7 +6,7 @@ The work plan from Phoenix Canary to v1.0, written 25.11.2026 at Nanda's request
 
 ## Status
 
-26.11.2026. Done: 2.1.1, 2.1.2, 2.1.5–2.1.7, 2.1.9, 2.2.1, 2.2.11 and 2.4.3. The Plugin API is frozen at v1 (2.4.3, PR #114): `#[non_exhaustive]` types with `new` constructors, `ChainHost`, UI events as `Event::Ui` (one generic WIT case), `Manifest.menu`, and `wit/frozen/` guarding the WIT; WASM packages built for 0.5 must be rebuilt. The recon report is complete (2.1.9, PR #117). Part 1 of the signature hot-fix is in `main` (2.2.10, PR #116: `phoecord signatures install` / `list`). 2.2.8 is fully specified ahead of time: the transport is chosen per launch, in-process with no proxy when every signature is found, the check cached by the client's `.text` hash and the signature folder's hash (rulings, 2026-11-26). ken and matveee have access to the private recon notes (2.2.2/2.2.3 and 2.2.5). In progress: ken on 2.1.3, 2.1.4, 2.1.8 and the real detours of 2.2.2/2.2.3 (2.2.7 waits for them); matvee on 2.2.5 part 2 and 2.3.1; buslan on 2.2.6 and 2.2.10 part 2, with 2.2.8 next. Next for Nanda: 2.4.6 (security audit, once the detours land) and 2.4.7 (release). Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` should become one type (2.2.2 with 2.2.5). Phase 1 open tasks: 1.1.9, 1.2.14 (USRBG and Decor wait for 2.3.8), 1.2.15 (FixImagesQuality's default mode waits for a UI hook).
+26.11.2026. Done: 2.1.1, 2.1.2, 2.1.5–2.1.7, 2.1.9, 2.2.1, 2.2.11 and 2.4.3. The Plugin API is frozen at v1 (2.4.3, PR #114): `#[non_exhaustive]` types with `new` constructors, `ChainHost`, UI events as `Event::Ui` (one generic WIT case), `Manifest.menu`, and `wit/frozen/` guarding the WIT; WASM packages built for 0.5 must be rebuilt. The recon report is complete (2.1.9, PR #117). Part 1 of the signature hot-fix is in `main` (2.2.10, PR #116: `phoecord signatures install` / `list`). 2.2.8 is fully specified ahead of time: the transport is chosen per launch, in-process with no proxy when every signature is found, the check cached by the client's `.text` hash and the signature folder's hash (rulings, 2026-11-26). ken and matveee have access to the private recon notes (2.2.2/2.2.3 and 2.2.5). In progress: ken on 2.1.3, 2.1.4, 2.1.8 and the real detours of 2.2.2/2.2.3 (2.2.7 waits for them); matvee on 2.2.5 part 2 and 2.3.1; buslan on 2.2.6 and 2.2.10 part 2, with 2.2.8 next. Next for Nanda: 2.4.6 (security audit, once the detours land) and 2.4.7 (release). Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` should become one type (2.2.2 with 2.2.5). Phase 1 is closed (26.11.2026): 1.1.9 is now 2.1.10, the USRBG and Decor part of 1.2.14 is 2.3.8, and FixImagesQuality's default mode from 1.2.15 is 2.3.9.
 
 ## What we get
 
@@ -53,7 +53,7 @@ New decisions for Phase 2 (made when the research answers them):
 | | Nanda | ken | buslan | matvee |
 |:---|:---|:---|:---|:---|
 | Area | core RE (binary, hooks), decisions, Plugin API, security, release, review and merging | proxy, transport, wire format, degradation | discovery, tooling, installer, signatures | RE support, locators, UI hooks, theme engine |
-| Tasks | 2.1.1, 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.8 | 2.2.6, 2.2.8, 2.2.9, 2.2.10, 2.3.8; 2.4.5 | 2.1.9; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
+| Tasks | 2.1.1, 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.8 | 2.2.6, 2.2.8, 2.2.9, 2.2.10, 2.3.8, 2.3.9; 2.4.5 | 2.1.9, 2.1.10; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
 
 Unassigned contributor tasks: 2.3.2 (themes), 2.3.5, 2.3.6; 2.4.1, 2.4.2, 2.4.4.
 
@@ -76,6 +76,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.1.7** 🔴 | Loading path decision and prototype: sideload vs launcher; hook timing test | Nanda | ✅ both decisions live-confirmed (ruling, 2026-11-26) **with PhoeCord's own loader**, not a third-party tool: `phoecord dev inject` (launcher injection: `CreateProcess` suspended + `QueueUserAPC` + `LoadLibraryW`) ran `phoecord-loader` inside a real Phoenix process; `DllMain` and the worker fired, detected the build (RVA-free: a new `.text` sha256 for `0.1.0.2208`) and degraded cleanly (no signature table yet, UI layer off), no crash. First validated on a throwaway `cmd.exe` target, then the real client |
 | **2.1.8** 🔴 | Proxy reach decision and fallback: option 1 / 2 / 3 from `ARCHITECTURE.md`; implement the chosen path | ken | ⏳ decided: option 1, no hook (ruling, 2026-11-26). Open: the check on a fresh install with no manual setup (`phoecord launch --channel phoenix` exists since 2.1.1) |
 | **2.1.9** 🟡 | Recon report: `docs/research/phoenix-recon.md` with all findings, decisions for 2.2–2.4; update `ARCHITECTURE.md` | matvee | ✅ merged, PR #117: part 3 of the [recon](../research/phoenix-recon.md) (summary, decisions for 2.2–2.4 with what changed from the plan, open questions by task, risks), a section for the 2.1.7 loading path, stale lines fixed; `ARCHITECTURE.md` (two transports, hooks and themes). The open parts of 2.1.3, 2.1.4 and 2.1.8 are listed, not run |
+| **2.1.10** 🟡 | Gateway fixtures without personal data (was 1.1.9): READY, GUILD_CREATE, MESSAGE_*, PRESENCE_UPDATE, TYPING_START from a throwaway account, both encodings, scrubbed | matvee | ⏳ |
 
 ### Stage 2.2. Reverse engineering and AOB signatures · `0.8`
 
@@ -105,6 +106,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.3.6** 🟡 | Optimistic delete hook: `Store::delete_message` visible to plugins (MessageLogger sees local deletes) | — | ⏳ |
 | **2.3.7** 🔴 | Degradation verified: unknown build → network only, no crashes; missing signature → that feature off only | ken | ⏳ preparation merged, PR #104: scenarios 1 and 2 covered for the plan with fake locator results; nothing verified inside a client |
 | **2.3.8** 🟡 | CDN picture hook for USRBG and Decor (was 1.2.14's blocker): native avatar/banner loading by hash, not a REST route | buslan | ⏳ |
+| **2.3.9** 🟡 | FixImagesQuality's default mode on Phoenix (was 1.2.15's open part): images in chat at original resolution through the picture-loading path of 2.3.8 | buslan | ⏳ |
 
 ### Stage 2.4. Release v1.0 · `1.0`
 

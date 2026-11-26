@@ -74,7 +74,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | FakeProfileThemes | Profile themes hidden in the bio | 🌐 Network | done |
 | FavoriteEmojiFirst | Favourite emoji first in autocomplete | 🎨 UI | 2 |
 | FixCodeblockGap | Remove the gap under code blocks | 🖌️ Theme | 2.3 |
-| FixImagesQuality | Load images at original resolution | 🌐 Network | partial: `originalImagesInChat` only (image attachments); the default optimised mode needs a UI hook *(2)*; unverified on a live client |
+| FixImagesQuality | Load images at original resolution | 🌐 Network | partial: `originalImagesInChat` only (image attachments); the default optimised mode needs a UI hook, task 2.3.9 *(2)*; unverified on a live client |
 | FixSpotifyEmbeds | Volume for Spotify embeds | 🎨 UI | 2 |
 | ForceOwnerCrown | Owner crown on large servers | 🎨 UI | 2 |
 | FriendInvites | Friend invite links via commands | 🌐 Network | done — `/phoecord create-friend-invite`, `view-friend-invites`, `revoke-friend-invites` |

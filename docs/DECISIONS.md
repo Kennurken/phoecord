@@ -6,7 +6,7 @@ in its plan's `ai/ledger.md` first, then rerun the script.
 
 ## Phase 1. Before the Phoenix Canary public beta
 
-Source: `docs/phase-1/ai/ledger.md`, decisions: 55.
+Source: `docs/phase-1/ai/ledger.md`, decisions: 56.
 
 - Ruling: the repository is public on Nanda070's account (owner Nanda, 2026-11-23, "Public" (translated)) — why: open-source MIT project — risk: everything pushed is published at once; secrets rules in AGENTS.md and SECRETS.md
 - Ruling: the copyright holder is Cheterin Group, next to the retained upstream MIT copyright line (owner Nanda, 2026-11-23, "Copyright in LICENSE" (translated)) — why: project ownership — risk: none
@@ -63,6 +63,7 @@ Source: `docs/phase-1/ai/ledger.md`, decisions: 55.
 - Ruling: PhoeCord may use the third-party Tenor and Giphy keys that Vencord ships for GifProviderSwitcher (owner Nanda, 2026-11-26, "Да можно" (translated: "Yes, allowed"), relayed by buslan07, the answer to whether to use Vencord's keys or ask users for their own) — why: the owner's call, parity with Vencord — risk: the keys are public in this repository, belong to someone else and can be revoked or rate limited
 - Ruling: the plugin API gets `Host::request_query()` (WASM `request-query`, always allowed), the raw query string of the REST call a plugin is handling; `Event` routes stay the path alone, additive with `API_VERSION` 1 (owner Nanda, 2026-11-26, "Сделай это" (translated: "do it"), on the proposal to unblock GifProviderSwitcher this way) — why: `GET /gifs/search` carries the search text in the query string and plugin routes drop it (1.2.15 blocker, 2026-11-25 18:26); a new host method keeps native `Event` matches and already-built WASM plugins working, a new field in `Event` would not — risk: the query can hold what the user typed; hosts and plugins must not log it
 - Ruling: 1.2.15, GifProviderSwitcher uses the Tenor and Giphy API keys Vencord ships (owner Nanda, 2026-11-26, "Ключи из Vencord" (translated: "keys from Vencord")) — why: the answer to buslan07's question in the 1.2.15 entry of 2026-11-25 18:26 — risk: the keys are shared with Vencord; if a provider revokes or rate-limits them the plugin stops for everyone, so the plugin also takes the user's own key as a fallback
+- Ruling: Phase 1 is closed; its open tasks move to Phase 2 with the same people and "done when": 1.1.9 as 2.1.10 (matvee), the USRBG and Decor part of 1.2.14 into the existing 2.3.8 (buslan), FixImagesQuality's default mode from 1.2.15 as 2.3.9 (buslan); 1.2.14 and 1.2.15 are closed for what they shipped (owner Nanda, 2026-11-26, "все что етсь в phase 1 кинь в phase 2 закрой phase1" (translated: "move everything left in phase 1 to phase 2, close phase 1")) — why: one plan to track; what was left needs Phase 2 hooks or belongs next to 2.1.4 — risk: none beyond the renumbering; old references to 1.1.9, 1.2.14 and 1.2.15 point here
 
 ## Phase 2. Phoenix Canary release
 

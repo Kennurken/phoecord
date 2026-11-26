@@ -11,7 +11,7 @@ One index page for `docs/`. The working rules are in [`AGENTS.md`](AGENTS.md) (t
 | Which plugins we build, and which are done | [`PLUGINS.md`](PLUGINS.md): every Vencord plugin and userplugin, its layer and its task |
 | Porting a plugin (Vencord, userplugin, new) | [`PORTING_PLUGINS.md`](PORTING_PLUGINS.md): step by step, with a worked example |
 | Writing a plugin | [`ARCHITECTURE.md`](ARCHITECTURE.md) "Plugin API v1", the template in [`_template/code/`](_template/code/) |
-| Working on Phase 1 | [`phase-1/README.md`](phase-1/README.md) (tasks and their status), [`phase-1/AGENTS.md`](phase-1/AGENTS.md) (for AI agents), [`phase-1/ai/`](phase-1/ai/) (spec, plan, ledger) |
+| Phase 1 (closed 26.11.2026, history) | [`phase-1/README.md`](phase-1/README.md) (tasks and where the open ones went), [`phase-1/ai/`](phase-1/ai/) (spec, plan, ledger) |
 | What is planned overall | [`ROADMAP.md`](ROADMAP.md) (stages; task status lives in the plan's README) |
 | Something broke | [`RUNBOOK.md`](RUNBOOK.md) |
 | Looking for a past decision | [`DECISIONS.md`](DECISIONS.md) (every `Ruling:` from the ledgers, by plan), [`CHANGELOG.md`](CHANGELOG.md) (what shipped and when) |
