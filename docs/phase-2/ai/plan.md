@@ -206,20 +206,30 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 - Implement `InProcessTransport` that satisfies the `Transport` trait (or the same entry points as the proxy transport).
 - Wire the hooks from 2.2.2–2.2.4 to `Engine::on_request`, `on_response`, `on_dispatch`, `on_send`.
 - `Effects` delivery: timers and scheduled events from the plugin chain are dispatched on the loader's thread pool.
-- Fallback: if a locator fails, the in-process transport is off for that entry point; the proxy handles it.
+- Fallback: the transport is chosen per launch, not per entry point (ruling, 2026-11-26; see 2.2.8): if any entry point's locator fails, the whole launch goes through the proxy and the in-process transport stays off; no handoff of single entry points between the loader and the proxy is needed.
 
-**Done when:** plugins receive events through the in-process transport on Phoenix. The proxy fallback activates when a locator is missing.
+**Done when:** plugins receive events through the in-process transport on Phoenix. With a locator missing, the in-process transport stays off and the launch uses the proxy.
 
-### 2.2.8. Phoenix installer (buslan)
+### 2.2.8. Phoenix installer and transport choice (buslan)
 
-**Files:** `crates/phoecord-installer/src/`, `crates/phoecord-installer-gui/src/`
+**Files:** `crates/phoecord-installer/src/` (`launch.rs`, `shortcut.rs`, `install.rs`, `uninstall.rs`), `crates/phoecord-installer-gui/src/`, `crates/phoecord-cli/src/`
 
-- Extend the installer to handle Phoenix: based on 2.1.7, either place `version.dll` or register the launcher.
-- Reconciliation after Phoenix updates: detect a new Phoenix build (version change, binary hash change), re-run loader placement or re-register injection.
-- Uninstall: remove the loader, undo any registry changes, clean up.
-- GUI: add a "Phoenix" toggle in the installer GUI alongside the existing Electron options.
+The target on Windows Phoenix is **no proxy**: the loader is injected and runs the plugin chain in-process. The proxy stays for Electron clients, for Phoenix on macOS and Linux, and as the fallback when a Phoenix build has no working signatures. All seven questions below were decided in advance (rulings, 2026-11-26, in `ledger.md`); follow them, don't reopen them in the PR.
 
-**Done when:** installing on a machine with Phoenix places the loader; a Phoenix update is handled automatically; uninstall is clean.
+1. **Who picks the transport, and when.** `--proxy-server` is a command-line flag, so the choice is made before the client starts. `phoecord launch --channel phoenix` checks `Discord.exe` on disk with the same locators and `phoecord_loader::plan` that `phoecord check` uses (2.2.6), and caches the result by `.text` hash in the data folder. A full check runs only after a Phoenix update.
+2. **Whole-launch mode, no mixing.** All Engine entry points found → in-process, no proxy. Any one missing → the whole launch goes through the proxy and the loader does the UI only. The same traffic never passes the plugin chain twice. If 2.2.4 finds no send function, Phoenix always uses the proxy; that is accepted.
+3. **No idle proxy.** In in-process mode the proxy is not started at all. The loader reads its settings from `config.toml` itself (the `Engine` lives inside it), with no named pipe.
+4. **A failure during a session.** A hook that fails to install or panics after launch cannot be switched to the proxy live. Network plugins stay off for the rest of that session, the client keeps running, and the user gets a notice. The build is marked failed in the cache, so the next launch goes straight to the proxy; a signature hot-fix (2.2.10) clears the mark.
+5. **The CA is installed up front**, as today, even if Phoenix will mostly run in-process: the fallback needs it at any moment, and asking for trust in the middle of a launch is not acceptable. Audited in 2.4.6.
+6. **How Phoenix is started, and updates.** The existing pattern: a separate "Discord Phoenix (PhoeCord)" shortcut that runs `phoecord launch --channel phoenix`. Discord's own shortcuts are not touched; no IFEO or other launch interception. Phoenix updates in place in `app\` and the loader is injected on every launch, so reconciling after an update means only invalidating the cache from item 1; nothing is copied. Uninstall removes the shortcut and the cache. Proxy autostart at login is needed only for Electron clients.
+7. **Manual override and other OSes.** `phoecord launch --transport auto|proxy|in-process` and `[phoenix] transport = "auto"` in `config.toml`; default `auto`, the manual values are for debugging. On macOS and Linux Phoenix gets the proxy and a plain launch. The mode is per client: an Electron client on the proxy and Phoenix in-process can run at the same time.
+
+Also:
+- Injection itself is `phoecord_loader::inject` (2.1.7: `CreateProcess` suspended + `QueueUserAPC` + `LoadLibraryW`); `phoecord launch` calls it in in-process mode and in proxy mode too (the loader is needed for the UI either way).
+- GUI: a "Phoenix" toggle next to the existing Electron options.
+- Depends on 2.2.6 (the check code), 2.2.7 (the in-process transport) and 2.2.10 (signatures from disk). Items 1, 6 and 7 can be built before those land, against fake locator results.
+
+**Done when:** on a Windows machine with Phoenix, setup makes the shortcut; `phoecord launch --channel phoenix` starts in-process with no proxy when the build's signatures are all found, and through the proxy when one is missing or the build is marked failed; a Phoenix update only re-runs the check; `--transport` overrides the choice; uninstall is clean. Tested with fake locator results; one live run on the owner's PC recorded in the ledger.
 
 ### 2.2.9. Signatures verified on two builds (buslan)
 
