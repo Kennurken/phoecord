@@ -4,7 +4,17 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-26
+
+A test release for the signed update path (2.4.6, A1): the first release signed with the owner's minisign key. An installed copy built from `main` after PR #136 updates to it automatically.
+
+### Fixed
+
+- `phoecord trust` on Windows no longer says "trusted" when the CA was not added: `certutil` exits 0 even when its confirmation is declined or cannot be shown, so the store is now checked afterwards and the command fails with what to do.
+
 ### Added
+
+- 2.2.8: `phoecord launch --channel phoenix` can load another mod's DLL next to PhoeCord's loader: `--also-inject <DLL>` (repeatable) or `[phoenix] also_inject = [...]` in `config.toml`, for example Sunbird's `phoenix.dll`, so both run in one Phoenix through PhoeCord's proxy. A missing file stops the launch. The loader now identifies the build by `.text` of `Discord.exe` on disk rather than in memory, so a mod that patched code first does not make a known build look unknown. And the proxy a Phoenix launch started now stops when that Phoenix exits, however it ends (closed, crashed, killed in Task Manager).
 
 - 2.3.2: two more built-in themes, `themes/light.toml` and `themes/high-contrast.toml` (every text colour at least 7:1), and `phoecord theme import <vencord-theme.css>`, which turns a Vencord theme's colour variables into a `theme.toml` and lists what does not carry over. Theme authoring: `docs/plugins/themes.md`. The palette field names are still PhoeCord's own until Phoenix's are known.
 - 2.4.2 (a): message sends and edits with files (`multipart/form-data`) reach plugins: they see `payload_json` as the body, and a change is written back with the same boundary, file names following `attachments[].filename`; file bytes are passed as they are. So ClearURLs, FakeNitro, TextReplace and the other send plugins now also work on messages with attachments. Bodies over 64 MiB stream through unread.
