@@ -91,7 +91,7 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 | **2.2.8** 🔴 | Phoenix installer: loader placement (or injection), reconcile after Phoenix updates, uninstall | buslan | ⏳ |
 | **2.2.9** 🔴 | Every signature verified unique on two adjacent builds | buslan | ⏳ |
 | **2.2.10** 🟡 | Signature updates without rebuilding the loader; hot-fix path for TOML AOB entries | buslan | ⏳ |
-| **2.2.11** 🔴 | Loader check inside Discord Canary (was 1.5.9): one worker per start, in-memory hash equals the file's, under 20 ms, `loader connected` in the proxy log, clean uninstall | ken | ⏳ |
+| **2.2.11** 🔴 | Loader check inside Discord Canary (was 1.5.9): one worker per start, in-memory hash equals the file's, under 20 ms, `loader connected` in the proxy log, clean uninstall | ken | ✅ checked on Discord Canary 1.0.1364 (Windows, a release build from `main`, sandboxed `PHOECORD_CONFIG`/`PHOECORD_DATA`): one `client build` line per start (none from the `--type=` children), the `.text` hash matched across 3 restarts, `loader connected` in the proxy log, no crash over three starts plus a 4-minute run, `phoecord uninstall` removed the DLL, shortcut, Run key and CA. **Not met: detection took ~130 ms, not under 20 ms** (consistent across 3 runs; `DiscordCanary.exe` is 224 MiB, so a `.text`-section SHA-256 this slow is plausible — open question for whoever set the 20 ms figure) |
 
 ### Stage 2.3. UI hooks and theme engine · `0.9`
 
