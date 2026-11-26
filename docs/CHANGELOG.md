@@ -20,6 +20,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Fixed
 
+- 2.2.5: `locators::gateway::find`'s bare prologue AOB for the registry builder was ambiguous on the real Phoenix `0.1.0.2208` exe (2 candidates; found running 2.2.6's `phoecord check` against it) — the recon notes' "already matches exactly once" held only for the slice of `.text` the dump covered. It now also requires a `.text` reference to the registry's own event-name seed blob (the exact string `FUN_147250360` passes to `FUN_1470fa2e0`, read from `dumps/transport_dump.txt`), and takes only the candidate both facts agree on, per the "intersect several facts" rule the locator framework was built on.
 - Uninstall also removes what a running PhoeCord left in its data folder: the dev console token, `launch.log`, the update state with any downloaded installer, the window's onboarding marker (so a reinstall shows the onboarding again) and an empty `plugins` folder. `config.toml` and plugin packages stay. Found on the owner's PC after removing 0.6.0 from Installed apps.
 - 2.2.2: the `send` detour reads request bodies: `hooks::abi` now takes the words of `bytes::Bytes` in the order Phoenix `0.1.0.2208` stores them (vtable, pointer, length, data), checked live; with the declared order every body was reported as not readable. Part 1 run live: method, URL and body read on every request, Control Flow Guard does not interfere.
 - Installer window: the onboarding shows only on the first start after install, not again after every update (ruling 2026-11-26).
