@@ -205,6 +205,8 @@ Built-in plugins stay native for now (`phoecord-plugins`); once the WASM runtime
 
 macOS and Linux come later: `DYLD_INSERT_LIBRARIES` / `LD_PRELOAD` through the PhoeCord launcher.
 
+**Phoenix is different (2.1.7, ruling 2026-11-26): launcher injection, not sideload.** `CreateProcess` (suspended) + `QueueUserAPC` to call `LoadLibrary` on PhoeCord's DLL + `ResumeThread`, the way `docs/phase-2/ai/plan.md`'s 2.1.7 "if launcher" path already described. Live-observed on a real Phoenix process (via a third-party tool, not our own prototype yet): the system `version.dll` loads normally and the payload is mapped by an ordinary `LoadLibrary` call, with the whole hook-install finishing in well under a second, before the client reports ready. PhoeCord's own loader still needs to be built on this path; the above sideload steps remain how today's Electron client is reached.
+
 ### Loader ↔ proxy IPC
 
 A Windows named pipe per user, `\\.\pipe\phoecord-<user SID>`. The proxy (`phoecord run` / `launch`) is the server; the loader, in the main client process only, is the client. On macOS and Linux the proxy side does nothing (the loader is Windows-only).
