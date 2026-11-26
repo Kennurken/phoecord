@@ -6,7 +6,7 @@ in its plan's `ai/ledger.md` first, then rerun the script.
 
 ## Phase 1. Before the Phoenix Canary public beta
 
-Source: `docs/phase-1/ai/ledger.md`, decisions: 50.
+Source: `docs/phase-1/ai/ledger.md`, decisions: 53.
 
 - Ruling: the repository is public on Nanda070's account (owner Nanda, 2026-11-23, "Public" (translated)) — why: open-source MIT project — risk: everything pushed is published at once; secrets rules in AGENTS.md and SECRETS.md
 - Ruling: the copyright holder is Cheterin Group, next to the retained upstream MIT copyright line (owner Nanda, 2026-11-23, "Copyright in LICENSE" (translated)) — why: project ownership — risk: none
@@ -58,6 +58,9 @@ Source: `docs/phase-1/ai/ledger.md`, decisions: 50.
 - Ruling: tasks 1.4.10 and 1.5.9 move to Phase 2 as 2.4.8 and 2.2.11, same person and same "done when" (owner Nanda, 2026-11-26, "1 4 11 отмени // 1.4.10 и 1.5.9 перенси в phase 2 // 1.2.17 XS закрой, 2 оставь запрет" (translated: "cancel 1.4.11 // move 1.4.10 and 1.5.9 to phase 2 // 1.2.17: close XS; item 2: keep the ban")) — why: the owner's call — risk: the 0.5.1 macOS fixes and the loader in Discord Canary stay unverified until then
 - Ruling: XSOverlay is dropped, no local UDP or WebSocket right is added and 1.2.17 closes without it (owner Nanda, 2026-11-26, "Не делать" (translated: "do not do it"), the answer to what "XS закрой" meant) — why: the owner's call — risk: no VR notifications
 - Ruling: `fetch_with` keeps refusing credential headers, so DeepL and Kagi stay on the Google fallback and ReviewDB stays read only (owner Nanda, 2026-11-26, "1 4 11 отмени // 1.4.10 и 1.5.9 перенси в phase 2 // 1.2.17 XS закрой, 2 оставь запрет" (translated: "cancel 1.4.11 // move 1.4.10 and 1.5.9 to phase 2 // 1.2.17: close XS; item 2: keep the ban")) — why: the owner's call; the host keeps credential headers out of plugin requests — risk: parity with Vencord stays incomplete in these three places
+- Ruling: USRBG and Decor wait for a Phase 2 UI hook; the proxy does not intercept Discord's CDN for them (owner Nanda, 2026-11-26, "Phase 2 ui хук" (translated: "Phase 2 UI hook"), relayed by buslan07, the answer to the choice between CDN interception and a Phase 2 UI hook) — why: the owner's call; the client builds the picture URL from a hash on a host PhoeCord does not intercept — risk: both plugins stay missing until the hook exists, and no Phase 2 task is numbered for them yet
+- Ruling: plugin REST routes get the query string through an additive Plugin API change by the owner, which GifProviderSwitcher waits for (owner Nanda, 2026-11-26, "Да" (translated: "Yes"), relayed by buslan07, the answer to whether the owner adds the query string of `GET /gifs/search` to the Plugin API) — why: the search text is only in the query string — risk: plugins with the REST right see query values; GifProviderSwitcher stays blocked until the change is merged
+- Ruling: PhoeCord may use the third-party Tenor and Giphy keys that Vencord ships for GifProviderSwitcher (owner Nanda, 2026-11-26, "Да можно" (translated: "Yes, allowed"), relayed by buslan07, the answer to whether to use Vencord's keys or ask users for their own) — why: the owner's call, parity with Vencord — risk: the keys are public in this repository, belong to someone else and can be revoked or rate limited
 
 ## Phase 2. Phoenix Canary release
 
