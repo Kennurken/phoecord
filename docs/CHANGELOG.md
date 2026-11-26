@@ -10,6 +10,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
+- 2.2.4: in-process outgoing gateway frames: an inline detour on the client's frame encoder hands each frame (`{op, d}` as JSON) to `Engine::on_send`; a changed frame replaces the encoder's `String` through the client's allocator, a dropped one is logged and sent unchanged. Heartbeat, identify and resume do not pass this encoder.
 - A full `READY` on Desktop Phoenix: the proxy empties the guild versions Phoenix sends in `IDENTIFY`, so the gateway sends every guild with its channels, roles and emojis instead of `data_mode: "partial"` and plugins can read them again (`[phoenix] full_ready`, on by default; owner's ruling, 2026-11-26). The proxy log says how many cached versions were dropped and how many guilds still arrived partial.
 
 ### Added

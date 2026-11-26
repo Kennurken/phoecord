@@ -19,6 +19,8 @@
 pub mod abi;
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub mod detour;
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub mod gateway_send;
 pub use crate::found;
 pub mod gateway;
 pub mod guard;
@@ -38,6 +40,7 @@ pub struct HookRuntime {
     http_request: Breaker,
     http_response: Breaker,
     gateway: Breaker,
+    gateway_send: Breaker,
 }
 
 impl HookRuntime {
@@ -53,6 +56,7 @@ impl HookRuntime {
             http_request: Breaker::new("http_request"),
             http_response: Breaker::new("http_response"),
             gateway: Breaker::new("gateway_dispatch"),
+            gateway_send: Breaker::new("gateway_send"),
         }
     }
 
@@ -104,6 +108,18 @@ impl HookRuntime {
         }
         self.gateway.guard_result(&self.log, pass_gateway, || {
             gateway::dispatch(&self.engine, name, data)
+        })
+    }
+}
+
+impl HookRuntime {
+    /// Entry of the encoder hook (2.2.4): one outgoing frame as JSON text.
+    pub fn send(&self, frame: &[u8]) -> GatewayOutcome {
+        if self.plan.gateway_send.is_err() {
+            return pass_gateway();
+        }
+        self.gateway_send.guard_result(&self.log, pass_gateway, || {
+            gateway::send(&self.engine, frame)
         })
     }
 }

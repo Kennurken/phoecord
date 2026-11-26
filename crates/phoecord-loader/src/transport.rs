@@ -290,6 +290,17 @@ impl InProcessTransport {
         }
     }
 
+    /// One outgoing gateway frame (JSON text) from the encoder hook. What plugins queued is
+    /// delivered like a dispatch's effects.
+    pub fn send_frame(&self, frame: &[u8]) -> GatewayAction {
+        if !self.runs(EntryPoint::Send) {
+            return GatewayAction::Pass;
+        }
+        let out = self.hooks.send(frame);
+        self.deliver(|d| d.gateway(out.extra, out.sends));
+        out.action
+    }
+
     /// All or nothing per launch: an entry point runs only when they all do.
     fn runs(&self, _point: EntryPoint) -> bool {
         self.active
@@ -321,6 +332,17 @@ impl crate::hooks::detour::SendSink for SendSink {
 
     fn response(&self, method: &str, url: &str, status: u16, body: &[u8]) -> HttpAction {
         self.0.response(method, url, status, body)
+    }
+}
+
+/// What the encoder hook calls (2.2.4): the transport behind a shared handle.
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub struct EncodeSink(pub Arc<InProcessTransport>);
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+impl crate::hooks::gateway_send::FrameSink for EncodeSink {
+    fn frame(&self, json: &[u8]) -> GatewayAction {
+        self.0.send_frame(json)
     }
 }
 
