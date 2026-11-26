@@ -4,6 +4,10 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+
+- 2.2.2: the `send` detour reads request bodies: `hooks::abi` now takes the words of `bytes::Bytes` in the order Phoenix `0.1.0.2208` stores them (vtable, pointer, length, data), checked live; with the declared order every body was reported as not readable. Part 1 run live: method, URL and body read on every request, Control Flow Guard does not interfere.
+
 ## [0.6.0] - 2026-11-26
 
 A test release for the signed update path (2.4.6, A1): the first release signed with the owner's minisign key. An installed copy built from `main` after PR #136 updates to it automatically.
@@ -82,7 +86,6 @@ A test release for the signed update path (2.4.6, A1): the first release signed 
 
 ### Fixed
 
-- 2.2.2: the `send` detour reads request bodies: `hooks::abi` now takes the words of `bytes::Bytes` in the order Phoenix `0.1.0.2208` stores them (vtable, pointer, length, data), checked live; with the declared order every body was reported as not readable. Part 1 run live: method, URL and body read on every request, Control Flow Guard does not interfere.
 - `/phoecord petpet`, `serverinfo`, `viewraw`, the Spotify share commands and `tags` / `tag` always answered "did not run": PetPet, ServerInfo, ViewRaw, SpotifyShareCommands and CustomCommands were built but never put in the plugin chain, where their answers are computed. A test now checks every plugin behind a `kept_answer` command.
 - Twelve data parts from 1.2.16 (MemberCount, MessageLinkEmbeds, ReadAllNotificationsButton, PauseInvitesForever, PlatformIndicators, UserVoiceShow, TypingIndicator, VcNarrator, NewGuildSettings, ValidReply, ValidUser, OverrideForumDefaults) read gateway dispatches as bare data while the proxy hands plugins the whole `{op, t, d}` frame, so they saw nothing in a real session; they now read `d` through `state::dispatch_data`, with a real-frame test each.
 - macOS: Discord started by PhoeCord could not read its own data ("Operation not permitted", `installer.db` could not be opened, the updater showed "Installation paused"), because as a child of PhoeCord.app it was treated as PhoeCord.app reaching into another app's data. A `.app` client is now started through LaunchServices (`open -n -a <Discord>.app --env ... --args --proxy-server=...`), so it is its own process. Windows and Linux are unchanged.
