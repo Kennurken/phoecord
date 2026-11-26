@@ -4,6 +4,14 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Removed
+
+- ShowHiddenChannels (`/phoecord hidden`, its `rewrite_payload` setting): it no longer works on any Discord client (owner's ruling, 2026-11-26). A `[plugins.show_hidden_channels]` table left in `config.toml` is ignored.
+
+### Added
+
+- A full `READY` on Desktop Phoenix: the proxy empties the guild versions Phoenix sends in `IDENTIFY`, so the gateway sends every guild with its channels, roles and emojis instead of `data_mode: "partial"` and plugins can read them again (`[phoenix] full_ready`, on by default; owner's ruling, 2026-11-26). The proxy log says how many cached versions were dropped and how many guilds still arrived partial.
+
 ### Added
 
 - 2.3.7: the three degradation scenarios pass live on Windows (unknown build, one signature missing, loader beside an Electron client). Recon notes for 2.2.2 (response and body layouts), 2.2.3 (dispatch path), 2.2.4 (outgoing encoder) and 2.3.3 (settings render and builders) in `docs/research/phoenix-recon.md`.
@@ -12,6 +20,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Fixed
 
+- Uninstall also removes what a running PhoeCord left in its data folder: the dev console token, `launch.log`, the update state with any downloaded installer, the window's onboarding marker (so a reinstall shows the onboarding again) and an empty `plugins` folder. `config.toml` and plugin packages stay. Found on the owner's PC after removing 0.6.0 from Installed apps.
 - 2.2.2: the `send` detour reads request bodies: `hooks::abi` now takes the words of `bytes::Bytes` in the order Phoenix `0.1.0.2208` stores them (vtable, pointer, length, data), checked live; with the declared order every body was reported as not readable. Part 1 run live: method, URL and body read on every request, Control Flow Guard does not interfere.
 - Installer window: the onboarding shows only on the first start after install, not again after every update (ruling 2026-11-26).
 - Installer window: on a short window the onboarding text no longer runs under the bottom bar (its line crossed the text); the column is clipped at the bar and scrolls.
