@@ -21,6 +21,8 @@ phoecord-plugin-runtime.workspace = true
 phoecord-plugins.workspace = true
 serde_json.workspace = true
 phoecord-installer = { path = "../phoecord-installer" }
+# The launcher-injection module only (2.1.7); without the DLL itself.
+phoecord-loader = { path = "../phoecord-loader", default-features = false }
 anyhow.workspace = true
 dirs.workspace = true
 clap = { version = "4", features = ["derive"] }

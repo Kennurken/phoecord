@@ -1,6 +1,7 @@
 //! `phoecord dev …`: tools for plugin authors. Each subcommand lives in its own file.
 
 pub mod console;
+mod inject;
 mod inspect_pe;
 mod watch;
 
@@ -17,6 +18,9 @@ pub enum DevCmd {
     Watch(watch::WatchArgs),
     /// Read-only inspection of a PE executable: imports, DLL search restrictions, sections.
     InspectPe(inspect_pe::InspectPeArgs),
+    /// Launcher injection (2.1.7 prototype): start an exe suspended and load a DLL into it before
+    /// it runs any of its own code. Windows only.
+    Inject(inject::InjectArgs),
 }
 
 pub fn run(cmd: DevCmd, paths: &Paths, l10n: &Localizer) -> Result<()> {
@@ -24,5 +28,6 @@ pub fn run(cmd: DevCmd, paths: &Paths, l10n: &Localizer) -> Result<()> {
         DevCmd::Console(args) => console::run(args, paths, l10n),
         DevCmd::Watch(args) => watch::run(args, paths, l10n),
         DevCmd::InspectPe(args) => inspect_pe::run(args, l10n),
+        DevCmd::Inject(args) => inject::run(args, l10n),
     }
 }

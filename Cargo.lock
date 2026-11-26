@@ -3309,6 +3309,7 @@ dependencies = [
  "phoecord-core",
  "phoecord-i18n",
  "phoecord-installer",
+ "phoecord-loader",
  "phoecord-plugin-runtime",
  "phoecord-plugins",
  "phoecord-proxy",

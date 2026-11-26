@@ -535,6 +535,15 @@ dev-pe-tls = TLS directory: { $present }, callbacks: { $count } (RVA: { $list })
 dev-pe-sections = Sections ({ $count })
 dev-pe-sections-head =   name       virt addr  virt size  raw offset   raw size  flags
 
+# Launcher injection (2.1.7 prototype): `phoecord dev inject <exe>`.
+dev-inject-err-no-dll = loader DLL not found at { $path }
+dev-inject-err-no-exe = { $path } does not exist
+dev-inject-err-spawn = cannot start { $exe } suspended
+dev-inject-err-queue = cannot queue LoadLibraryW for { $dll }
+dev-inject-err-resume = cannot resume the suspended thread
+dev-inject-err-windows-only = phoecord dev inject is Windows-only
+dev-inject-ok = injected into pid { $pid } in { $ms } ms
+
 # Plugin catalog (1.3.11): `phoecord install | update | remove | catalog`, and the Catalog list in the window.
 cmd-install = Install a plugin from the catalog by id, or from an https:// link to a .zip
 cmd-update = Update catalog plugins that have a newer version (all, or the one given)

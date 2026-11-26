@@ -540,6 +540,15 @@ dev-pe-tls = Каталог TLS: { $present }, колбэков: { $count } (RVA
 dev-pe-sections = Секции ({ $count })
 dev-pe-sections-head =   имя        вирт адр  вирт разм  смещ в файле  разм в файле  флаги
 
+# Инжект через запуск (прототип 2.1.7): `phoecord dev inject <exe>`.
+dev-inject-err-no-dll = DLL загрузчика не найдена: { $path }
+dev-inject-err-no-exe = { $path } не существует
+dev-inject-err-spawn = не удаётся запустить { $exe } в приостановленном виде
+dev-inject-err-queue = не удаётся поставить в очередь LoadLibraryW для { $dll }
+dev-inject-err-resume = не удаётся возобновить приостановленный поток
+dev-inject-err-windows-only = phoecord dev inject работает только в Windows
+dev-inject-ok = внедрено в pid { $pid } за { $ms } мс
+
 # Каталог плагинов (1.3.11): `phoecord install | update | remove | catalog` и список «Каталог» в окне.
 cmd-install = Поставить плагин из каталога по id или по https://-ссылке на .zip
 cmd-update = Обновить плагины из каталога, у которых есть новая версия (все или один)
