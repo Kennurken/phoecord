@@ -144,7 +144,7 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 
 **Done when:** the project has named symbols for the hook targets identified in 2.1.5–2.1.6. The reference build comparison is recorded.
 
-### 2.2.2. HTTP transport hook (Nanda)
+### 2.2.2. HTTP transport hook (ken)
 
 **Files:** `crates/phoecord-loader/src/hooks/http.rs`, `crates/phoecord-loader/src/hooks/mod.rs`
 
@@ -156,7 +156,7 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 
 **Done when:** REST traffic through Phoenix is intercepted, modified by a test plugin, and Discord still works. Allocator mismatch is handled gracefully.
 
-### 2.2.3. Gateway registry detours (Nanda)
+### 2.2.3. Gateway registry detours (ken)
 
 **Files:** `crates/phoecord-loader/src/hooks/gateway.rs`
 
