@@ -10,8 +10,8 @@
 //! a wrong offset is a refused read, not an access violation), hands it to the [`SendSink`] under
 //! the panic guard and returns. Part 1 is read-only: a plugin verdict that would change the body
 //! or answer locally is logged and the request goes on unchanged. Changing a body needs the
-//! `Bytes` vtable of the client; a local answer needs the response layout (both open in the recon
-//! notes). Until they land, the in-process transport cannot be the one that runs a launch (the
+//! `Bytes` vtable of the client; a local answer needs the response layout (both found live on
+//! 2026-11-26, in the recon notes; part 2). Until they land, the in-process transport cannot be the one that runs a launch (the
 //! per-launch rule of 2.2.8 keeps the proxy in charge).
 
 use super::abi::{self, AbiError, Body, Memory};

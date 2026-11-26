@@ -13,7 +13,7 @@
 //! | Offset | Field | Status in the recon notes |
 //! |:---|:---|:---|
 //! | `+0x60` | body tag: `0` none, `1` `bytes::Bytes`, others not decoded | tags 0 and 1 verified |
-//! | `+0x68` | `bytes::Bytes`: four words | verified; word order inferred (see [`BYTES_PTR`]) |
+//! | `+0x68` | `bytes::Bytes`: four words, in memory vtable, pointer, length, data | verified, word order checked live (see [`BYTES_PTR`]) |
 //! | `+0x98` | URL `String`: capacity, pointer, length | verified |
 //! | `+0xc0` | `http::Method`, 24 bytes | inferred (see [`decode_method`]) |
 
@@ -32,12 +32,15 @@ pub const METHOD: usize = 0xc0;
 pub const METHOD_LEN: usize = 0x18;
 
 /// Word index of the data pointer inside `Bytes`. `bytes` 1.x declares `ptr, len, data, vtable`,
-/// all pointer-sized, which rustc keeps in that order; the recon notes leave the order unverified,
-/// so [`read_body`] checks that the vtable word points into the client image before it trusts the
-/// other three.
-pub const BYTES_PTR: usize = 0;
-pub const BYTES_LEN: usize = 1;
-pub const BYTES_VTABLE: usize = 3;
+/// but rustc reorders the fields: in Phoenix `0.1.0.2208` the words are vtable, pointer, length,
+/// data (read live on 2026-11-26: with the declared order every request body came out opaque).
+/// [`read_body`] still checks that the vtable word points into the client image before it trusts
+/// the other words, so a build that orders them differently gives an opaque body, not a wrong one.
+pub const BYTES_VTABLE: usize = 0;
+pub const BYTES_PTR: usize = 1;
+pub const BYTES_LEN: usize = 2;
+/// The `data` word (shared or promotable state); not read.
+pub const BYTES_DATA: usize = 3;
 
 /// The longest URL read; anything longer is refused as a wrong reading.
 pub const MAX_URL: usize = 64 * 1024;
@@ -261,10 +264,10 @@ mod tests {
         let mut regions = vec![(URL_AT, url.as_bytes().to_vec())];
         if let Some(b) = body {
             put(&mut req, BODY_TAG, 1);
-            put(&mut req, BODY_BYTES, BODY_AT);
-            put(&mut req, BODY_BYTES + 8, b.len());
-            put(&mut req, BODY_BYTES + 16, BODY_AT);
-            put(&mut req, BODY_BYTES + 24, VTABLE);
+            put(&mut req, BODY_BYTES + 8 * BYTES_VTABLE, VTABLE);
+            put(&mut req, BODY_BYTES + 8 * BYTES_PTR, BODY_AT);
+            put(&mut req, BODY_BYTES + 8 * BYTES_LEN, b.len());
+            put(&mut req, BODY_BYTES + 8 * BYTES_DATA, BODY_AT);
             regions.push((BODY_AT, b.to_vec()));
         }
         regions.push((REQ, req));
@@ -287,6 +290,20 @@ mod tests {
         );
     }
 
+    /// The body as Phoenix `0.1.0.2208` lays it out, by raw offset: vtable at `+0x68`, pointer at
+    /// `+0x70`, length at `+0x78` (seen live; the declared field order read every body as opaque).
+    #[test]
+    fn the_phoenix_2208_body_layout_reads() {
+        let mut mem = request("https://discord.com/api/v9/science", 2, Some(b"{}"));
+        for i in 0..4 {
+            patch(&mut mem, BODY_BYTES + 8 * i, 0);
+        }
+        patch(&mut mem, 0x68, VTABLE);
+        patch(&mut mem, 0x70, BODY_AT);
+        patch(&mut mem, 0x78, 2);
+        assert_eq!(read_body(&mem, REQ, IMAGE), Body::Bytes(b"{}".to_vec()));
+    }
+
     #[test]
     fn a_request_without_body_has_none() {
         let mem = request("https://discord.com/api/v9/users/@me", 1, None);
@@ -297,7 +314,7 @@ mod tests {
     #[test]
     fn a_vtable_outside_the_image_makes_the_body_opaque() {
         let mut mem = request("https://discord.com/api/v9/x", 2, Some(b"{}"));
-        patch(&mut mem, BODY_BYTES + 24, 0x42);
+        patch(&mut mem, BODY_BYTES + 8 * BYTES_VTABLE, 0x42);
         assert_eq!(read_body(&mem, REQ, IMAGE), Body::Opaque);
     }
 
@@ -307,7 +324,7 @@ mod tests {
         patch(&mut mem, BODY_TAG, 2);
         assert_eq!(read_body(&mem, REQ, IMAGE), Body::Opaque);
         patch(&mut mem, BODY_TAG, 1);
-        patch(&mut mem, BODY_BYTES + 8, MAX_BODY + 1);
+        patch(&mut mem, BODY_BYTES + 8 * BYTES_LEN, MAX_BODY + 1);
         assert_eq!(read_body(&mem, REQ, IMAGE), Body::Opaque);
     }
 
