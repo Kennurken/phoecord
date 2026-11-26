@@ -222,7 +222,7 @@ Was task 1.1.9 (moved when Phase 1 closed, ruling 2026-11-26). Coordinate with 2
 
 **Done when:** plugins receive events through the in-process transport on Phoenix. With a locator missing, the in-process transport stays off and the launch uses the proxy.
 
-### 2.2.8. Phoenix installer and transport choice (buslan)
+### 2.2.8. Phoenix installer and transport choice (Nanda)
 
 **Files:** `crates/phoecord-installer/src/` (`launch.rs`, `shortcut.rs`, `install.rs`, `uninstall.rs`), `crates/phoecord-installer-gui/src/`, `crates/phoecord-cli/src/`
 
@@ -418,7 +418,7 @@ Was the open part of task 1.2.15 (moved when Phase 1 closed, ruling 2026-11-26).
 
 ### 2.4.5. Installer 1.0 (Nanda)
 
-Moved from buslan (ruling, 2026-11-26). The Phoenix part (loader injection, the transport choice, the Phoenix shortcut) is 2.2.8, which stays with buslan; 2.4.5 packages it.
+Moved from buslan (ruling, 2026-11-26). The Phoenix part (loader injection, the transport choice, the Phoenix shortcut) is 2.2.8 (also Nanda's since the same day); 2.4.5 packages it.
 
 **Files:** `crates/phoecord-installer/`, `crates/phoecord-installer-gui/`
 
