@@ -26,6 +26,7 @@
 //! this crate.
 
 pub mod aob;
+pub mod check;
 #[cfg(windows)]
 pub mod inject;
 pub mod ipc;

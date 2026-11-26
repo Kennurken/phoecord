@@ -211,6 +211,7 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/pipe.rs` | Windows named pipe: `PipeServer` (user-only DACL from the user's SID, `PIPE_REJECT_REMOTE_CLIENTS`, first instance), `connect`, `send_all`, `current_user_sid` | All the IPC `unsafe` lives here, each block with `// SAFETY:`; no work under the loader lock (only the worker calls it) |
 | `src/pe.rs`, `src/version.rs` | PE parsing (file or mapped image: `Pe::parse_mapped`, `Pe::image_size`), file version resource, `.text` SHA-256 (`detect` for a file, `detect_mapped` for memory, same hash), `is_child_process` | Pure, tested on every OS; the hash must stay equal for file and image, `signatures/*.toml` depend on it |
 | `src/signatures.rs` | `SignatureSet::load_dir`, `select`, `resolve_all` (`find_unique` + `rip`) | Format documented in `signatures/README.md` |
+| `src/check.rs` | `check(exe_bytes, dir)` (2.2.6): the exe on disk against the signature table of its build | AOB signatures only; typed locators join when 2.2.5 part 2 exists |
 | `src/hooks/found.rs` | `Found<T>` typed locators over `signatures/*.toml` (`http_send`, `http_poll`, `rust_alloc` + `rust_dealloc`, `gateway_registry`), `HookPlan`: each miss (missing, none, several, outside the image) turns off only its hook | "Unique or off"; one allocator shim alone is no allocator |
 | `src/hooks/guard.rs` | `Breaker`: `catch_unwind(AssertUnwindSafe)` around every hook entry; a panic logs and trips the hook, a bad input only falls back | The fallback is always "pass the traffic through" |
 | `src/hooks/http.rs`, `src/hooks/gateway.rs` | Bridge to `Engine::on_request` / `on_response` and `on_dispatch` (client JSON in, verdict out; changed bodies only without an allocator → pass) | Detour ABI shims (2.1.5-2.1.7) are not here yet |
@@ -297,6 +298,7 @@ The installer window (stage 1.4.3). Every change to the machine goes through `ph
 
 | `src/catalog.rs` | `phoecord install <id\|https link\|path>`, `update [id]`, `remove <id>`, `catalog` (1.3.11): stage through `phoecord-catalog`, print what the plugin asks for, ask (`--yes` skips; no terminal and no `--yes` means no) | `uninstall` stays the undo of `setup`, so removing a plugin is `remove`; an install from a link or a path has no hash and says so |
 | `src/log.rs`, `src/selftest.rs` | `phoecord log` output, `phoecord selftest` | |
+| `src/check.rs` | `phoecord check <exe> [--signatures <dir>]` (2.2.6): prints the build and a table of signature name, status and RVA | Exit code 1 on any miss, a skipped file, an empty or missing table; the default folder is `signatures` under the current directory, not the loader's `%LOCALAPPDATA%` one |
 | `src/dev/mod.rs`, `src/dev/console.rs` | `phoecord dev console` (1.3.9): attaches with the token from `dev-token`, prints the stream (`--filter`, `--plugin`), runs `toggle` / `reload` / `settings` / `kv` / `replay` typed on stdin. Other `dev` subcommands get their own file here | Strings through `cli-dev-*` keys; nested help keys are `cmd-dev-<sub>` and `cli-arg-dev-<sub>-<arg>` (`help.rs`) |
 
 ## 4. Scripts

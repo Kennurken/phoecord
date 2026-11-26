@@ -605,3 +605,24 @@ gui-pkg-err-hash = Скачанный файл не совпал с хэшем �
 gui-pkg-err-catalog-mismatch = Пакет не соответствует записи в каталоге: { $why }. Ничего не установлено.
 gui-pkg-err-index = Каталог повреждён: { $why }.
 gui-pkg-err-not-in-catalog = Этого плагина больше нет в каталоге.
+
+# phoecord check (задача 2.2.6)
+cmd-check = Проверить, какие сигнатуры сборки клиента находятся в его exe (только чтение)
+cli-arg-check-exe = Исполняемый файл клиента для проверки (например Discord.exe)
+cli-arg-check-signatures = Папка с таблицами сигнатур, *.toml (по умолчанию signatures)
+cli-check-err-read = не удаётся прочитать { $path }
+cli-check-err = не удаётся проверить { $exe } по сигнатурам из { $signatures }
+cli-check-build = Сборка клиента: версия { $version }, sha256 секции .text { $hash }
+cli-check-no-version = неизвестна
+cli-check-skipped = Файл сигнатур { $file } пропущен: { $why }
+cli-check-no-table = Для этой сборки нет таблицы сигнатур
+cli-check-table = Таблица сигнатур: { $key }
+cli-check-head-name = имя
+cli-check-head-status = статус
+cli-check-head-address = RVA
+cli-check-found = найдена
+cli-check-missed = не найдена
+cli-check-ambiguous = неоднозначна (совпадений: { $count })
+cli-check-bad-rip = неверное смещение rip
+cli-check-summary = Найдено { $found } из { $total }
+cli-check-failed = проверка сигнатур не пройдена

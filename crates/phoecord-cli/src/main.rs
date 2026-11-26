@@ -3,6 +3,7 @@
 //! Every user-facing string comes from the `.ftl` bundles of `phoecord-i18n` through one `Localizer`.
 
 mod catalog;
+mod check;
 mod dev;
 mod help;
 mod log;
@@ -122,6 +123,11 @@ enum Cmd {
         path: Option<std::path::PathBuf>,
     },
     Selftest,
+    Check {
+        exe: std::path::PathBuf,
+        #[arg(long, value_name = "DIR", default_value = "signatures")]
+        signatures: std::path::PathBuf,
+    },
     Paths,
     Dev {
         #[command(subcommand)]
@@ -263,6 +269,7 @@ fn dispatch(cli: Cli, paths: Paths, resolved: &Resolved, l10n: &Localizer) -> Re
         Cmd::ImportVencord { path } => import_vencord(&paths, path, l10n),
         Cmd::Dev { cmd } => dev::run(cmd, &paths, l10n),
         Cmd::Selftest => runtime()?.block_on(selftest::run(paths, l10n)),
+        Cmd::Check { exe, signatures } => check::run(&exe, &signatures, l10n),
         Cmd::Paths => {
             for (key, p) in [
                 ("cli-paths-config", paths.config.clone()),
@@ -869,6 +876,7 @@ mod tests {
             include_str!("log.rs"),
             include_str!("selftest.rs"),
             include_str!("help.rs"),
+            include_str!("check.rs"),
         ] {
             for part in src.split('"').skip(1).step_by(2) {
                 let ok = part.starts_with("cli-")
