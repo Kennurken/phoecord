@@ -44,6 +44,7 @@ enum ChannelArg {
     Stable,
     Ptb,
     Canary,
+    Phoenix,
 }
 
 impl From<ChannelArg> for phoecord_installer::Channel {
@@ -52,6 +53,7 @@ impl From<ChannelArg> for phoecord_installer::Channel {
             ChannelArg::Stable => Self::Stable,
             ChannelArg::Ptb => Self::Ptb,
             ChannelArg::Canary => Self::Canary,
+            ChannelArg::Phoenix => Self::Phoenix,
         }
     }
 }
@@ -173,6 +175,9 @@ fn describe_error(e: &anyhow::Error, l10n: &Localizer) -> String {
     if let Some(c) = e.downcast_ref::<phoecord_installer::launch::ChooseError>() {
         use phoecord_installer::launch::ChooseError;
         return match c {
+            ChooseError::NotInstalled(phoecord_installer::Channel::Phoenix) => {
+                l10n.t("cli-err-phoenix-not-installed")
+            }
             ChooseError::NotInstalled(ch) => tf(
                 l10n,
                 "cli-err-channel-not-installed",
@@ -266,6 +271,13 @@ fn dispatch(cli: Cli, paths: Paths, resolved: &Resolved, l10n: &Localizer) -> Re
             ] {
                 println!("{}", paths_line(&l10n.t(key), &p.display().to_string()));
             }
+            let extra = Config::load(&paths.config)
+                .map(|c| c.clients)
+                .unwrap_or_default();
+            println!(
+                "{}",
+                phoenix_line(l10n, &phoecord_installer::discover::discover_with(&extra))
+            );
             let source = l10n.t(&format!("lang-source-{}", resolved.source.id()));
             println!(
                 "{}",
@@ -277,6 +289,22 @@ fn dispatch(cli: Cli, paths: Paths, resolved: &Resolved, l10n: &Localizer) -> Re
             Ok(())
         }
     }
+}
+
+/// The `phoecord paths` line for Desktop Phoenix: its install folder and build, or that it was
+/// not found.
+fn phoenix_line(l10n: &Localizer, clients: &[phoecord_installer::discover::Client]) -> String {
+    let value = match clients
+        .iter()
+        .find(|c| c.channel == phoecord_installer::Channel::Phoenix)
+    {
+        Some(c) => match &c.version {
+            Some(v) => format!("{} ({v})", c.root.display()),
+            None => c.root.display().to_string(),
+        },
+        None => l10n.t("cli-paths-phoenix-missing"),
+    };
+    paths_line(&l10n.t("cli-paths-phoenix"), &value)
 }
 
 fn paths_line(label: &str, value: &str) -> String {
@@ -871,6 +899,52 @@ mod tests {
         for source in ["flag", "config", "os", "default"] {
             assert!(en.try_t(&format!("lang-source-{source}")).is_some());
         }
+    }
+
+    #[test]
+    fn paths_shows_the_phoenix_folder_or_says_it_is_missing() {
+        use phoecord_installer::Channel;
+        use phoecord_installer::discover::{Client, Source};
+        let phoenix = |version: Option<&str>| Client {
+            channel: Channel::Phoenix,
+            source: Source::Native,
+            root: "/home/u/DiscordPhoenix/app".into(),
+            exe: "/home/u/DiscordPhoenix/app/Discord.exe".into(),
+            version: version.map(str::to_string),
+        };
+        let other = Client {
+            channel: Channel::Stable,
+            ..phoenix(None)
+        };
+        let en = Localizer::new("en");
+        let line = phoenix_line(&en, &[other.clone(), phoenix(Some("0.1.0.2208"))]);
+        assert!(line.starts_with("Phoenix"), "{line}");
+        assert!(line.contains("DiscordPhoenix"), "{line}");
+        assert!(line.ends_with("(0.1.0.2208)"), "{line}");
+        // No version: the folder alone. Not installed: a message, in both languages.
+        assert!(!phoenix_line(&en, &[phoenix(None)]).contains('('));
+        for lang in ["en", "ru"] {
+            let l = Localizer::new(lang);
+            let line = phoenix_line(&l, std::slice::from_ref(&other));
+            assert!(line.contains("%LOCALAPPDATA%"), "{line}");
+            assert!(!line.contains("cli-paths"), "{line}");
+        }
+        assert!(phoenix_line(&Localizer::new("ru"), &[]).contains("не найден"));
+    }
+
+    #[test]
+    fn a_missing_phoenix_has_its_own_message_not_the_generic_one() {
+        use phoecord_installer::launch::ChooseError;
+        let en = Localizer::new("en");
+        let e = anyhow::Error::new(ChooseError::NotInstalled(
+            phoecord_installer::Channel::Phoenix,
+        ));
+        let said = describe_error(&e, &en);
+        assert!(said.contains("DiscordPhoenix"), "{said}");
+        let e = anyhow::Error::new(ChooseError::NotInstalled(
+            phoecord_installer::Channel::Canary,
+        ));
+        assert!(describe_error(&e, &en).contains("canary"));
     }
 
     #[test]

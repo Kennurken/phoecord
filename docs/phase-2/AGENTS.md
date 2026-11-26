@@ -10,9 +10,9 @@ At the start of every new session, before reading code or changing anything, ask
 
 | Developer | Who | Area | Tasks |
 |:---|:---|:---|:---|
-| **Nanda** | owner: core RE, decisions, Plugin API, security, release, review and merging | binary inspection, Plugin API, security audit, release | 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1; 2.4.3, 2.4.6, 2.4.7 |
+| **Nanda** | owner: core RE, decisions, Plugin API, security, release, review and merging | binary inspection, Plugin API, security audit, release | 2.1.1, 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1; 2.4.3, 2.4.6, 2.4.7 |
 | **ken** | proxy, transport, wire format, degradation | proxy behavior, gateway wire, proxy reach, HTTP transport hook, Gateway registry detours, outgoing gateway hook, in-process transport wiring, degradation | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.8 |
-| **buslan** | discovery, tooling, installer, signatures | Phoenix discovery, `phoecord check`, installer, signature verification, signature hot-fix | 2.1.1; 2.2.6, 2.2.8, 2.2.9, 2.2.10; 2.4.5 |
+| **buslan** | discovery, tooling, installer, signatures | Phoenix discovery, `phoecord check`, installer, signature verification, signature hot-fix | 2.2.6, 2.2.8, 2.2.9, 2.2.10; 2.4.5 |
 | **matvee** | RE support, locators, UI hooks, theme engine | recon report, Ghidra project, typed locators, theme engine, settings tab, MessageLogger UI | 2.1.9; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
 | **Contributor** | anyone, through a PR that Nanda merges | themes, context menu, optimistic delete hook, plugins, docs | 2.3.2, 2.3.5, 2.3.6; 2.4.1, 2.4.2, 2.4.4 |
 

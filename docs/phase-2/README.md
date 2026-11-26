@@ -53,7 +53,7 @@ New decisions for Phase 2 (made when the research answers them):
 | | Nanda | ken | buslan | matvee |
 |:---|:---|:---|:---|:---|
 | Area | core RE (binary, hooks), decisions, Plugin API, security, release, review and merging | proxy, transport, wire format, degradation | discovery, tooling, installer, signatures | RE support, locators, UI hooks, theme engine |
-| Tasks | 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.8 | 2.1.1; 2.2.6, 2.2.8, 2.2.9, 2.2.10; 2.4.5 | 2.1.9; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
+| Tasks | 2.1.1, 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.8 | 2.2.6, 2.2.8, 2.2.9, 2.2.10; 2.4.5 | 2.1.9; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
 
 Unassigned contributor tasks: 2.3.2 (themes), 2.3.5, 2.3.6; 2.4.1, 2.4.2, 2.4.4.
 
@@ -67,14 +67,14 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
-| **2.1.1** 🔴 | Phoenix discovery: install paths on Windows and Linux, update `discover` module, `phoecord launch --channel phoenix` | buslan | ⏳ |
+| **2.1.1** 🔴 | Phoenix discovery: install paths on Windows and Linux, update `discover` module, `phoecord launch --channel phoenix` | Nanda | ✅ Windows ([recon](../research/phoenix-recon.md)): `discover` finds `%LOCALAPPDATA%\DiscordPhoenix\app` and reads the build from `Discord.exe`; `launch --channel phoenix` starts it through the proxy and `paths` shows the folder (run on the owner's PC: Phoenix 0.1.0.2208 started, TLS refused until the CA is trusted). Plain launch only, injection is 2.1.7. Update scheme: in-place `app\`, inferred, no update observed. Linux and macOS: no Phoenix location known, nothing looked for |
 | **2.1.2** 🔴 | Binary inspection: PE headers, import table, DLL search restrictions, dependent-load flags, update scheme | Nanda | ✅ |
 | **2.1.3** 🔴 | Proxy behavior: does Phoenix honour `HTTPS_PROXY`, the system proxy, the system CA store; does it pin | ken | ⏳ in progress ([recon](../research/phoenix-recon.md)): Windows results written up (`--proxy-server` and system proxy honoured, `HTTPS_PROXY` not, trusted PhoeCord CA accepted, no pin seen on `discord.com` / the gateway); open: endpoints beyond the account screen, Linux |
 | **2.1.4** 🔴 | Gateway wire format for the proxy fallback: encoding (JSON / ETF), compression (zlib / zstd), new events and fields | ken | ⏳ in progress ([recon](../research/phoenix-recon.md)): gateway is JSON + zstd-stream and decodes with the current codec; open: fixtures and event comparison (need an account the client accepts) |
 | **2.1.5** 🔴 | Locate the HTTP transport in the binary: `ReqwestTransport::send`, the vtable, type layouts, allocator shims | Nanda | ✅ static analysis only, not run in Phoenix ([recon](../research/phoenix-recon.md) summary; addresses kept privately): `send`, the vtable, the request layout and the allocator shims found. Open for 2.2.2: the response layout |
 | **2.1.6** 🔴 | Locate the Gateway registry: per-domain tables, seed events, handler ABI, READY handling; search for outgoing send | Nanda | ✅ static analysis only, not run in Phoenix ([recon](../research/phoenix-recon.md) summary; addresses kept privately): handler ABI, the outgoing send path and `READY`'s special handling were found (as before); the registry itself turns out to have no fixed table address — it is a per-instance tree-shaped structure built at runtime, reached through the context, not a static array. That answers the task's "done when" without one |
 | **2.1.7** 🔴 | Loading path decision and prototype: sideload vs launcher; hook timing test | Nanda | ✅ both decisions live-confirmed (ruling, 2026-11-26) **with PhoeCord's own loader**, not a third-party tool: `phoecord dev inject` (launcher injection: `CreateProcess` suspended + `QueueUserAPC` + `LoadLibraryW`) ran `phoecord-loader` inside a real Phoenix process; `DllMain` and the worker fired, detected the build (RVA-free: a new `.text` sha256 for `0.1.0.2208`) and degraded cleanly (no signature table yet, UI layer off), no crash. First validated on a throwaway `cmd.exe` target, then the real client |
-| **2.1.8** 🔴 | Proxy reach decision and fallback: option 1 / 2 / 3 from `ARCHITECTURE.md`; implement the chosen path | ken | ⏳ decided: option 1, no hook (ruling, 2026-11-26). Open: `phoecord launch` for Phoenix (needs 2.1.1) and the check on a fresh install with no manual setup |
+| **2.1.8** 🔴 | Proxy reach decision and fallback: option 1 / 2 / 3 from `ARCHITECTURE.md`; implement the chosen path | ken | ⏳ decided: option 1, no hook (ruling, 2026-11-26). Open: the check on a fresh install with no manual setup (`phoecord launch --channel phoenix` exists since 2.1.1) |
 | **2.1.9** 🟡 | Recon report: `docs/research/phoenix-recon.md` with all findings, decisions for 2.2–2.4; update `ARCHITECTURE.md` | matvee | ⏳ |
 
 ### Stage 2.2. Reverse engineering and AOB signatures · `0.8`

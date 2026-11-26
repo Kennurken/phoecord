@@ -1,10 +1,17 @@
-//! Find installed Discord clients (Stable / PTB / Canary) on Windows, macOS and Linux.
+//! Find installed Discord clients (Stable / PTB / Canary) on Windows, macOS and Linux, and Desktop
+//! Phoenix on Windows.
 //!
 //! All path logic lives in [`discover_in`], which takes the folders to look in as [`Roots`], so tests
 //! run it over a fake directory tree on any OS. [`discover`] fills `Roots` from the real machine.
 //! Nothing here writes anything.
+//!
+//! Phoenix is the native client: `%LOCALAPPDATA%\DiscordPhoenix\app\Discord.exe`. Unlike Electron
+//! Discord it has no `app-x.y.z` folders and no `Update.exe`, so its version comes from the
+//! executable's own version resource ([`crate::pe_version`]). Where Phoenix lives on Linux and
+//! macOS is not known yet (nothing in `docs/research/phoenix-recon.md` was observed there), so
+//! nothing is looked for.
 
-use crate::Channel;
+use crate::{Channel, pe_version};
 use std::path::{Path, PathBuf};
 
 /// How a client is packaged.
@@ -41,7 +48,7 @@ pub struct Client {
 /// The folders discovery looks in. Every field may be empty.
 #[derive(Clone, Debug, Default)]
 pub struct Roots {
-    /// Windows: `%LOCALAPPDATA%`, holding `Discord`, `DiscordPTB`, `DiscordCanary`.
+    /// Windows: `%LOCALAPPDATA%`, holding `Discord`, `DiscordPTB`, `DiscordCanary`, `DiscordPhoenix`.
     pub local_app_data: Option<PathBuf>,
     /// macOS: folders holding `Discord.app` and friends (`/Applications`, `~/Applications`).
     pub applications: Vec<PathBuf>,
@@ -84,6 +91,7 @@ pub fn discover() -> Vec<Client> {
 pub fn discover_in(roots: &Roots) -> Vec<Client> {
     let mut found = Vec::new();
     windows(roots, &mut found);
+    phoenix(roots, &mut found);
     macos(roots, &mut found);
     linux_path(roots, &mut found);
     flatpak(roots, &mut found);
@@ -132,7 +140,7 @@ fn real_path(p: &Path) -> PathBuf {
 /// The clients in a folder the user picked, empty when it holds none. Accepted on every OS, so a
 /// folder copied from another machine is still recognised:
 /// - Windows: the `Discord` / `DiscordPTB` / `DiscordCanary` folder, one `app-x.y.z` inside it, or a
-///   folder holding them;
+///   folder holding them; for Phoenix, `DiscordPhoenix`, its `app` folder, or a folder holding it;
 /// - macOS: a `Discord*.app` bundle or a folder holding one;
 /// - Linux: the folder with the `discord` / `Discord` / `DiscordCanary` executable.
 pub fn clients_at(dir: &Path) -> Vec<Client> {
@@ -140,6 +148,10 @@ pub fn clients_at(dir: &Path) -> Vec<Client> {
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
+    // Phoenix's one folder: `DiscordPhoenix/app`.
+    if name == PHOENIX_APP && dir.parent().and_then(Path::file_name) == Some(PHOENIX_DIR.as_ref()) {
+        return phoenix_at(dir).into_iter().collect();
+    }
     // One exact Windows build: `<channel folder>/app-x.y.z`.
     if let Some(version) = name.strip_prefix("app-") {
         let channel_dir = dir.parent().and_then(Path::file_name);
@@ -236,6 +248,31 @@ fn windows(roots: &Roots, out: &mut Vec<Client>) {
                 version: Some(version),
             });
         }
+    }
+}
+
+/// Phoenix's folder in `%LOCALAPPDATA%`, the folder of the current build inside it (no version in
+/// its name: updates do not make a new folder as far as a fresh install shows) and its executable.
+const PHOENIX_DIR: &str = "DiscordPhoenix";
+const PHOENIX_APP: &str = "app";
+const PHOENIX_EXE: &str = "Discord.exe";
+
+/// The Phoenix build in `app` (`…\DiscordPhoenix\app`), if its executable is there. The version is
+/// read from the executable on every call, so a build that was updated in place shows its new number.
+fn phoenix_at(app: &Path) -> Option<Client> {
+    let exe = app.join(PHOENIX_EXE);
+    exe.is_file().then(|| Client {
+        channel: Channel::Phoenix,
+        source: Source::Native,
+        root: app.to_path_buf(),
+        version: pe_version::file_version(&exe),
+        exe,
+    })
+}
+
+fn phoenix(roots: &Roots, out: &mut Vec<Client>) {
+    if let Some(local) = &roots.local_app_data {
+        out.extend(phoenix_at(&local.join(PHOENIX_DIR).join(PHOENIX_APP)));
     }
 }
 
@@ -534,6 +571,106 @@ mod tests {
         touch(&other.join("app-1.0.1361/DiscordCanary.exe"));
         assert!(!is_listed(&got, &clients_at(&other)[0]));
         assert_eq!(merge(got, &[other]).len(), 2);
+    }
+
+    /// `<local>/DiscordPhoenix/app/Discord.exe`, a PE with `version` as its file version.
+    fn phoenix_exe(local: &Path, version: Option<(u16, u16, u16, u16)>) -> PathBuf {
+        let exe = local.join("DiscordPhoenix/app/Discord.exe");
+        fs::create_dir_all(exe.parent().unwrap()).unwrap();
+        fs::write(&exe, crate::pe_version::fake_pe(version)).unwrap();
+        exe
+    }
+
+    fn roots(local: &Path) -> Roots {
+        Roots {
+            local_app_data: Some(local.to_path_buf()),
+            ..Roots::default()
+        }
+    }
+
+    #[test]
+    fn phoenix_is_found_with_the_version_of_its_executable() {
+        let t = tempfile::tempdir().unwrap();
+        let exe = phoenix_exe(t.path(), Some((0, 1, 0, 2208)));
+        // Electron Discord next to it is unaffected.
+        touch(&t.path().join("Discord/app-1.0.9270/Discord.exe"));
+        let got = discover_in(&roots(t.path()));
+        assert_eq!(got.len(), 2);
+        let p = got.iter().find(|c| c.channel == Channel::Phoenix).unwrap();
+        assert_eq!(p.version.as_deref(), Some("0.1.0.2208"));
+        assert_eq!(p.source, Source::Native);
+        assert_eq!(p.exe, exe);
+        assert_eq!(p.root, exe.parent().unwrap());
+        let s = got.iter().find(|c| c.channel == Channel::Stable).unwrap();
+        assert_eq!(s.version.as_deref(), Some("1.0.9270"));
+    }
+
+    #[test]
+    fn phoenix_updated_in_place_shows_its_new_version() {
+        let t = tempfile::tempdir().unwrap();
+        phoenix_exe(t.path(), Some((0, 1, 0, 2208)));
+        assert_eq!(
+            discover_in(&roots(t.path()))[0].version.as_deref(),
+            Some("0.1.0.2208")
+        );
+        // The same folder, the executable overwritten by the next build.
+        phoenix_exe(t.path(), Some((0, 1, 0, 2300)));
+        let got = discover_in(&roots(t.path()));
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].version.as_deref(), Some("0.1.0.2300"));
+    }
+
+    #[test]
+    fn phoenix_without_a_readable_version_is_still_found() {
+        let t = tempfile::tempdir().unwrap();
+        // A PE with no version resource, then something that is not a PE at all.
+        phoenix_exe(t.path(), None);
+        assert_eq!(discover_in(&roots(t.path()))[0].version, None);
+        touch(&t.path().join("DiscordPhoenix/app/Discord.exe"));
+        let got = discover_in(&roots(t.path()));
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].channel, Channel::Phoenix);
+        assert_eq!(got[0].version, None);
+    }
+
+    #[test]
+    fn a_phoenix_folder_without_its_executable_is_not_a_client() {
+        let t = tempfile::tempdir().unwrap();
+        // Data and logs of an uninstalled or half-installed Phoenix, and the wrong layout.
+        touch(&t.path().join("DiscordPhoenix/logs/libdiscord.log"));
+        touch(&t.path().join("DiscordPhoenix/app/DiscordPhoenixSetup.exe"));
+        touch(&t.path().join("DiscordPhoenix/Discord.exe"));
+        fs::create_dir_all(t.path().join("DiscordPhoenix/app/Discord.exe")).unwrap();
+        assert!(discover_in(&roots(t.path())).is_empty());
+        // Nothing is looked for outside `%LOCALAPPDATA%` (Linux, macOS: location not known yet).
+        let p = t.path().to_path_buf();
+        phoenix_exe(&p.join("elsewhere"), Some((0, 1, 0, 1)));
+        let got = discover_in(&Roots {
+            applications: vec![p.join("elsewhere")],
+            path_dirs: vec![p.join("elsewhere")],
+            flatpak_roots: vec![p.join("elsewhere")],
+            snap_roots: vec![p.join("elsewhere")],
+            ..Roots::default()
+        });
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn a_picked_phoenix_folder_finds_its_client() {
+        let t = tempfile::tempdir().unwrap();
+        let exe = phoenix_exe(&t.path().join("Games"), Some((0, 1, 0, 2208)));
+        let app = exe.parent().unwrap();
+        let phoenix = app.parent().unwrap();
+        for dir in [app, phoenix, phoenix.parent().unwrap()] {
+            let c = clients_at(dir);
+            assert_eq!(c.len(), 1, "{}", dir.display());
+            assert_eq!(c[0].channel, Channel::Phoenix);
+            assert_eq!(c[0].exe, exe);
+            assert_eq!(c[0].version.as_deref(), Some("0.1.0.2208"));
+        }
+        // An `app` folder that is not Phoenix's holds nothing.
+        touch(&t.path().join("Other/app/Discord.exe"));
+        assert!(clients_at(&t.path().join("Other/app")).is_empty());
     }
 
     #[test]

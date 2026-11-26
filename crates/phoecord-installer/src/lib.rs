@@ -11,7 +11,8 @@ pub enum Channel {
     Stable,
     Ptb,
     Canary,
-    /// The native Rust/GPUI client. Install paths unknown until it ships.
+    /// The native Rust/GPUI client, `%LOCALAPPDATA%\DiscordPhoenix\app` on Windows (found by
+    /// [`discover`]; Linux and macOS locations are not known yet).
     Phoenix,
 }
 
@@ -33,6 +34,7 @@ pub mod install;
 pub mod launch;
 pub mod loader;
 pub mod log;
+pub mod pe_version;
 pub mod shortcut;
 pub mod system;
 pub mod terms;
