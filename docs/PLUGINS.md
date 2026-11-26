@@ -61,7 +61,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | CustomIdle | Change or disable auto-idle | 🌐 Network | done (0 or over 10 minutes; `/phoecord exitidle`) |
 | CustomRPC | Fully custom Rich Presence | 🌐 Network | done — settings in `config.toml`, `/phoecord rpc` / 2 (settings page, preview) |
 | Dearrow | Less clickbait YouTube embed titles and thumbnails | 🌐 Network | done: titles replaced in new and loaded messages; thumbnails behind `replaceElements = 0` (off by default, unverified on a live client: the client's CSP may block them); the toggle button is Phase 2 |
-| Decor | Custom avatar decorations | 🌐 + 🎨 | 1.2.14, blocked: waits for a Phase 2 UI hook (the client loads the picture from the Discord CDN by hash) *(2)* |
+| Decor | Custom avatar decorations | 🌐 + 🎨 | 1.2.14, blocked: waits for the CDN picture hook, task 2.3.8 (the client loads the picture from the Discord CDN by hash) *(2)* |
 | DevCompanion | Vencord developer companion | ⛔ N/A | Vencord dev tool |
 | DirectFileDownload | Download files directly | 🎨 UI | 2 |
 | DisableCallIdle | Never kicked from idle DM calls | 🎨 UI | 2 |
@@ -176,7 +176,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | UnsuppressEmbeds | Unsuppress embeds | 🌐 + 🎨 | done: data — `/phoecord unsuppress` / 2 (message menu item) |
 | UserMessagesPronouns | Pronouns in chat | 🎨 UI | 2 |
 | UserVoiceShow | Show who is in voice | 🌐 + 🎨 | done: data — `/phoecord voice` / 2 (badge, profile section) |
-| USRBG | Community banners without Nitro | 🌐 Network | 1.2.14, blocked: waits for a Phase 2 UI hook (the client loads the picture from the Discord CDN by hash) *(2)* |
+| USRBG | Community banners without Nitro | 🌐 Network | 1.2.14, blocked: waits for the CDN picture hook, task 2.3.8 (the client loads the picture from the Discord CDN by hash) *(2)* |
 | ValidReply | Fix 'message could not be loaded' in replies | 🌐 Network | done: missing `referenced_message` filled from the page or one lookup |
 | ValidUser | Fix @unknown-user mentions | 🌐 Network | done: unknown mentioned users looked up (`GET /users/{id}`) and added to the message |
 | VcNarrator | Announce voice joins and leaves | 🌐 + 🎨 | done: data — desktop notifications, no speech / 2 (TTS, test button) |

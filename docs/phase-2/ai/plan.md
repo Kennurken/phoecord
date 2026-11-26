@@ -326,6 +326,18 @@ Was task 1.5.9. On Windows with Discord Canary, from the next release or a `main
 
 **Done when:** all three scenarios pass without crashes. Results documented.
 
+### 2.3.8. CDN picture hook for USRBG and Decor (buslan)
+
+Was blocked since Phase 1 (1.2.14, ruling 2026-11-26: a UI hook, not CDN interception — the proxy only intercepts the API and Gateway hosts, `docs/CODE_MAP.md`'s `intercept` key; adding every CDN host there would mean decrypting all image/attachment traffic for every install, not just these two plugins).
+
+**Files:** `crates/phoecord-loader/src/hooks/cdn.rs` (new), `crates/phoecord-plugins/src/usrbg.rs`, `crates/phoecord-plugins/src/decor.rs` (new, off by default)
+
+- Find, by the same method as 2.2.1/2.2.5 (typed locator, not a guess), the native function that turns a user id and an avatar/banner/decoration hash into the CDN URL or the loaded image for the client's own UI (not the REST client `send` that 2.2.2 already hooks — this is the asset-loading path GPUI calls directly).
+- Hook it: USRBG (banner) and Decor (avatar decoration) data parts already fetch their own picture through `Host::fetch` (Phase 1, network only so far); this hook has to let that fetched image (or its URL) reach the native loader in place of the real CDN one, for exactly these two plugins' hashes — not a blanket substitution.
+- Panic guard, same as every other hook (`docs/phase-2/AGENTS.md`, "Hook targets are checked, not assumed"): a locator miss turns this feature off, nothing else.
+
+**Done when:** a banner set by USRBG, and a decoration set by Decor, show on Phoenix without the real Nitro entitlement; no change to how any other picture loads.
+
 ## Stage 2.4. Release v1.0
 
 ### 2.4.1. Top 10 plugins on Phoenix (contributor)
