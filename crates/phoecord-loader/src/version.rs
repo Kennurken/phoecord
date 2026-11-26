@@ -79,6 +79,35 @@ pub fn is_child_process(command_line: &str) -> bool {
     command_line.contains("--type=")
 }
 
+/// Which Discord desktop client the loader runs in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClientKind {
+    /// The native Rust client (Desktop Phoenix): the in-process hooks of Phase 2 apply.
+    Phoenix,
+    /// The Electron client (Stable, PTB, Canary): no Phoenix hook applies, the client must run as
+    /// it would without the loader.
+    Electron,
+}
+
+impl ClientKind {
+    /// Tells the clients apart by where the executable lives: Phoenix always installs into one
+    /// fixed folder, `%LOCALAPPDATA%\DiscordPhoenix\app\` (2.1.1), and no Electron client uses a
+    /// folder of that name. The match is on a whole path component, case-insensitive, with either
+    /// separator. `file_version` is not used to decide today (both clients carry one); it is taken
+    /// so a later rule can use it without changing callers.
+    pub fn of(exe_path: &str, file_version: Option<&str>) -> ClientKind {
+        let _ = file_version;
+        let phoenix = exe_path
+            .split(['\\', '/'])
+            .any(|part| part.eq_ignore_ascii_case("DiscordPhoenix"));
+        if phoenix {
+            ClientKind::Phoenix
+        } else {
+            ClientKind::Electron
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,5 +154,36 @@ mod tests {
     #[test]
     fn not_a_pe() {
         assert!(detect(b"nope").is_err());
+    }
+
+    #[test]
+    fn phoenix_is_told_apart_from_electron_by_its_folder() {
+        let phoenix = r"C:\Users\a\AppData\Local\DiscordPhoenix\app\Discord.exe";
+        assert_eq!(
+            ClientKind::of(phoenix, Some("0.1.0.2208")),
+            ClientKind::Phoenix
+        );
+        assert_eq!(
+            ClientKind::of(&phoenix.to_lowercase(), None),
+            ClientKind::Phoenix
+        );
+        assert_eq!(
+            ClientKind::of("/home/a/.local/share/DiscordPhoenix/app/Discord", None),
+            ClientKind::Phoenix
+        );
+        for electron in [
+            r"C:\Users\a\AppData\Local\Discord\app-1.0.9200\Discord.exe",
+            r"C:\Users\a\AppData\Local\DiscordCanary\app-1.0.1364\DiscordCanary.exe",
+            r"C:\Users\a\AppData\Local\DiscordPTB\app-1.0.1200\DiscordPTB.exe",
+            // A component that only contains the name is not the Phoenix folder.
+            r"C:\x\DiscordPhoenixBackup\Discord.exe",
+            "",
+        ] {
+            assert_eq!(
+                ClientKind::of(electron, Some("1.0.9200.0")),
+                ClientKind::Electron,
+                "{electron}"
+            );
+        }
     }
 }

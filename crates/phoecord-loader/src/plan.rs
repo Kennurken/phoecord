@@ -466,4 +466,21 @@ mod tests {
             &Route::Proxy(Reason::Needs(EntryPoint::Dispatch))
         );
     }
+
+    #[test]
+    fn in_process_only_when_every_entry_point_is() {
+        assert!(Plan::resolve(without(&[])).all_in_process());
+        // A missing UI locator does not change the transport.
+        assert!(Plan::resolve(without(&[Target::Ui(UiFeature::Theme)])).all_in_process());
+        assert!(!Plan::unknown_build().all_in_process());
+        for p in EntryPoint::ALL {
+            let plan = Plan::resolve(without(match p {
+                EntryPoint::Request => &[Target::Net(EntryPoint::Request)],
+                EntryPoint::Response => &[Target::Net(EntryPoint::Response)],
+                EntryPoint::Dispatch => &[Target::Net(EntryPoint::Dispatch)],
+                EntryPoint::Send => &[Target::Net(EntryPoint::Send)],
+            }));
+            assert!(!plan.all_in_process(), "{}", p.name());
+        }
+    }
 }
