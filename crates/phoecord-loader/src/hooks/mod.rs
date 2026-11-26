@@ -60,6 +60,10 @@ impl HookRuntime {
         &self.plan
     }
 
+    pub fn engine(&self) -> &Arc<Engine> {
+        &self.engine
+    }
+
     /// Entry of the `send` hook: a REST request about to leave the client.
     pub fn request(&self, method: &str, url: &str, body: Option<&[u8]>) -> HttpOutcome {
         if !self.plan.requests() {
@@ -152,6 +156,7 @@ mod tests {
             (0x30, 0xA3),
             (0x40, 0xA4),
             (0x50, 0xA5),
+            (0x58, 0xA6),
         ] {
             t[i] = b;
         }
@@ -188,6 +193,7 @@ mod tests {
         rust_alloc = { aob = "A3" }
         rust_dealloc = { aob = "A4" }
         gateway_registry = { aob = "A5" }
+        gateway_send = { aob = "A6" }
     "#;
 
     fn runtime_with(plan: HookPlan) -> (HookRuntime, Arc<Mutex<Vec<String>>>) {
@@ -211,6 +217,7 @@ mod tests {
             (TEXT_RVA + 0x30, TEXT_RVA + 0x40)
         );
         assert_eq!(p.registry.as_ref().unwrap().rva, TEXT_RVA + 0x50);
+        assert_eq!(p.gateway_send.as_ref().unwrap().rva, TEXT_RVA + 0x58);
         assert!(p.failures().is_empty());
     }
 
