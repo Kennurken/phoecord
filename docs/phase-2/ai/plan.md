@@ -373,7 +373,7 @@ Was the open part of task 1.2.15 (moved when Phase 1 closed, ruling 2026-11-26).
 
 ## Stage 2.4. Release v1.0
 
-### 2.4.1. Top 10 plugins on Phoenix (contributor)
+### 2.4.1. Top 10 plugins on Phoenix (ken)
 
 **Files:** `crates/phoecord-plugins/src/`
 
@@ -383,7 +383,7 @@ Was the open part of task 1.2.15 (moved when Phase 1 closed, ruling 2026-11-26).
 
 **Done when:** all 10 plugins work on Phoenix with both network and UI features.
 
-### 2.4.2. Remaining v1.0 scope (contributor)
+### 2.4.2. Remaining v1.0 scope (Nanda)
 
 **Files:** `crates/phoecord-plugins/src/`
 
@@ -404,7 +404,7 @@ Was the open part of task 1.2.15 (moved when Phase 1 closed, ruling 2026-11-26).
 
 **Done when:** `API_VERSION = 1` is set; no breaking changes are planned; the SDK examples compile.
 
-### 2.4.4. Developer docs (contributor)
+### 2.4.4. Developer docs (Nanda)
 
 **Files:** `docs/plugins/`
 
@@ -416,7 +416,9 @@ Was the open part of task 1.2.15 (moved when Phase 1 closed, ruling 2026-11-26).
 
 **Done when:** a new developer can follow the quick start to build, test and publish a plugin.
 
-### 2.4.5. Installer 1.0 (buslan)
+### 2.4.5. Installer 1.0 (Nanda)
+
+Moved from buslan (ruling, 2026-11-26). The Phoenix part (loader injection, the transport choice, the Phoenix shortcut) is 2.2.8, which stays with buslan; 2.4.5 packages it.
 
 **Files:** `crates/phoecord-installer/`, `crates/phoecord-installer-gui/`
 
@@ -453,6 +455,8 @@ Was the open part of task 1.2.15 (moved when Phase 1 closed, ruling 2026-11-26).
 **Done when:** `v1.0.0` is tagged, release binaries are published, and `CHANGELOG.md` and `README.md` are updated.
 
 ### 2.4.8. macOS check of the 0.5.1 fixes (ken)
+
+> **Closed without the check** (owner's ruling, 2026-11-26). The 0.5.1 macOS fixes stay unverified on a real Mac.
 
 Was task 1.4.10. On a real Mac (Apple Silicon, macOS 13+), with the `.dmg` of the next release or of the `Package` workflow: the app opens with "unidentified developer" and Open Anyway (not "damaged"); install from the window; "Open Discord" starts Discord, its updater finishes, and `~/Library/Application Support/phoecord/launch.log` has no `Operation not permitted` or `installer.db` line; the client works through the proxy; Uninstall in the window, then removing the app, leaves no CA in the keychain and no launchd entry.
 

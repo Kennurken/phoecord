@@ -6,7 +6,7 @@ The work plan from Phoenix Canary to v1.0, written 25.11.2026 at Nanda's request
 
 ## Status
 
-26.11.2026. Done: 2.1.1, 2.1.2, 2.1.5–2.1.7, 2.1.9, 2.2.1, 2.2.11 and 2.4.3. The Plugin API is frozen at v1 (2.4.3, PR #114): `#[non_exhaustive]` types with `new` constructors, `ChainHost`, UI events as `Event::Ui` (one generic WIT case), `Manifest.menu`, and `wit/frozen/` guarding the WIT; WASM packages built for 0.5 must be rebuilt. The recon report is complete (2.1.9, PR #117). Part 1 of the signature hot-fix is in `main` (2.2.10, PR #116: `phoecord signatures install` / `list`). 2.2.8 is fully specified ahead of time: the transport is chosen per launch, in-process with no proxy when every signature is found, the check cached by the client's `.text` hash and the signature folder's hash (rulings, 2026-11-26). ken and matveee have access to the private recon notes (2.2.2/2.2.3 and 2.2.5). In progress: ken on 2.1.3, 2.1.4, 2.1.8 and the real detours of 2.2.2/2.2.3 (2.2.7 waits for them); matvee on 2.2.5 part 2 and 2.3.1; buslan on 2.2.6 and 2.2.10 part 2, with 2.2.8 next. Next for Nanda: 2.4.6 (security audit, once the detours land) and 2.4.7 (release). Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` should become one type (2.2.2 with 2.2.5). Phase 1 is closed (26.11.2026): 1.1.9 is now 2.1.10, the USRBG and Decor part of 1.2.14 is 2.3.8, and FixImagesQuality's default mode from 1.2.15 is 2.3.9.
+26.11.2026. Done: 2.1.1, 2.1.2, 2.1.5–2.1.7, 2.1.9, 2.2.1, 2.2.11 and 2.4.3. The Plugin API is frozen at v1 (2.4.3, PR #114): `#[non_exhaustive]` types with `new` constructors, `ChainHost`, UI events as `Event::Ui` (one generic WIT case), `Manifest.menu`, and `wit/frozen/` guarding the WIT; WASM packages built for 0.5 must be rebuilt. The recon report is complete (2.1.9, PR #117). Part 1 of the signature hot-fix is in `main` (2.2.10, PR #116: `phoecord signatures install` / `list`). 2.2.8 is fully specified ahead of time: the transport is chosen per launch, in-process with no proxy when every signature is found, the check cached by the client's `.text` hash and the signature folder's hash (rulings, 2026-11-26). ken and matveee have access to the private recon notes (2.2.2/2.2.3 and 2.2.5). In progress: ken on 2.1.3, 2.1.4, 2.1.8 and the real detours of 2.2.2/2.2.3 (2.2.7 waits for them); matvee on 2.2.5 part 2 and 2.3.1; buslan on 2.2.6 and 2.2.10 part 2, with 2.2.8 next. Next for Nanda: 2.4.5 (installer 1.0, started), 2.4.4 (developer docs), 2.4.2 (the rest of the v1.0 scope), then 2.4.6 (security audit, once the detours land) and 2.4.7 (release). ken also has 2.4.1 (top 10 plugins on Phoenix); 2.4.8 is closed without the macOS check. Follow-up: `hooks::found::Found<T>` and `locators::Found<T>` should become one type (2.2.2 with 2.2.5). Phase 1 is closed (26.11.2026): 1.1.9 is now 2.1.10, the USRBG and Decor part of 1.2.14 is 2.3.8, and FixImagesQuality's default mode from 1.2.15 is 2.3.9.
 
 ## What we get
 
@@ -53,9 +53,9 @@ New decisions for Phase 2 (made when the research answers them):
 | | Nanda | ken | buslan | matvee |
 |:---|:---|:---|:---|:---|
 | Area | core RE (binary, hooks), decisions, Plugin API, security, release, review and merging | proxy, transport, wire format, degradation | discovery, tooling, installer, signatures | RE support, locators, UI hooks, theme engine |
-| Tasks | 2.1.1, 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1; 2.4.3, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.8 | 2.2.6, 2.2.8, 2.2.9, 2.2.10, 2.3.8, 2.3.9; 2.4.5 | 2.1.9, 2.1.10; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
+| Tasks | 2.1.1, 2.1.2, 2.1.5, 2.1.6, 2.1.7; 2.2.1; 2.4.2, 2.4.3, 2.4.4, 2.4.5, 2.4.6, 2.4.7 | 2.1.3, 2.1.4, 2.1.8; 2.2.2, 2.2.3, 2.2.4, 2.2.7, 2.2.11; 2.3.7; 2.4.1, 2.4.8 | 2.2.6, 2.2.8, 2.2.9, 2.2.10, 2.3.8, 2.3.9 | 2.1.9, 2.1.10; 2.2.5; 2.3.1, 2.3.3, 2.3.4 |
 
-Unassigned contributor tasks: 2.3.2 (themes), 2.3.5, 2.3.6; 2.4.1, 2.4.2, 2.4.4.
+Unassigned contributor tasks: 2.3.2 (themes), 2.3.5, 2.3.6.
 
 Plugin API changes (`phoecord-core::plugin`) are made by Nanda only.
 
@@ -112,14 +112,14 @@ Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is th
 
 | Task | What | Who | Status |
 |:--|:--|:--|:--|
-| **2.4.1** 🔴 | Top 10 plugins on Phoenix (network + UI parts): MessageLogger, FakeNitro, NoTrack, ClearURLs, SilentTyping, ShowHiddenChannels, Translate, PlatformIndicators, PermissionsViewer, ViewIcons | — | ⏳ |
-| **2.4.2** 🔴 | Remaining v1.0 scope: every 🌐 and 🌐 + 🎨 plugin complete, the 30 most-used 🎨 plugins, all panels | — | ⏳ |
+| **2.4.1** 🔴 | Top 10 plugins on Phoenix (network + UI parts): MessageLogger, FakeNitro, NoTrack, ClearURLs, SilentTyping, ShowHiddenChannels, Translate, PlatformIndicators, PermissionsViewer, ViewIcons | ken | ⏳ |
+| **2.4.2** 🔴 | Remaining v1.0 scope: every 🌐 and 🌐 + 🎨 plugin complete, the 30 most-used 🎨 plugins, all panels | Nanda | ⏳ |
 | **2.4.3** 🔴 | Plugin API stabilization: `API_VERSION = 1` frozen, changes minor-only; additive UI events | Nanda | ✅ merged, PR #114: v1 frozen with the owner's rulings (Q1–Q8, 2026-11-26): `#[non_exhaustive]` types with `new` constructors, `ChainHost`, `Event::Ui(UiEvent::MenuAction)` + `Manifest.menu` / `[[menu]]`, `LOCAL_DELETE_EVENT`, WIT `ui(ui-event { name, payload })`; `wit/frozen/` and `tests/frozen_wit.rs` guard the WIT. WASM packages built for 0.5 must be rebuilt |
-| **2.4.4** 🔴 | Developer docs `docs/plugins/`: quick start (Rust + TS), events, rights, publishing, localization | — | ⏳ |
-| **2.4.5** 🔴 | Installer 1.0 for Windows; macOS and Linux with the network layer | buslan | ⏳ |
+| **2.4.4** 🔴 | Developer docs `docs/plugins/`: quick start (Rust + TS), events, rights, publishing, localization | Nanda | ⏳ |
+| **2.4.5** 🔴 | Installer 1.0 for Windows; macOS and Linux with the network layer | Nanda | 🚧 moved from buslan (ruling, 2026-11-26); started |
 | **2.4.6** 🔴 | Security audit of the CA, the proxy and the loader | Nanda | ⏳ |
 | **2.4.7** 🔴 | v1.0 release: binaries, `SHA256SUMS`, `docs/CHANGELOG.md` | Nanda | ⏳ |
-| **2.4.8** 🔴 | macOS check of the 0.5.1 fixes on a real Mac (was 1.4.10): no "damaged", Discord starts and updates through PhoeCord, clean uninstall | ken | ⏳ |
+| **2.4.8** 🔴 | macOS check of the 0.5.1 fixes on a real Mac (was 1.4.10): no "damaged", Discord starts and updates through PhoeCord, clean uninstall | ken | ⛔ closed without the check (owner's ruling, 2026-11-26) |
 
 Order: 2.1 → 2.2 → 2.3 → 2.4. Stage 2.1 must finish before 2.2 starts (the loading path, proxy reach and binary findings feed every hook). Stages 2.2 and 2.3 can overlap once the first hooks land (2.2.2–2.2.3). Stage 2.4 starts after 2.3.7 (degradation verified).
 
