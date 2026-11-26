@@ -83,6 +83,36 @@ pub fn send(engine: &Engine, frame: &[u8]) -> Result<GatewayOutcome, String> {
     })
 }
 
+/// An incoming frame's parts when it is a dispatch (`op` 0): event name, sequence number and `d`
+/// as JSON text. `None` for every other opcode and for text that is not a frame.
+pub fn split_dispatch(frame: &[u8]) -> Option<(String, Option<i64>, Vec<u8>)> {
+    let v: serde_json::Value = serde_json::from_slice(frame).ok()?;
+    if v.get("op")?.as_i64()? != 0 {
+        return None;
+    }
+    let name = v.get("t")?.as_str()?.to_string();
+    let s = v.get("s").and_then(serde_json::Value::as_i64);
+    let d = serde_json::to_vec(v.get("d").unwrap_or(&serde_json::Value::Null)).ok()?;
+    Some((name, s, d))
+}
+
+/// The frame text of a dispatch with a new `d`.
+pub fn rebuild(name: &str, s: Option<i64>, d: &[u8]) -> Result<Vec<u8>, String> {
+    let d: serde_json::Value =
+        serde_json::from_slice(d).map_err(|e| format!("{name}: new data is not JSON ({e})"))?;
+    serde_json::to_vec(&serde_json::json!({ "t": name, "s": s, "op": 0, "d": d }))
+        .map_err(|e| format!("{name}: cannot encode the frame: {e}"))
+}
+
+/// What a dropped dispatch becomes: an event name the client does not know, with the same
+/// sequence number, so the session's `s` still advances (a resume would otherwise replay it).
+pub const DROPPED_EVENT: &str = "PHOECORD_DROPPED";
+
+pub fn dropped(s: Option<i64>) -> Vec<u8> {
+    serde_json::to_vec(&serde_json::json!({ "t": DROPPED_EVENT, "s": s, "op": 0, "d": {} }))
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -127,5 +157,34 @@ mod tests {
     fn a_frame_that_is_not_json_is_an_error() {
         let e = engine("");
         assert!(send(&e, b"not json").is_err());
+    }
+
+    #[test]
+    fn dispatch_frames_split_and_rebuild() {
+        let f = br#"{"t":"MESSAGE_CREATE","s":42,"op":0,"d":{"content":"hi"}}"#;
+        let (name, s, d) = split_dispatch(f).unwrap();
+        assert_eq!((name.as_str(), s), ("MESSAGE_CREATE", Some(42)));
+        assert_eq!(d, br#"{"content":"hi"}"#);
+        let back: serde_json::Value =
+            serde_json::from_slice(&rebuild(&name, s, br#"{"content":"bye"}"#).unwrap()).unwrap();
+        assert_eq!(back["t"], "MESSAGE_CREATE");
+        assert_eq!(back["s"], 42);
+        assert_eq!(back["op"], 0);
+        assert_eq!(back["d"]["content"], "bye");
+    }
+
+    #[test]
+    fn only_dispatches_split() {
+        assert!(split_dispatch(br#"{"t":null,"s":null,"op":11,"d":null}"#).is_none());
+        assert!(split_dispatch(b"not json").is_none());
+    }
+
+    #[test]
+    fn a_dropped_dispatch_keeps_its_sequence_number() {
+        let v: serde_json::Value = serde_json::from_slice(&dropped(Some(7))).unwrap();
+        assert_eq!(
+            (v["t"].as_str(), v["s"].as_i64(), v["op"].as_i64()),
+            (Some(DROPPED_EVENT), Some(7), Some(0))
+        );
     }
 }

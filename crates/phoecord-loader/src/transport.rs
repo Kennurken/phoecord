@@ -290,6 +290,11 @@ impl InProcessTransport {
         }
     }
 
+    /// Whether any plugin reads the gateway; the inflate hook skips parsing frames otherwise.
+    pub fn wants_gateway(&self) -> bool {
+        self.active && self.hooks.engine().wants_gateway()
+    }
+
     /// One outgoing gateway frame (JSON text) from the encoder hook. What plugins queued is
     /// delivered like a dispatch's effects.
     pub fn send_frame(&self, frame: &[u8]) -> GatewayAction {
@@ -332,6 +337,22 @@ impl crate::hooks::detour::SendSink for SendSink {
 
     fn response(&self, method: &str, url: &str, status: u16, body: &[u8]) -> HttpAction {
         self.0.response(method, url, status, body)
+    }
+}
+
+/// What the inflate hook calls (2.2.3): the transport behind a shared handle.
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub struct DecodeSink(pub Arc<InProcessTransport>);
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+impl crate::hooks::gateway_recv::DispatchSink for DecodeSink {
+    fn wants(&self) -> bool {
+        self.0.wants_gateway()
+    }
+
+    fn dispatch(&self, name: &str, d: &[u8]) -> (GatewayAction, usize) {
+        let out = self.0.dispatch(name, d);
+        (out.action, out.before.len() + out.after.len())
     }
 }
 
@@ -431,7 +452,7 @@ fn tick(delivery: &Delivery, stop: &AtomicBool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hooks::found::{Found, GatewayRegistry, GatewaySend, HttpPoll, HttpSend};
+    use crate::hooks::found::{Found, GatewayInflate, GatewaySend, HttpPoll, HttpSend};
 
     use phoecord_core::{Event, EventKind, Host, Manifest, Plugin, TIMER_EVENT, Verdict};
     use phoecord_plugin_runtime::Chain;
@@ -533,9 +554,9 @@ mod tests {
             });
         }
         if registry {
-            plan.registry = Ok(Found {
+            plan.inflate = Ok(Found {
                 rva: 3,
-                target: GatewayRegistry,
+                target: GatewayInflate,
             });
         }
         plan

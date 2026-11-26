@@ -77,7 +77,7 @@ mod windows {
         found::HookPlan,
         hook,
         hooks::guard::LogFn,
-        transport::{Clock, EncodeSink, InProcessTransport, SendSink},
+        transport::{Clock, DecodeSink, EncodeSink, InProcessTransport, SendSink},
     };
     use phoecord_transport::config::Paths;
     use std::{ops::Range, sync::Arc, sync::OnceLock};
@@ -114,6 +114,7 @@ mod windows {
         let poll_vtable = found.poll.as_ref().ok().map(|f| abs(f.rva));
         let bytes_static = found.bytes_static.as_ref().ok().map(|f| abs(f.rva));
         let gateway_send = found.gateway_send.as_ref().ok().map(|f| abs(f.rva));
+        let inflate = found.inflate.as_ref().ok().map(|f| abs(f.rva));
         let allocator = found
             .allocator
             .as_ref()
@@ -177,12 +178,24 @@ mod windows {
                 },
                 None => Ok(()),
             })
+            .and_then(|()| match inflate {
+                // SAFETY: the unique match of the `gateway_inflate` locator inside this image.
+                Some(target) => unsafe {
+                    crate::hooks::gateway_recv::prepare(
+                        &mut set,
+                        target,
+                        Box::new(DecodeSink(transport.clone())),
+                        log.clone(),
+                    )
+                },
+                None => Ok(()),
+            })
             .and_then(|()| set.install_all())
             .and_then(|()| crate::hooks::detour::install_poll())
         };
         match installed {
             Ok(()) => log(
-                "in-process: send detour, poll swap and gateway encoder detour installed; plugins see REST and outgoing gateway frames in-process",
+                "in-process: send, poll, gateway inflate and gateway encoder hooks installed; plugins see REST and the gateway in-process",
             ),
             Err(e) => {
                 log(&format!("in-process: send detour not installed ({e})"));

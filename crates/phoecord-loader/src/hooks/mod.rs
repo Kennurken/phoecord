@@ -1,5 +1,5 @@
 //! In-process hooks of the loader and their bridge to `phoecord-transport::Engine`
-//! (tasks 2.2.2 HTTP transport, 2.2.3 Gateway registry).
+//! (tasks 2.2.2 HTTP transport, 2.2.3 Gateway dispatch, 2.2.4 Gateway send).
 //!
 //! * [`found`]: typed locators (`Found<T>`) over the `signatures/*.toml` entries; each one that
 //!   fails turns off only its own hook.
@@ -19,6 +19,8 @@
 pub mod abi;
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub mod detour;
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub mod gateway_recv;
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub mod gateway_send;
 pub use crate::found;
@@ -101,7 +103,7 @@ impl HookRuntime {
         })
     }
 
-    /// Entry of a registry handler detour: one decoded dispatch event.
+    /// Entry of the incoming Gateway hook: one dispatch event, name and `d` as JSON (2.2.3).
     pub fn dispatch(&self, name: &str, data: &[u8]) -> GatewayOutcome {
         if !self.plan.gateway() {
             return pass_gateway();
@@ -174,6 +176,7 @@ mod tests {
             (0x50, 0xA5),
             (0x58, 0xA6),
             (0x68, 0xA7),
+            (0x78, 0xA8),
         ] {
             t[i] = b;
         }
@@ -212,6 +215,7 @@ mod tests {
         gateway_registry = { aob = "A5" }
         gateway_send = { aob = "A6" }
         bytes_static_vtable = { aob = "A7" }
+        gateway_inflate = { aob = "A8" }
     "#;
 
     fn runtime_with(plan: HookPlan) -> (HookRuntime, Arc<Mutex<Vec<String>>>) {

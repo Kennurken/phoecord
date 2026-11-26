@@ -154,7 +154,7 @@ impl Plan {
         Plan::resolve(|target| match target {
             Target::Net(EntryPoint::Request) => probe(&hooks.send),
             Target::Net(EntryPoint::Response) => probe(&hooks.poll),
-            Target::Net(EntryPoint::Dispatch) => probe(&hooks.registry),
+            Target::Net(EntryPoint::Dispatch) => probe(&hooks.inflate),
             Target::Net(EntryPoint::Send) => probe(&hooks.gateway_send),
             Target::Ui(_) => Err("no locator".into()),
         })
@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn todays_hook_locators_never_give_a_whole_launch() {
         // Every locator of `HookPlan` resolves, but the gateway send has none yet (2.2.4).
-        use crate::found::{Found, GatewayRegistry, HookPlan, HttpPoll, HttpSend};
+        use crate::found::{Found, GatewayInflate, HookPlan, HttpPoll, HttpSend};
         let mut hooks = HookPlan::none();
         hooks.send = Ok(Found {
             rva: 1,
@@ -348,9 +348,9 @@ mod tests {
             rva: 2,
             target: HttpPoll,
         });
-        hooks.registry = Ok(Found {
+        hooks.inflate = Ok(Found {
             rva: 3,
-            target: GatewayRegistry,
+            target: GatewayInflate,
         });
         let plan = Plan::from_hooks(&hooks);
         assert_eq!(plan.route(EntryPoint::Request), &Route::InProcess);
@@ -381,7 +381,7 @@ mod tests {
     }
 
     #[test]
-    fn a_missing_gateway_registry_keeps_rest_in_process() {
+    fn a_missing_gateway_hook_keeps_rest_in_process() {
         let plan = Plan::resolve(without(&[Target::Net(EntryPoint::Dispatch)]));
         assert_eq!(plan.route(EntryPoint::Request), &Route::InProcess);
         assert_eq!(plan.route(EntryPoint::Response), &Route::InProcess);

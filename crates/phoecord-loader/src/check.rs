@@ -338,7 +338,7 @@ mod tests {
         assert_eq!(plan.route(EntryPoint::Response), &Route::InProcess);
         assert!(matches!(
             plan.route(EntryPoint::Dispatch),
-            Route::Proxy(Reason::Locator(why)) if why.contains("gateway_registry")
+            Route::Proxy(Reason::Locator(why)) if why.contains("gateway_inflate")
         ));
         assert!(!plan.all_in_process());
     }
