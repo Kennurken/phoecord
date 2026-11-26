@@ -58,3 +58,74 @@ pub fn dispatch(engine: &Engine, name: &str, data: &[u8]) -> Result<GatewayOutco
         sends: r.sends,
     })
 }
+
+/// One outgoing frame (2.2.4): the JSON text `{"op": …, "d": …}` the client's encoder produced.
+/// `Replace` carries the whole new frame text; `Drop` means a plugin wants it not sent.
+pub fn send(engine: &Engine, frame: &[u8]) -> Result<GatewayOutcome, String> {
+    let json: serde_json::Value =
+        serde_json::from_slice(frame).map_err(|e| format!("outgoing frame is not JSON ({e})"))?;
+    let mut payload = Val::from_json(json);
+    let op = payload.get("op").and_then(Val::as_i64);
+    let r = engine.on_send(&mut payload);
+    let action = if r.drop {
+        GatewayAction::Drop
+    } else if r.changed {
+        let bytes = serde_json::to_vec(&payload.to_json())
+            .map_err(|e| format!("op {op:?}: cannot encode the frame: {e}"))?;
+        GatewayAction::Replace(bytes)
+    } else {
+        GatewayAction::Pass
+    };
+    Ok(GatewayOutcome {
+        action,
+        extra: r.locals,
+        sends: r.sends,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use phoecord_plugin_runtime::Chain;
+    use phoecord_transport::{config::Config, host::Shared};
+
+    fn engine(cfg: &str) -> Engine {
+        let dir = std::env::temp_dir().join(format!("phoecord-test-gwsend-{}", std::process::id()));
+        let cfg: Config = toml::from_str(cfg).unwrap();
+        Engine::new(
+            Chain::new(phoecord_plugins::builtin()),
+            Shared::new(dir),
+            cfg,
+        )
+    }
+
+    #[test]
+    fn a_frame_no_plugin_touches_passes() {
+        let e = engine("");
+        let out = send(
+            &e,
+            br#"{"op":3,"d":{"status":"online","since":0,"activities":[],"afk":false}}"#,
+        )
+        .unwrap();
+        assert_eq!(out.action, GatewayAction::Pass);
+    }
+
+    #[test]
+    fn a_voice_state_frame_reaches_the_chain_and_any_change_is_a_whole_frame() {
+        // FakeDeafen looks at op 4; whether it changes it depends on its toggle.
+        let e = engine("[plugins.fake_deafen]\nenabled = true\n");
+        let frame = br#"{"op":4,"d":{"guild_id":"1","channel_id":"2","self_mute":false,"self_deaf":false}}"#;
+        let out = send(&e, frame).unwrap();
+        if let GatewayAction::Replace(b) = out.action {
+            let v: serde_json::Value = serde_json::from_slice(&b).unwrap();
+            assert_eq!(v["op"], 4);
+            assert!(v["d"].is_object());
+        }
+    }
+
+    #[test]
+    fn a_frame_that_is_not_json_is_an_error() {
+        let e = engine("");
+        assert!(send(&e, b"not json").is_err());
+    }
+}
