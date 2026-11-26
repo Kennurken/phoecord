@@ -1,8 +1,8 @@
-Checked against code: not applicable (no PhoeCord code touches Phoenix yet); against a local install of Discord Phoenix, file version `0.1.0.2208`, read 2026-11-25/26 (part 1 includes a static pass of the installed binary on 2026-11-26). Part 1's exact addresses, byte signatures and structure offsets are kept in the team's private recon notes, not in this file (ask Nanda for access); this file keeps everything that is useful without them, plus all of part 2.
+Checked against code: not applicable (the only PhoeCord code that touches Phoenix is `discover` and `launch` for 2.1.1, which start it and read its version, nothing more); against a local install of Discord Phoenix, file version `0.1.0.2208`, read 2026-11-25/26 (part 1 includes a static pass of the installed binary on 2026-11-26). Part 1's exact addresses, byte signatures and structure offsets are kept in the team's private recon notes, not in this file (ask Nanda for access); this file keeps everything that is useful without them, plus all of part 2.
 
 # Desktop Phoenix reconnaissance (stage 2.1)
 
-Findings about an official Phoenix build, and the steps that produce them. Part 1 holds tasks **2.1.2** (binary inspection), **2.1.5** and **2.1.6** (allocator, HTTP transport, gateway dispatcher); part 2 holds **2.1.3** (proxy behavior), **2.1.4** (gateway wire format) and **2.3.7** (degradation). Task 2.1.9 completes the report: loading path and the decisions for 2.2–2.4.
+Findings about an official Phoenix build, and the steps that produce them. Part 1 holds tasks **2.1.1** (discovery and update scheme), **2.1.2** (binary inspection), **2.1.5** and **2.1.6** (allocator, HTTP transport, gateway dispatcher); part 2 holds **2.1.3** (proxy behavior), **2.1.4** (gateway wire format) and **2.3.7** (degradation). Task 2.1.9 completes the report: loading path and the decisions for 2.2–2.4.
 
 **Status of part 2: partly run (2026-11-25, Windows).** Proxy behavior and the gateway encoding and compression have Windows results. The capture, fixtures, event comparison, Linux and degradation are "not run". What an unrun step expects is a hypothesis, not a finding.
 
@@ -63,6 +63,43 @@ DiscordPhoenix/
 - *Can `version.dll` sideload?* Not ruled out by anything in the PE header or manifest (`DependentLoadFlags = 0`, no `<dllDirectory>`). The binary does call `SetDefaultDllDirectories`, so an empirical sideload test (drop a stub `version.dll` next to `Discord.exe`, see if its `DllMain` runs) is still needed before 2.1.7 decides sideload vs. launcher — tracked as an open question below.
 - *Which DLLs are imported?* 50, listed above; `version.dll`, `winhttp.dll`, `winmm.dll`, `dbghelp.dll`, `dwmapi.dll` present, `wininet.dll` absent, none delay-loaded.
 - *What restrictions exist?* None recorded in the PE header (`DependentLoadFlags = 0`) or the manifest; whatever restriction exists (if any) is applied at run time via `SetDefaultDllDirectories`, not declared statically.
+
+## Discovery and update scheme (2.1.1)
+
+Everything here was read from the file system, the registry and the logs of the local install (Phoenix `0.1.0.2208`, Windows 11); nothing was started for it. Paths are written with `%LOCALAPPDATA%` instead of the user's profile folder.
+
+**Where Phoenix is, and what `phoecord` does with it** (`discover`, `phoecord paths`, `phoecord launch --channel phoenix`):
+
+| What | Where | Used by |
+|:---|:---|:---|
+| Client folder and executable | `%LOCALAPPDATA%\DiscordPhoenix\app\Discord.exe` | `discover` (`Channel::Phoenix`, `Client.root` = `app`); `launch` starts this file from this folder |
+| Version | the `FileVersion` of `Discord.exe`, `0.1.0.2208` (read from the PE version resource with seeks, the 518 MB file is never loaded or run: `phoecord_installer::pe_version`) | `discover`, `phoecord paths` |
+| Uninstall entry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DiscordPhoenix`: `InstallLocation` = the `app` folder, `DisplayVersion` = `0.1.0.2208`, `UninstallString` = `app\DiscordPhoenixSetup.exe --uninstall` | not used; the file system is enough and also covers a copy that was never registered. A possible cross-check for 2.2.8 |
+| Start-menu shortcut | `Discord Phoenix.lnk` in the user's Programs folder: target `app\Discord.exe`, no arguments, working directory `app` | `launch` copies the working directory |
+| Autostart | none: the Run key holds entries for Discord and Discord Canary, not for Phoenix | |
+| Data | `%LOCALAPPDATA%\DiscordPhoenix\` next to `app\` (`cache`, `logs`, `store`, `accounts.json`, `session.json`, `app.lock`, `app.port`, …; an `updates` folder is named in the installer's strings but absent here); more in the layout above | never read by PhoeCord; `logs\setup.log` and `logs\libdiscord.log` were read for this note |
+| System helper (Windows service `DiscordSystemHelperPhoenix`) | `%ProgramFiles%\Common Files\Discord\DiscordPhoenix\DiscordSystemHelper.exe`, with its own `logs\` | not a client; not looked for. Installer and uninstaller (2.2.6, 2.2.8) have to know it exists |
+
+The sum: one fixed folder, no `app-x.y.z` folders, no `Update.exe`. That is why `launch` runs the executable directly instead of through Squirrel's `Update.exe --processStart`, and why the version comes from the executable instead of the folder name. `--proxy-server` and the system proxy are what 2.1.3 found Phoenix honours, so `launch` passes the same `--proxy-server=http://<listen>` flag as for the other channels (and sets `HTTPS_PROXY`, which Phoenix ignores, for a client that does honour it). Phoenix keeps one instance (`app.lock`): a second start hands over to the running one, which keeps its old proxy settings, so quit Phoenix completely before `phoecord launch --channel phoenix`.
+
+**Update scheme: in-place replacement of `app\`, not versioned folders; inferred, not observed.** No Phoenix update has happened on this install, so none of this is a recording of one. The evidence:
+
+- `logs\setup.log` of the install: `install: DiscordPhoenixSetup.exe into …\DiscordPhoenix\app`, `installing version 0.1.0.2208 over no install`, `moved the build into place`. The build goes into `app` itself, and "over no install" implies an "over an existing install" case: the next build is installed over the same folder.
+- `DiscordPhoenixSetup.exe` is copied into `app\` and is the uninstall entry. It is built from a `discord-desktop-updater` crate (source paths in its strings: `setup\payload.rs`, `signature.rs`, `swap_helper.rs`) and takes `--payload`, `--silent`, `--uninstall`, `--uninstall --remove-data`, `--channel phoenix`, `--pid` and `--phoenix-setup-quitask`; its strings also name `rollback`. A swap helper and a rollback point to "stage the new build, swap it in, keep the old one for a rollback"; the staging folder is probably the `updates` name in its folder list (a guess from one string).
+- The client itself logs `discord_desktop_platform::updater::native` with `on: true, phoenix: true` at every start and reports `update_channel: release/phoenix_desktop`; so the updater runs inside the client, not as a separate Squirrel `Update.exe`.
+- Modules are separate: `app\modules\<name>-<n>\…` (today `discord_clips-0`, logged as `module_dir`), tracked by `DiscordPhoenix\modules\state.json` (empty here), so modules can change without the main executable changing.
+
+What this means for PhoeCord:
+
+1. Discovery needs no knowledge of the update: the path is fixed and the version is read from the executable on every call, so an in-place update shows up as a new version number the next time `phoecord paths` or `launch` runs. A per-build signature set (keyed by version and `.text` hash) notices the new build the same way.
+2. Anything PhoeCord puts inside `app\` (the `version.dll` loader of the sideload model) can be replaced or deleted when a build is swapped in. Launcher injection (task 2.1.7, ruling 2026-11-26) puts nothing in `app\`, so it does not have this problem. Only the installer (2.2.8) has to decide whether it wants anything to survive an update.
+3. If a later Phoenix moves to versioned folders (`app-x.y.z` or similar), `phoenix_at` in `discover.rs` is the one place to change.
+
+**Not known:**
+
+- Linux and macOS. The plan names `~/.config/discord-phoenix` and Flatpak, and [`phoenix-desktop.md`](phoenix-desktop.md) names `discord-phoenix` on Linux, but no Linux or macOS Phoenix was available, so neither the executable's location nor its layout is observed. `discover` looks for nothing there; `phoecord launch -- <path to the executable>` still works with an explicit path.
+- A real update: the contents of `app\` and of the `updates` folder before and after, the new `setup.log` lines, and whether a running client is replaced or the swap waits for it to quit. Worth one recording the first time Phoenix updates on the owner's machine.
+- Whether Phoenix is also installed system-wide anywhere (only the per-user install and its Program Files service helper were found).
 
 ## Allocator, HTTP transport and Gateway dispatcher — findings, no addresses (2.1.5, 2.1.6)
 
@@ -349,8 +386,8 @@ In scenario 3 the loader today does not tell Electron from Phoenix: it finds no 
 
 - Does the observed `SetDefaultDllDirectories` call actually exclude the application directory before `version.dll` would be probed? Needs an empirical sideload test or a debugger breakpoint; this read-only PE pass cannot answer it.
 - Is Control Flow Guard (`GUARD_CF`, confirmed above) enforced strictly enough to break an inline detour that doesn't target a CFG-valid entry? Needs a prototype hook test (2.1.5/2.1.6).
-- How does `modules/state.json` get populated during a real update, and does the main `app\Discord.exe` itself update in place or move to a new path? Not observed on this fresh install; revisit after an actual Phoenix auto-update.
-- `DiscordSystemHelperPhoenix` runs from `C:\Program Files\Common Files\Discord\DiscordPhoenix\`, outside `%LOCALAPPDATA%` — the installer's Phoenix discovery (2.1.1/2.2.6) should account for this second location, not just the per-user app folder.
+- How does `modules/state.json` get populated during a real update, and does the main `app\Discord.exe` itself update in place or move to a new path? Not observed on this fresh install; the setup log and the installer's strings point to in-place replacement of `app\` (see "Discovery and update scheme (2.1.1)"); revisit after an actual Phoenix auto-update.
+- `DiscordSystemHelperPhoenix` runs from `C:\Program Files\Common Files\Discord\DiscordPhoenix\`, outside `%LOCALAPPDATA%`. `discover` (2.1.1) does not look there: it is a service helper, not a client. The installer and uninstaller (2.2.6, 2.2.8) still have to account for this second location.
 - **HTTP transport response layout.** `send`, its vtable and the request layout were located on the second pass (see the summary above); the response layout (status, headers, body) that `on_response` needs is still open, and none of it is confirmed at run time.
 - **Gateway registry table.** Its address and entry layout (what 2.1.6's "done when" asks for) are still open after both passes.
 - **READY and the event registry.** The connection loop handles `READY` specially; whether its payload also still goes through the ordinary event registry is unverified.
