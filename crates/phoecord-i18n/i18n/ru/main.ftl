@@ -48,6 +48,8 @@ cli-paths-config = конфиг
 cli-paths-ca = CA
 cli-paths-plugins = плагины
 cli-paths-language = язык
+cli-paths-phoenix = Phoenix
+cli-paths-phoenix-missing = не найден (искали в %LOCALAPPDATA%\DiscordPhoenix\app)
 lang-source-flag = флаг --lang
 lang-source-config = config.toml
 lang-source-os = язык системы
@@ -216,13 +218,14 @@ cli-arg-accept-terms = Не спрашивать про условия: вы п�
 # Исправления 1.4.8
 cli-uninstall-stopped = остановлен прокси PhoeCord (процесс { $pid })
 cli-uninstall-stop-failed = не удалось остановить работающий прокси PhoeCord: { $why }
-cli-arg-channel = Какой Discord запустить: stable, ptb или canary (нужно, если установлено несколько)
+cli-arg-channel = Какой Discord запустить: stable, ptb, canary или phoenix (нужно, если установлено несколько; Phoenix запускается только по имени)
 cli-err-channel-not-installed = Discord { $channel } не установлен
+cli-err-phoenix-not-installed = Discord Phoenix не установлен. PhoeCord ищет его в %LOCALAPPDATA%\DiscordPhoenix\app (пока только Windows). Если он лежит в другом месте, укажите команду: phoecord launch -- C:\путь\к\Discord.exe
 cli-err-several-clients = установлено несколько клиентов Discord, поэтому ни один не выбран за вас. Укажите --channel:
     { $list }
 cli-proxy-reused = Прокси PhoeCord (версия { $version }) уже работает на { $listen }; запускаю Discord через него.
 cli-err-port-taken = Адрес { $listen } занят другой программой, не PhoeCord. Закройте её или измените `listen` в config.toml.
-cli-arg-setup-channel = Добавить ярлык в меню «Пуск», который запускает этот Discord через PhoeCord: stable, ptb или canary (по умолчанию: единственный установленный)
+cli-arg-setup-channel = Добавить ярлык в меню «Пуск», который запускает этот Discord через PhoeCord: stable, ptb, canary или phoenix (по умолчанию: единственный установленный, Phoenix не считается)
 cli-shortcut-created = ярлык «{ $name }» добавлен: { $path }
 cli-shortcut-unsupported = В этой системе ярлык не создаётся; запускайте Discord командой `phoecord launch --channel { $channel }`.
 cli-shortcut-skipped = Ярлык не добавлен: { $why }

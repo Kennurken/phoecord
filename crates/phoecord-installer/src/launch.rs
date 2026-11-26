@@ -2,7 +2,10 @@
 //!
 //! Which client: `--channel` names one; without it, the only installed client is used, and with
 //! several installed [`ChooseError::Several`] asks the user to pick, so the main client is never run
-//! through the proxy by accident.
+//! through the proxy by accident. Desktop Phoenix is a different kind of client (its own folder and
+//! updater, a native TLS stack that needs PhoeCord's CA in the system store): it is started only by
+//! an explicit `--channel phoenix` and never counts as "the only installed client", so adding it
+//! to a machine does not change what a bare `phoecord launch` does.
 
 use crate::Channel;
 use crate::discover::{Client, Source};
@@ -48,21 +51,23 @@ impl std::fmt::Display for ChooseError {
 
 impl std::error::Error for ChooseError {}
 
-/// `stable`, `ptb` or `canary`.
+/// `stable`, `ptb`, `canary` or `phoenix`.
 pub fn parse_channel(s: &str) -> Option<Channel> {
     match s.to_ascii_lowercase().as_str() {
         "stable" => Some(Channel::Stable),
         "ptb" => Some(Channel::Ptb),
         "canary" => Some(Channel::Canary),
+        "phoenix" => Some(Channel::Phoenix),
         _ => None,
     }
 }
 
 /// The client to start. `clients` is what [`crate::discover::discover`] found (native packages sort
-/// before Flatpak and Snap, so the first of a channel wins).
+/// before Flatpak and Snap, so the first of a channel wins). Phoenix is picked only when `want` is
+/// [`Channel::Phoenix`]; with no `want` it is left out of the count (see the module docs).
 pub fn choose(clients: &[Client], want: Option<Channel>) -> Result<Client> {
     let mut by_channel: Vec<&Client> = Vec::new();
-    for c in clients.iter().filter(|c| c.channel != Channel::Phoenix) {
+    for c in clients {
         if !by_channel.iter().any(|b| b.channel == c.channel) {
             by_channel.push(c);
         }
@@ -73,14 +78,17 @@ pub fn choose(clients: &[Client], want: Option<Channel>) -> Result<Client> {
             .find(|c| c.channel == ch)
             .cloned()
             .ok_or_else(|| ChooseError::NotInstalled(ch).into()),
-        None => match by_channel.as_slice() {
-            [] => Err(NoDiscord.into()),
-            [one] => Ok((*one).clone()),
-            many => Err(ChooseError::Several(
-                many.iter().map(|c| (c.channel, c.root.clone())).collect(),
-            )
-            .into()),
-        },
+        None => {
+            by_channel.retain(|c| c.channel != Channel::Phoenix);
+            match by_channel.as_slice() {
+                [] => Err(NoDiscord.into()),
+                [one] => Ok((*one).clone()),
+                many => Err(ChooseError::Several(
+                    many.iter().map(|c| (c.channel, c.root.clone())).collect(),
+                )
+                .into()),
+            }
+        }
     }
 }
 
@@ -183,6 +191,13 @@ pub fn client_command(client: &Client, addr: &str) -> Command {
         .unwrap_or_default();
     let update = client.root.parent().map(|p| p.join("Update.exe"));
     let mut cmd = match (client.source, update) {
+        // Phoenix has no Update.exe and no app-x.y.z folders: start its executable, from its own
+        // folder as its Start-menu shortcut does. Plain launch only; no injection (task 2.1.7).
+        (Source::Native, _) if client.channel == Channel::Phoenix => {
+            let mut c = Command::new(&client.exe);
+            c.arg(&flag).current_dir(&client.root);
+            c
+        }
         // Windows: Squirrel's Update.exe starts the newest app-x.y.z folder.
         (Source::Native, Some(u)) if file.ends_with(".exe") && u.is_file() => {
             let mut c = Command::new(u);
@@ -320,7 +335,71 @@ mod tests {
         assert_eq!(parse_channel("Canary"), Some(Channel::Canary));
         assert_eq!(parse_channel("ptb"), Some(Channel::Ptb));
         assert_eq!(parse_channel("stable"), Some(Channel::Stable));
-        assert_eq!(parse_channel("phoenix"), None);
+        assert_eq!(parse_channel("Phoenix"), Some(Channel::Phoenix));
+        assert_eq!(parse_channel("electron"), None);
+    }
+
+    #[test]
+    fn phoenix_is_started_only_when_asked_for() {
+        let all = [native(Channel::Stable), native(Channel::Phoenix)];
+        // Asked for by name, it is the one chosen, even with Stable installed.
+        assert_eq!(
+            choose(&all, Some(Channel::Phoenix)).unwrap().channel,
+            Channel::Phoenix
+        );
+        // It does not make the bare `launch` ambiguous, and it is never the default.
+        assert_eq!(choose(&all, None).unwrap().channel, Channel::Stable);
+        let e = choose(&[native(Channel::Phoenix)], None).unwrap_err();
+        assert!(e.downcast_ref::<NoDiscord>().is_some());
+        // Not installed is an error, not a fallback to another channel.
+        let e = choose(&[native(Channel::Stable)], Some(Channel::Phoenix)).unwrap_err();
+        assert!(matches!(
+            e.downcast_ref::<ChooseError>(),
+            Some(ChooseError::NotInstalled(Channel::Phoenix))
+        ));
+        // Several others plus Phoenix: the list the user is shown has no Phoenix in it.
+        let many = [
+            native(Channel::Stable),
+            native(Channel::Canary),
+            native(Channel::Phoenix),
+        ];
+        match choose(&many, None)
+            .unwrap_err()
+            .downcast_ref::<ChooseError>()
+        {
+            Some(ChooseError::Several(l)) => assert_eq!(l.len(), 2),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn phoenix_starts_its_executable_from_its_own_folder() {
+        let t = tempfile::tempdir().unwrap();
+        let app = t.path().join("DiscordPhoenix").join("app");
+        std::fs::create_dir_all(&app).unwrap();
+        // Even a stray Update.exe next to the folder is not used: Phoenix has no Squirrel.
+        std::fs::write(t.path().join("DiscordPhoenix").join("Update.exe"), b"").unwrap();
+        let exe = app.join("Discord.exe");
+        let c = client(
+            Channel::Phoenix,
+            Source::Native,
+            &app.to_string_lossy(),
+            &exe.to_string_lossy(),
+        );
+        let cmd = client_command(&c, "127.0.0.1:18463");
+        assert_eq!(cmd.get_program(), exe.as_os_str());
+        assert_eq!(args(&cmd), ["--proxy-server=http://127.0.0.1:18463"]);
+        assert_eq!(cmd.get_current_dir(), Some(app.as_path()));
+        let env = |k: &str| {
+            cmd.get_envs()
+                .find(|(n, _)| *n == k)
+                .and_then(|(_, v)| v.map(|v| v.to_string_lossy().into_owned()))
+        };
+        assert_eq!(
+            env("HTTPS_PROXY").as_deref(),
+            Some("http://127.0.0.1:18463")
+        );
+        assert_eq!(env("NO_PROXY").as_deref(), Some("localhost,127.0.0.1,::1"));
     }
 
     #[test]
@@ -373,9 +452,6 @@ mod tests {
     #[test]
     fn nothing_installed_is_no_discord() {
         let e = choose(&[], None).unwrap_err();
-        assert!(e.downcast_ref::<NoDiscord>().is_some());
-        // Phoenix is not a client the proxy can serve yet.
-        let e = choose(&[native(Channel::Phoenix)], None).unwrap_err();
         assert!(e.downcast_ref::<NoDiscord>().is_some());
     }
 

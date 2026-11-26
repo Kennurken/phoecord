@@ -43,6 +43,8 @@ cli-paths-config = config
 cli-paths-ca = CA
 cli-paths-plugins = plugins
 cli-paths-language = language
+cli-paths-phoenix = Phoenix
+cli-paths-phoenix-missing = not found (looked in %LOCALAPPDATA%\DiscordPhoenix\app)
 lang-source-flag = --lang flag
 lang-source-config = config.toml
 lang-source-os = OS language
@@ -211,13 +213,14 @@ cli-arg-accept-terms = Skip the terms prompt: you have read TERMS.md and accept 
 # Bug fixes 1.4.8
 cli-uninstall-stopped = stopped  PhoeCord proxy (process { $pid })
 cli-uninstall-stop-failed = could not stop a running PhoeCord proxy: { $why }
-cli-arg-channel = Which Discord to start: stable, ptb or canary (needed when more than one is installed)
+cli-arg-channel = Which Discord to start: stable, ptb, canary or phoenix (needed when more than one is installed; Phoenix is only started when named)
 cli-err-channel-not-installed = Discord { $channel } is not installed
+cli-err-phoenix-not-installed = Discord Phoenix is not installed. PhoeCord looks for it in %LOCALAPPDATA%\DiscordPhoenix\app (Windows only for now). If it is somewhere else, pass the command: phoecord launch -- C:\path\to\Discord.exe
 cli-err-several-clients = several Discord clients are installed, so none is picked for you. Pass --channel:
     { $list }
 cli-proxy-reused = A PhoeCord proxy (version { $version }) already runs on { $listen }; starting Discord through it.
 cli-err-port-taken = { $listen } is used by another program, not by PhoeCord. Close it or change `listen` in config.toml.
-cli-arg-setup-channel = Add a Start-menu shortcut that starts this Discord through PhoeCord: stable, ptb or canary (default: the only one installed)
+cli-arg-setup-channel = Add a Start-menu shortcut that starts this Discord through PhoeCord: stable, ptb, canary or phoenix (default: the only one installed, Phoenix excluded)
 cli-shortcut-created = shortcut "{ $name }" added: { $path }
 cli-shortcut-unsupported = No shortcut on this system; start Discord with `phoecord launch --channel { $channel }`.
 cli-shortcut-skipped = No shortcut added: { $why }
