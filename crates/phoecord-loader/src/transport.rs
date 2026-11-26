@@ -236,6 +236,16 @@ impl InProcessTransport {
                 .wants_request(method, &crate::hooks::http::route_of(url))
     }
 
+    /// Whether a plugin looks at the answer to this REST request; the `poll` side remembers only
+    /// those requests.
+    pub fn wants_response(&self, method: &str, url: &str) -> bool {
+        self.active
+            && self
+                .hooks
+                .engine()
+                .wants_response(method, &crate::hooks::http::route_of(url))
+    }
+
     /// For the [`Clock`].
     pub fn delivery(&self) -> &Arc<Delivery> {
         &self.delivery
@@ -303,6 +313,14 @@ impl crate::hooks::detour::SendSink for SendSink {
 
     fn request(&self, method: &str, url: &str, body: Option<&[u8]>) -> HttpAction {
         self.0.request(method, url, body)
+    }
+
+    fn wants_response(&self, method: &str, url: &str) -> bool {
+        self.0.wants_response(method, url)
+    }
+
+    fn response(&self, method: &str, url: &str, status: u16, body: &[u8]) -> HttpAction {
+        self.0.response(method, url, status, body)
     }
 }
 
