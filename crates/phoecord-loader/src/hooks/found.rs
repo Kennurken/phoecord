@@ -13,6 +13,7 @@
 //! | `http_poll` | `.rdata` slot of the `poll` entry of the response future's vtable | REST responses |
 //! | `rust_alloc`, `rust_dealloc` | the host's allocator shims | replacing a body |
 //! | `gateway_registry` | the event registry table | Gateway dispatch |
+//! | `gateway_send` | entry of the outgoing frame encoder (`gateway_send_encode` in the recon notes) | Gateway send |
 
 use crate::signatures::{ResolveError, Signature};
 use std::fmt;
@@ -22,6 +23,7 @@ pub const HTTP_POLL: &str = "http_poll";
 pub const RUST_ALLOC: &str = "rust_alloc";
 pub const RUST_DEALLOC: &str = "rust_dealloc";
 pub const GATEWAY_REGISTRY: &str = "gateway_registry";
+pub const GATEWAY_SEND: &str = "gateway_send";
 
 /// Why a locator found nothing usable.
 #[derive(Debug, PartialEq, Eq)]
@@ -67,6 +69,9 @@ pub struct Allocator {
 /// The gateway event registry.
 #[derive(Debug, PartialEq, Eq)]
 pub struct GatewayRegistry;
+/// The encoder of outgoing gateway frames (2.2.4): takes a typed command, not JSON.
+#[derive(Debug, PartialEq, Eq)]
+pub struct GatewaySend;
 
 /// What a locator scans: the signatures of the selected build and the client's `.text`.
 pub struct Scan<'a> {
@@ -123,6 +128,13 @@ impl Scan<'_> {
             target: GatewayRegistry,
         })
     }
+
+    pub fn gateway_send(&self) -> Result<Found<GatewaySend>, LocatorError> {
+        Ok(Found {
+            rva: self.rva(GATEWAY_SEND)?,
+            target: GatewaySend,
+        })
+    }
 }
 
 /// Every locator of the in-process transport, each resolved on its own.
@@ -132,6 +144,7 @@ pub struct HookPlan {
     pub poll: Result<Found<HttpPoll>, LocatorError>,
     pub allocator: Result<Found<Allocator>, LocatorError>,
     pub registry: Result<Found<GatewayRegistry>, LocatorError>,
+    pub gateway_send: Result<Found<GatewaySend>, LocatorError>,
 }
 
 impl HookPlan {
@@ -141,6 +154,7 @@ impl HookPlan {
             poll: scan.http_poll(),
             allocator: scan.allocator(),
             registry: scan.gateway_registry(),
+            gateway_send: scan.gateway_send(),
         }
     }
 
@@ -183,6 +197,7 @@ impl HookPlan {
         note(self.poll.as_ref().err(), "REST response hook");
         note(self.allocator.as_ref().err(), "body replacement");
         note(self.registry.as_ref().err(), "Gateway hook");
+        note(self.gateway_send.as_ref().err(), "Gateway send hook");
         out
     }
 }
