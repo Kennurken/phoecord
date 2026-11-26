@@ -12,8 +12,14 @@
 //!   2.2.4), so for now they are dropped;
 //! - plugin timers need a clock: [`Clock`], one thread.
 //!
-//! Not here yet: the detours (2.2.2, 2.2.3), the `Network` behind `Host::rest` and `Host::fetch`
-//! in-process, and telling the proxy which entry points the loader owns.
+//! The transport is all or nothing per launch (ruling 2026-11-26, task 2.2.8 item 2): it runs only
+//! when every entry point's locator resolved ([`Plan::in_process`]). With any one missing the whole
+//! launch goes through the proxy and every entry point here passes the traffic untouched, so the
+//! same traffic never meets the plugin chain twice and nothing is handed over to the proxy.
+//!
+//! Not here yet: the detours of `poll`, the Gateway registry and the send path (the `send` detour
+//! is `crate::hooks::detour`, read-only), and the `Network` behind `Host::rest` and `Host::fetch`
+//! in-process.
 
 use crate::hooks::{
     HookRuntime,
@@ -174,6 +180,8 @@ pub struct Dispatch {
 /// The entry points a detour calls.
 pub struct InProcessTransport {
     plan: Plan,
+    /// Whether this launch runs in-process at all ([`Plan::in_process`]).
+    active: bool,
     hooks: HookRuntime,
     delivery: Arc<Delivery>,
     queued: Breaker,
@@ -182,7 +190,8 @@ pub struct InProcessTransport {
 
 impl InProcessTransport {
     /// `engine` driven by the hooks `found` in this build. Logs each entry point that stays with
-    /// the proxy only because another one does (the failed locators are logged by the runtime).
+    /// the proxy only because another one does (the failed locators are logged by the runtime),
+    /// and whether the launch runs in-process.
     pub fn new(engine: Arc<Engine>, found: HookPlan, log: LogFn) -> InProcessTransport {
         let plan = Plan::from_hooks(&found);
         for point in EntryPoint::ALL {
@@ -190,10 +199,16 @@ impl InProcessTransport {
                 log(&format!("{}: through the proxy ({why})", point.name()));
             }
         }
-        let to_client = *plan.route(EntryPoint::Dispatch) == Route::InProcess;
-        let delivery = Delivery::new(engine.clone(), to_client, None, log.clone());
+        let active = plan.all_in_process();
+        log(if active {
+            "in-process transport on: every entry point was found"
+        } else {
+            "in-process transport off for this launch: the proxy carries all network traffic"
+        });
+        let delivery = Delivery::new(engine.clone(), active, None, log.clone());
         InProcessTransport {
             plan,
+            active,
             hooks: HookRuntime::new(engine, found, log.clone()),
             delivery: Arc::new(delivery),
             queued: Breaker::new("delivery"),
@@ -201,9 +216,24 @@ impl InProcessTransport {
         }
     }
 
-    /// Which entry points run here; the detour installer hooks only those.
+    /// What the locators found, entry point by entry point.
     pub fn plan(&self) -> &Plan {
         &self.plan
+    }
+
+    /// Whether this launch runs in-process; the detour installer hooks nothing when it does not.
+    pub fn is_active(&self) -> bool {
+        self.active
+    }
+
+    /// Whether a plugin looks at this REST request; the `send` detour skips reading the body
+    /// otherwise.
+    pub fn wants_request(&self, method: &str, url: &str) -> bool {
+        self.active
+            && self
+                .hooks
+                .engine()
+                .wants_request(method, &crate::hooks::http::route_of(url))
     }
 
     /// For the [`Clock`].
@@ -250,13 +280,29 @@ impl InProcessTransport {
         }
     }
 
-    fn runs(&self, point: EntryPoint) -> bool {
-        *self.plan.route(point) == Route::InProcess
+    /// All or nothing per launch: an entry point runs only when they all do.
+    fn runs(&self, _point: EntryPoint) -> bool {
+        self.active
     }
 
     /// Delivery runs plugin code too (the Send chain), so it gets a panic guard of its own.
     fn deliver(&self, f: impl FnOnce(&Delivery)) {
         self.queued.guard(&self.log, || (), || f(&self.delivery));
+    }
+}
+
+/// What the `send` detour calls: the transport behind a shared handle.
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub struct SendSink(pub Arc<InProcessTransport>);
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+impl crate::hooks::detour::SendSink for SendSink {
+    fn wants(&self, method: &str, url: &str) -> bool {
+        self.0.wants_request(method, url)
+    }
+
+    fn request(&self, method: &str, url: &str, body: Option<&[u8]>) -> HttpAction {
+        self.0.request(method, url, body)
     }
 }
 
@@ -345,7 +391,7 @@ fn tick(delivery: &Delivery, stop: &AtomicBool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hooks::found::{Found, GatewayRegistry, HttpPoll, HttpSend};
+    use crate::hooks::found::{Found, GatewayRegistry, GatewaySend, HttpPoll, HttpSend};
 
     use phoecord_core::{Event, EventKind, Host, Manifest, Plugin, TIMER_EVENT, Verdict};
     use phoecord_plugin_runtime::Chain;
@@ -422,8 +468,18 @@ mod tests {
         (log, lines)
     }
 
-    fn found(send: bool, poll: bool, registry: bool) -> HookPlan {
+    fn all() -> HookPlan {
+        found(true, true, true, true)
+    }
+
+    fn found(send: bool, poll: bool, registry: bool, gateway_send: bool) -> HookPlan {
         let mut plan = HookPlan::none();
+        if gateway_send {
+            plan.gateway_send = Ok(Found {
+                rva: 4,
+                target: GatewaySend,
+            });
+        }
         if send {
             plan.send = Ok(Found {
                 rva: 1,
@@ -448,7 +504,7 @@ mod tests {
     #[test]
     fn what_a_request_queues_waits_for_the_next_dispatch() {
         let (log, lines) = logger();
-        let transport = InProcessTransport::new(engine(), found(true, true, true), log);
+        let transport = InProcessTransport::new(engine(), all(), log);
         assert_eq!(
             transport.request("GET", "/api/v9/ping", None),
             HttpAction::Pass
@@ -471,7 +527,7 @@ mod tests {
 
     #[test]
     fn what_an_event_queues_follows_it() {
-        let transport = InProcessTransport::new(engine(), found(true, true, true), logger().0);
+        let transport = InProcessTransport::new(engine(), all(), logger().0);
         transport.request("GET", "/ping", None);
         let step = transport.dispatch("MESSAGE_CREATE", b"{}");
         assert_eq!(names(&step.before), ["FROM_REQUEST"]);
@@ -482,7 +538,7 @@ mod tests {
     #[test]
     fn a_response_hook_alone_stays_with_the_proxy() {
         let (log, lines) = logger();
-        let transport = InProcessTransport::new(engine(), found(false, true, true), log);
+        let transport = InProcessTransport::new(engine(), found(false, true, true, true), log);
         assert_eq!(
             transport.response("GET", "/ping", 200, b"{}"),
             HttpAction::Pass
@@ -498,14 +554,40 @@ mod tests {
     }
 
     #[test]
+    fn one_missing_locator_sends_the_whole_launch_through_the_proxy() {
+        for missing in 0..4 {
+            let f = [0, 1, 2, 3].map(|i| i != missing);
+            let (log, lines) = logger();
+            let transport = InProcessTransport::new(engine(), found(f[0], f[1], f[2], f[3]), log);
+            assert!(!transport.is_active());
+            assert!(!transport.wants_request("GET", "https://discord.com/api/v9/ping"));
+            // Nothing reaches the engine: no plugin queues anything.
+            assert_eq!(transport.request("GET", "/ping", None), HttpAction::Pass);
+            let step = transport.dispatch("MESSAGE_CREATE", b"{}");
+            assert!(step.before.is_empty() && step.after.is_empty());
+            assert_eq!(transport.delivery().dropped(), Dropped::default());
+            assert!(
+                lines
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .any(|l| l.starts_with("in-process transport off"))
+            );
+        }
+        let transport = InProcessTransport::new(engine(), all(), logger().0);
+        assert!(transport.is_active());
+        assert!(transport.wants_request("GET", "https://discord.com/api/v9/ping"));
+    }
+
+    #[test]
     fn without_a_dispatch_hook_nothing_piles_up() {
         let (log, lines) = logger();
-        let transport = InProcessTransport::new(engine(), found(true, true, false), log);
-        transport.request("GET", "/ping", None);
-        transport.request("GET", "/ping", None);
-        assert!(transport.delivery().take_locals().is_empty());
+        let delivery = Delivery::new(engine(), false, None, log);
+        delivery.gateway(vec![local("A")], vec![(3, Val::map())]);
+        delivery.gateway(vec![local("B")], vec![(3, Val::map())]);
+        assert!(delivery.take_locals().is_empty());
         assert_eq!(
-            transport.delivery().dropped(),
+            delivery.dropped(),
             Dropped {
                 locals: 2,
                 frames: 2
@@ -553,7 +635,7 @@ mod tests {
 
     #[test]
     fn the_clock_wakes_for_a_timer_set_while_it_sleeps() {
-        let transport = InProcessTransport::new(engine(), found(true, false, true), logger().0);
+        let transport = InProcessTransport::new(engine(), all(), logger().0);
         let clock = Clock::start(transport.delivery().clone()).unwrap();
         // With no timer pending it sleeps without a time limit: only the change can wake it.
         thread::sleep(Duration::from_millis(100));

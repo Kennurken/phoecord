@@ -246,6 +246,12 @@ fn analyze(log: &Logger) -> Option<Report> {
             }
         }
     }
+    let kind = version::ClientKind::of(&exe.to_string_lossy(), v.file_version.as_deref());
+    if kind == version::ClientKind::Phoenix {
+        report_network_plan(log, sigs, text, &v, image_len());
+    } else {
+        log.log("Electron client: the in-process network hooks do not apply");
+    }
     // Hooks on the resolved functions arrive with the features that need them (1.8, phase 2).
     let reason = if missed > 0 {
         format!("{missed} signature(s) did not match")
@@ -253,4 +259,49 @@ fn analyze(log: &Logger) -> Option<Report> {
         "signatures resolved, no UI hooks installed yet".to_string()
     };
     off(v, &reason)
+}
+
+/// `SizeOfImage` of the host exe, 0 when unreadable (every locator then fails as out of image).
+fn image_len() -> u32 {
+    // SAFETY: a null module name returns the host exe's base, mapped for the life of the process;
+    // its first page holds the PE headers.
+    unsafe {
+        let base = GetModuleHandleW(std::ptr::null()) as *const u8;
+        if base.is_null() {
+            return 0;
+        }
+        crate::pe::Pe::image_size(std::slice::from_raw_parts(base, 0x1000))
+            .map_or(0, |n| u32::try_from(n).unwrap_or(0))
+    }
+}
+
+/// Logs which network entry points this Phoenix build could run in-process, and whether the
+/// launch would (all or nothing, 2.2.8). The transport itself is started by the launch mode of
+/// 2.2.8 once the loader builds its own `Engine` from `config.toml`; until then the proxy carries
+/// the traffic and nothing is hooked here.
+fn report_network_plan(
+    log: &Logger,
+    sigs: &[signatures::Signature],
+    text: &[u8],
+    v: &version::ClientVersion,
+    image_len: u32,
+) {
+    let found = crate::hooks::found::HookPlan::locate(&crate::hooks::found::Scan {
+        sigs,
+        text,
+        text_rva: v.text_rva,
+        image_len,
+    });
+    for line in found.failures() {
+        log.log(&line);
+    }
+    let plan = crate::plan::Plan::from_hooks(&found);
+    for line in plan.report() {
+        log.log(&line);
+    }
+    log.log(if plan.all_in_process() {
+        "network: every entry point found; in-process mode waits for the 2.2.8 launch switch"
+    } else {
+        "network: through the proxy for this launch"
+    });
 }
