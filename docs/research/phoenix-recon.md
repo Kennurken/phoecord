@@ -378,9 +378,18 @@ No `undecodable gateway payload` line appeared at debug level during about 45 se
 
 ## Degradation
 
-Task 2.3.7. Scenarios 1 and 2 need the locators (2.2.5) and the in-process transport (2.2.7); until then only what the loader does today can be observed. The decision behind them (which entry points and features stay on) is already tested with fake locator results in `phoecord_loader::plan`. Install it with `phoecord setup --loader` and read `%LOCALAPPDATA%\PhoeCord\loader.log`.
+Task 2.3.7. The decisions behind the three scenarios are automated and run on every OS with fake locator results and a fake `.text`, in `crates/phoecord-loader/tests/degradation.rs`:
 
-| # | Scenario | How to produce it | Pass when | Result |
+| # | Test | What it checks |
+|:---|:---|:---|
+| 1 | `scenario_1_unknown_build_is_proxy_only` | no table for the build: `Plan::unknown_build()`, every entry point through the proxy, every UI feature off, nothing in-process |
+| 2 | `scenario_2_one_broken_signature_fails_alone` | a table with `missing_on_purpose` (`DE AD BE EF …`): exactly one resolve error, every other signature resolves |
+| 2 | `scenario_2_one_missing_locator_costs_only_its_feature` | one missing UI locator turns off only that feature; a missing gateway registry takes dispatch and send to the proxy and keeps REST and the UI; `Plan::all_in_process()` is false, so the launch uses the proxy (all or nothing, ruling 2026-11-26) |
+| 3 | `scenario_3_electron_client_is_not_phoenix` | `ClientKind::of` tells the Electron clients (Stable, PTB, Canary) from Phoenix by Phoenix's fixed `DiscordPhoenix` install folder |
+
+What stays open is the live run inside a client, which needs a Windows PC with Phoenix: the scenarios below, read in `%LOCALAPPDATA%\PhoeCord\loader.log` after `phoecord setup --loader`. Scenarios 1 and 2 in a live client also need the locators (2.2.5) and the in-process transport (2.2.7).
+
+| # | Scenario | How to produce it | Pass when | Live result |
 |:---|:---|:---|:---|:---|
 | 1 | Unknown build | No table for this build in `%LOCALAPPDATA%\PhoeCord\signatures\` (an empty folder, or only other builds) | Log: `unknown client build: UI layer stays off, network plugins unaffected`; the client runs; network plugins work through the proxy | not run |
 | 2 | One signature missing | A table for this build with one pattern that matches nothing | Log: `signature <name>: no match; its feature stays off`; only that feature is off | not run |
@@ -393,7 +402,7 @@ For scenario 2, `signatures\broken.toml` with the version from the `client build
 missing_on_purpose = { aob = "DE AD BE EF DE AD BE EF DE AD BE EF" }
 ```
 
-In scenario 3 the loader today does not tell Electron from Phoenix: it finds no signatures and leaves everything off. Whether that is enough, or the loader must recognise Phoenix first, is decided once 2.1.2 shows what identifies it.
+For scenario 3 the loader can now recognise Phoenix by its install folder (`phoecord_loader::version::ClientKind`), so it can skip every Phoenix hook in an Electron client instead of relying on "no signature matched"; calling it from the loader's worker comes with the in-process wiring (2.2.7).
 
 # Part 3. Summary and decisions for 2.2–2.4 (2.1.9)
 
