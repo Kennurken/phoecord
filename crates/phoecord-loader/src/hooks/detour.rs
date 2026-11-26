@@ -326,6 +326,8 @@ const LOG_RESP_ABI: u32 = 32;
 const LOG_NO_REQ_BODY: u32 = 64;
 const LOG_NO_RESP_BODY: u32 = 128;
 const LOG_ALLOC: u32 = 256;
+const LOG_FIRST_SEND: u32 = 512;
+const LOG_FIRST_POLL: u32 = 1024;
 
 fn once(state: &State, kind: u32, line: impl FnOnce() -> String) {
     if LOGGED.fetch_or(kind, Ordering::Relaxed) & kind == 0 {
@@ -334,6 +336,9 @@ fn once(state: &State, kind: u32, line: impl FnOnce() -> String) {
 }
 
 fn observe_request(state: &State, request: usize) {
+    once(state, LOG_FIRST_SEND, || {
+        "http_send: first request seen".into()
+    });
     let mem = ProcessMemory;
     let head = match abi::read_head(&mem, request) {
         Ok(h) => h,
@@ -432,6 +437,9 @@ fn replace_request_body(state: &State, request: usize, new: Vec<u8>, method: &st
 const DROP_SLOT: usize = 0x20;
 
 fn observe_response(state: &State, out: usize, future: usize) {
+    once(state, LOG_FIRST_POLL, || {
+        "http_poll: first poll seen".into()
+    });
     let mem = ProcessMemory;
     let Some(read) = abi::read_response(&mem, out) else {
         return;

@@ -333,7 +333,7 @@ fn report_network_plan(
         log.log(&line);
     }
     log.log(if plan.all_in_process() {
-        "network: every entry point found; in-process mode waits for the 2.2.8 launch switch"
+        "network: every entry point found; an in-process launch runs here without the proxy"
     } else {
         "network: through the proxy for this launch"
     });

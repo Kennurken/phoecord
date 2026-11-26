@@ -112,6 +112,7 @@ const LOG_READ: u32 = 1;
 const LOG_DROP: u32 = 2;
 const LOG_NO_ALLOC: u32 = 4;
 const LOG_ALLOC: u32 = 8;
+const LOG_FIRST: u32 = 16;
 
 fn once(state: &State, kind: u32, line: impl FnOnce() -> String) {
     if LOGGED.fetch_or(kind, Ordering::Relaxed) & kind == 0 {
@@ -143,6 +144,7 @@ pub fn read_frame(mem: &dyn Memory, out: usize) -> Option<(usize, usize, Vec<u8>
 }
 
 fn observe(state: &State, out: usize) {
+    once(state, LOG_FIRST, || "gateway_send: first frame seen".into());
     let Some((cap, ptr, text)) = read_frame(&ProcessMemory, out) else {
         return once(state, LOG_READ, || {
             "gateway_send: the encoder's output does not hold a frame string; frames pass untouched"

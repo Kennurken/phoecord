@@ -13,7 +13,8 @@
 //! | `http_poll` | the response future's vtable (through `rip`: the one instruction that loads it); `poll` is its slot at [`POLL_SLOT`] | REST responses |
 //! | `bytes_static_vtable` | `bytes`'s static `Bytes` vtable (no-op drop, never unique), through `rip` | replacing a request body |
 //! | `rust_alloc`, `rust_dealloc` | the host's allocator shims | replacing a body |
-//! | `gateway_registry` | the event registry table | Gateway dispatch |
+//! | `gateway_registry` | the build/insert function the first static pass took for the event registry; live it is not on the dispatch path (2.2.3), kept for 2.2.5 | none |
+//! | `gateway_inflate` | the function that inflates one gateway frame into its JSON text (`zstd-stream`), entry for an inline hook | Gateway dispatch |
 //! | `gateway_send` | entry of the outgoing frame encoder (`gateway_send_encode` in the recon notes) | Gateway send |
 
 use crate::signatures::{ResolveError, Signature};
@@ -28,6 +29,7 @@ pub const RUST_ALLOC: &str = "rust_alloc";
 pub const RUST_DEALLOC: &str = "rust_dealloc";
 pub const GATEWAY_REGISTRY: &str = "gateway_registry";
 pub const GATEWAY_SEND: &str = "gateway_send";
+pub const GATEWAY_INFLATE: &str = "gateway_inflate";
 
 /// Why a locator found nothing usable.
 #[derive(Debug, PartialEq, Eq)]
@@ -76,6 +78,9 @@ pub struct Allocator {
 /// The gateway event registry.
 #[derive(Debug, PartialEq, Eq)]
 pub struct GatewayRegistry;
+/// The function that inflates one incoming gateway frame into its JSON text (2.2.3).
+#[derive(Debug, PartialEq, Eq)]
+pub struct GatewayInflate;
 /// The encoder of outgoing gateway frames (2.2.4): takes a typed command, not JSON.
 #[derive(Debug, PartialEq, Eq)]
 pub struct GatewaySend;
@@ -143,6 +148,13 @@ impl Scan<'_> {
         })
     }
 
+    pub fn gateway_inflate(&self) -> Result<Found<GatewayInflate>, LocatorError> {
+        Ok(Found {
+            rva: self.rva(GATEWAY_INFLATE)?,
+            target: GatewayInflate,
+        })
+    }
+
     pub fn gateway_send(&self) -> Result<Found<GatewaySend>, LocatorError> {
         Ok(Found {
             rva: self.rva(GATEWAY_SEND)?,
@@ -160,6 +172,7 @@ pub struct HookPlan {
     pub allocator: Result<Found<Allocator>, LocatorError>,
     pub registry: Result<Found<GatewayRegistry>, LocatorError>,
     pub gateway_send: Result<Found<GatewaySend>, LocatorError>,
+    pub inflate: Result<Found<GatewayInflate>, LocatorError>,
 }
 
 impl HookPlan {
@@ -171,6 +184,7 @@ impl HookPlan {
             allocator: scan.allocator(),
             registry: scan.gateway_registry(),
             gateway_send: scan.gateway_send(),
+            inflate: scan.gateway_inflate(),
         }
     }
 
@@ -203,8 +217,9 @@ impl HookPlan {
         self.bytes_static.is_ok()
     }
 
+    /// The incoming Gateway hook: the frame inflater (2.2.3), not the registry.
     pub fn gateway(&self) -> bool {
-        self.registry.is_ok()
+        self.inflate.is_ok()
     }
 
     /// One line per locator that failed, for the log.
@@ -219,7 +234,7 @@ impl HookPlan {
         note(self.poll.as_ref().err(), "REST response hook");
         note(self.bytes_static.as_ref().err(), "request body replacement");
         note(self.allocator.as_ref().err(), "response body replacement");
-        note(self.registry.as_ref().err(), "Gateway hook");
+        note(self.inflate.as_ref().err(), "Gateway hook");
         note(self.gateway_send.as_ref().err(), "Gateway send hook");
         out
     }
