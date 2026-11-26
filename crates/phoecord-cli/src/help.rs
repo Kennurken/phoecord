@@ -60,6 +60,11 @@ pub fn localize(mut cmd: Command, l: &Localizer) -> Command {
                         } else {
                             "cli-arg-channel"
                         }))
+                    } else if id == "exe" {
+                        a.help(l.t("cli-arg-check-exe"))
+                    } else if id == "signatures" {
+                        a.help(l.t("cli-arg-check-signatures"))
+                            .hide_default_value(true)
                     } else if id == "path" {
                         a.help(l.t("cli-arg-import-path"))
                     } else if id == "accept_terms" {

@@ -600,3 +600,24 @@ gui-pkg-err-hash = The download does not match the hash the catalog lists and wa
 gui-pkg-err-catalog-mismatch = The package is not what the catalog lists: { $why }. Nothing was installed.
 gui-pkg-err-index = The catalog is not valid: { $why }.
 gui-pkg-err-not-in-catalog = That plugin is no longer in the catalog.
+
+# phoecord check (task 2.2.6)
+cmd-check = Check which signatures of a client build are found in its exe (read-only)
+cli-arg-check-exe = The client executable to check (for example Discord.exe)
+cli-arg-check-signatures = Folder with the signature tables, *.toml (default: signatures)
+cli-check-err-read = cannot read { $path }
+cli-check-err = cannot check { $exe } against { $signatures }
+cli-check-build = Client build: version { $version }, .text sha256 { $hash }
+cli-check-no-version = unknown
+cli-check-skipped = Signature file { $file } skipped: { $why }
+cli-check-no-table = No signature table matches this build
+cli-check-table = Signature table: { $key }
+cli-check-head-name = name
+cli-check-head-status = status
+cli-check-head-address = RVA
+cli-check-found = found
+cli-check-missed = missed
+cli-check-ambiguous = ambiguous ({ $count } matches)
+cli-check-bad-rip = bad rip offset
+cli-check-summary = Found { $found } of { $total }
+cli-check-failed = the signature check failed
