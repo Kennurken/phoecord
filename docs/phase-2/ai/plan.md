@@ -19,7 +19,7 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 
 ## Stage 2.1. Phoenix reconnaissance
 
-### 2.1.1. Phoenix discovery (buslan)
+### 2.1.1. Phoenix discovery (Nanda)
 
 **Files:** `crates/phoecord-installer/src/discover.rs`, `crates/phoecord-cli/src/main.rs`
 
