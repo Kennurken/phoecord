@@ -30,6 +30,7 @@ pub struct InjectArgs {
 }
 
 /// `phoecord_loader.dll` next to the running `phoecord` executable, if that can be worked out.
+#[cfg(windows)]
 fn default_dll_path() -> Result<PathBuf> {
     let exe = std::env::current_exe()?;
     let dir = exe
