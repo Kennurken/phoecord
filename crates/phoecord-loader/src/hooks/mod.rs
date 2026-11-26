@@ -9,10 +9,16 @@
 //!   [`HookRuntime::response`], [`HookRuntime::dispatch`]). Each is guarded and gated by its
 //!   locator, and each falls back to "pass the traffic through" on any failure.
 //!
-//! What is not here yet: the detours themselves (reading method, URL and body out of the client's
-//! structures, installing them through [`crate::hook`]). Their ABI is the outcome of 2.1.5–2.1.7;
-//! they will call the runtime from [`install`] and nothing else.
+//! * [`abi`]: method, URL and body read out of the client's request, through reads that may fail.
+//! * `detour` (Windows x64): the inline detour on `send`, read-only in part 1 of 2.2.2.
+//!
+//! What is not here yet: the `poll` vtable swap (needs the response layout), body replacement
+//! (needs the `Bytes` vtable) and the Gateway detours (need the handler payload type); see
+//! `docs/research/phoenix-recon.md`, "Open questions".
 
+pub mod abi;
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub mod detour;
 pub use crate::found;
 pub mod gateway;
 pub mod guard;
