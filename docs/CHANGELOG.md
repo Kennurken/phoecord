@@ -6,6 +6,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Fixed
 
+- 2.2.2: the `send` detour reads request bodies: `hooks::abi` now takes the words of `bytes::Bytes` in the order Phoenix `0.1.0.2208` stores them (vtable, pointer, length, data), checked live; with the declared order every body was reported as not readable. Part 1 run live: method, URL and body read on every request, Control Flow Guard does not interfere.
 - Installer window: the onboarding shows only on the first start after install, not again after every update (ruling 2026-11-26).
 - Installer window: on a short window the onboarding text no longer runs under the bottom bar (its line crossed the text); the column is clipped at the bar and scrolls.
 
