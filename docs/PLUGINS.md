@@ -61,7 +61,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | CustomIdle | Change or disable auto-idle | 🌐 Network | done (0 or over 10 minutes; `/phoecord exitidle`) |
 | CustomRPC | Fully custom Rich Presence | 🌐 Network | done — settings in `config.toml`, `/phoecord rpc` / 2 (settings page, preview) |
 | Dearrow | Less clickbait YouTube embed titles and thumbnails | 🌐 Network | done: titles replaced in new and loaded messages; thumbnails behind `replaceElements = 0` (off by default, unverified on a live client: the client's CSP may block them); the toggle button is Phase 2 |
-| Decor | Custom avatar decorations | 🌐 + 🎨 | 1.2.14, blocked: the client loads the picture from the Discord CDN by hash; needs CDN interception or a UI hook *(2)* |
+| Decor | Custom avatar decorations | 🌐 + 🎨 | 1.2.14, blocked: waits for a Phase 2 UI hook (the client loads the picture from the Discord CDN by hash) *(2)* |
 | DevCompanion | Vencord developer companion | ⛔ N/A | Vencord dev tool |
 | DirectFileDownload | Download files directly | 🎨 UI | 2 |
 | DisableCallIdle | Never kicked from idle DM calls | 🎨 UI | 2 |
@@ -81,7 +81,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | FullSearchContext | Full context menus on search results | 🎨 UI | 2 |
 | GameActivityToggle | Toggle showing your game | 🌐 Network | done |
 | GifPaste | Insert GIF links instead of sending | 🎨 UI | 2 |
-| GifProviderSwitcher | Tenor or Giphy for GIF search | 🌐 Network | 1.2.15, blocked: the GIF search text is in the query string, which plugin routes do not carry |
+| GifProviderSwitcher | Tenor or Giphy for GIF search | 🌐 Network | 1.2.15, blocked: waits for the owner to add the query string (the GIF search text) to plugin routes |
 | GreetStickerPicker | Pick any greet sticker | 🎨 UI | 2 |
 | HideMedia | Hide attachments and embeds per message | 🎨 UI | 2 |
 | IgnoreActivities | Hide chosen activities from your status | 🌐 Network | done — `/phoecord activities`, `/phoecord ignoreactivity` |
@@ -176,7 +176,7 @@ Release targets: **v1.0** = every 🌐 and 🌐 + 🎨 plugin, the theme engine,
 | UnsuppressEmbeds | Unsuppress embeds | 🌐 + 🎨 | done: data — `/phoecord unsuppress` / 2 (message menu item) |
 | UserMessagesPronouns | Pronouns in chat | 🎨 UI | 2 |
 | UserVoiceShow | Show who is in voice | 🌐 + 🎨 | done: data — `/phoecord voice` / 2 (badge, profile section) |
-| USRBG | Community banners without Nitro | 🌐 Network | 1.2.14, blocked: the client loads the picture from the Discord CDN by hash; needs CDN interception or a UI hook *(2)* |
+| USRBG | Community banners without Nitro | 🌐 Network | 1.2.14, blocked: waits for a Phase 2 UI hook (the client loads the picture from the Discord CDN by hash) *(2)* |
 | ValidReply | Fix 'message could not be loaded' in replies | 🌐 Network | done: missing `referenced_message` filled from the page or one lookup |
 | ValidUser | Fix @unknown-user mentions | 🌐 Network | done: unknown mentioned users looked up (`GET /users/{id}`) and added to the message |
 | VcNarrator | Announce voice joins and leaves | 🌐 + 🎨 | done: data — desktop notifications, no speech / 2 (TTS, test button) |
