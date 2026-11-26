@@ -1,0 +1,90 @@
+{
+  "t": "MESSAGE_CREATE",
+  "s": 17,
+  "op": 0,
+  "d": {
+    "type": 0,
+    "tts": false,
+    "timestamp": "2020-01-01T00:00:01.077000+00:00",
+    "pinned": false,
+    "nonce": "1000000000000000363",
+    "mentions": [],
+    "mention_roles": [],
+    "mention_everyone": false,
+    "member": {
+      "roles": [
+        "1000000000000000364",
+        "1000000000000000365",
+        "1000000000000000366",
+        "1000000000000000367"
+      ],
+      "premium_since": null,
+      "pending": false,
+      "nick": "Jordan2",
+      "mute": false,
+      "joined_at": "2020-01-01T00:00:03.691000+00:00",
+      "flags": 0,
+      "deaf": false,
+      "communication_disabled_until": null,
+      "banner": null,
+      "avatar": null
+    },
+    "id": "1000000000000000368",
+    "flags": 0,
+    "embeds": [
+      {
+        "type": "rich",
+        "timestamp": "2020-01-01T00:00:04.916849+00:00",
+        "thumbnail": {
+          "width": 1024,
+          "url": "https://example.invalid/url/5",
+          "proxy_url": "https://example.invalid/proxy_url/6",
+          "placeholder_version": 1,
+          "placeholder": "redacted-placeholder-7",
+          "height": 1024,
+          "flags": 0,
+          "content_type": "redacted-content_type-8"
+        },
+        "id": "1000000000000000369",
+        "footer": {
+          "text": "redacted-text-9"
+        },
+        "fields": [
+          {
+            "value": "redacted-value-10",
+            "name": "redacted-name-11",
+            "inline": true
+          },
+          {
+            "value": "redacted-value-12",
+            "name": "redacted-name-13",
+            "inline": true
+          }
+        ],
+        "description": "lorem ipsum fixture text 14",
+        "color": 1752220
+      }
+    ],
+    "edited_timestamp": null,
+    "content": "lorem ipsum fixture text 15",
+    "components": [],
+    "channel_type": 0,
+    "channel_id": "1000000000000000370",
+    "author": {
+      "username": "Alex16",
+      "public_flags": 65536,
+      "primary_guild": null,
+      "id": "1000000000000000185",
+      "global_name": null,
+      "display_name_styles": null,
+      "discriminator": "redacted-discriminator-17",
+      "collectibles": null,
+      "clan": null,
+      "bot": true,
+      "avatar_decoration_data": null,
+      "avatar": "00000000000000000000000000000012"
+    },
+    "attachments": [],
+    "guild_id": "1000000000000000032"
+  }
+}

@@ -3,10 +3,10 @@
 Decoded Discord Gateway events, scrubbed so none of them carry real data, for tests that need a
 realistic event shape without touching the network or a real account.
 
-**Status: the scrubbing tool (`scripts/scrub_fixture.py`) and this README are done. The fixtures
-themselves are not recorded yet** — that step needs a human with a throwaway Discord account and
-a running `mitmproxy`/`phoecord`, which cannot be done from here. See "Recording" below for the
-steps whoever does that should follow.
+**Status:** `phoenix/HELLO.json`, `phoenix/READY.json` and `phoenix/MESSAGE_CREATE.json` are
+recorded (2026-11-26, Phoenix `0.1.0.2208`, task 2.1.4) and loaded by
+`crates/phoecord-transport/tests/phoenix_fixtures.rs`. `electron/` is still empty. See
+`docs/research/phoenix-recon.md`, "Fixtures", for what was rewritten beyond the scrubber.
 
 ## Layout
 

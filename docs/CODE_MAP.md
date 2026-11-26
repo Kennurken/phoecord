@@ -31,7 +31,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `.github/dependabot.yml` | Weekly cargo updates (grouped), monthly GitHub Actions updates; Dependabot opens the `dependabot/*` branches |
 | `.editorconfig`, `.gitattributes`, `.gitignore` | LF everywhere, 4-space Rust, 2-space YAML/TOML; secrets and dumps ignored |
 | `signatures/` | AOB signature tables per client build (`README.md` documents the format; no Discord signatures yet) |
-| `tests/fixtures/` | Decoded, scrubbed Gateway events for tests (task 2.1.10); `README.md` documents recording and scrubbing (`scripts/scrub_fixture.py`); no fixtures committed yet |
+| `tests/fixtures/` | Decoded, scrubbed Gateway events for tests (task 2.1.10); `README.md` documents recording and scrubbing (`scripts/scrub_fixture.py`); `phoenix/` has `HELLO`, `READY` (partial, as Phoenix receives it) and `MESSAGE_CREATE` (2.1.4), `electron/` is empty |
 | `research/` | Out-of-workspace research projects: `gpui-reference` (GPUI app built like a shipping client) and `aob-probe` (checks AOB anchors against a binary); excluded from the workspace |
 | `.github/CODEOWNERS`, `.github/workflows/assign.yml` | Every PR is assigned to Nanda070 and requests Nanda070's review |
 | `scripts/` | §4 |
@@ -78,6 +78,7 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `src/config.rs`, `src/account.rs` | Live plugin configuration and account state available to plugins | Config reload must re-enable the chain and preserve the last live state |
 | `src/dev.rs` | `DevBus` (1.3.9): log lines and per-plugin run records for an attached console, and the last event of each kind for `replay` (nothing copied while nobody is attached); `impl Engine`: `plugin_list`, `toggle_plugin`, `reload_plugin`, `plugin_settings`, `plugin_kv`, `replay` (dry run) | Payloads are cloned only when `DevBus::active()`; replay discards queued sends and locals |
 | `src/timers.rs` | `Timers`: the store of plugin timers from `Host::schedule` (50 ms min, 24 h max, 64 per plugin, memory only), `timer_payload` | The clock is the transport's: it calls `next_due` / `take_due` and `Engine::fire_timer` |
+| `tests/phoenix_fixtures.rs` | Loads `tests/fixtures/phoenix/*.json`, checks the shapes recorded in 2.1.4 (partial `READY`) and runs each through `Engine::on_dispatch` with MessageLogger, ShowHiddenChannels and PlatformIndicators | Reads the files by path from the crate folder; a re-recorded fixture must keep `data_mode: "partial"` |
 
 ### `phoecord-proxy`
 

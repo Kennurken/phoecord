@@ -4,9 +4,9 @@ Checked against code: not applicable (the only PhoeCord code that touches Phoeni
 
 Findings about an official Phoenix build, and the steps that produce them. Part 1 holds tasks **2.1.1** (discovery and update scheme), **2.1.2** (binary inspection), **2.1.5** and **2.1.6** (allocator, HTTP transport, gateway dispatcher); part 2 holds **2.1.3** (proxy behavior), **2.1.4** (gateway wire format) and **2.3.7** (degradation). Task 2.1.9 completes the report: loading path and the decisions for 2.2–2.4.
 
-**Status of part 2: partly run (2026-11-25, Windows).** Proxy behavior and the gateway encoding and compression have Windows results. The capture, fixtures, event comparison, Linux and degradation are "not run". What an unrun step expects is a hypothesis, not a finding.
+**Status of part 2: partly run (2026-11-25 and 2026-11-26, Windows).** Proxy behavior, the gateway encoding and compression, the gateway URL, the fixtures, the event comparison with an Electron client and the fresh-install check of 2.1.8 have Windows results. Uploads, voice, Linux and degradation are "not run". What an unrun step expects is a hypothesis, not a finding.
 
-**The account used for the signed-in runs is not accepted by this client.** It reaches `READY` and then shows "This app isn't available for your account". Signed-in results cover only what the client sends and receives up to and on that screen. Nothing in the traffic was changed and no way past the screen was tried. What the study of another loader says about Phoenix is in [`phoenix-desktop.md`](phoenix-desktop.md).
+**The account used for the 2026-11-25 runs was not accepted by this client** ("This app isn't available for your account" after `READY`); nothing past that screen was seen then, and no way past it was tried. **On 2026-11-26 the same account was accepted** (the window opened on the friends list, with no change on our side), so the runs of that day see the signed-in client. What the study of another loader says about Phoenix is in [`phoenix-desktop.md`](phoenix-desktop.md).
 
 # Part 1. The binary and the loading path (2.1.1, 2.1.2, 2.1.5–2.1.7)
 
@@ -267,6 +267,8 @@ Afterwards: `phoecord untrust` if this machine does not otherwise run PhoeCord.
 
 With a working setup, use the client for a few minutes (open channels, send a message, upload a file, open settings) and list which hosts went through the proxy and which connected directly.
 
+**Result (2026-11-26, signed in past the account screen, no user actions: start-up, the friends list, about 90 seconds idle with incoming messages).** Through `--proxy-server` (mitmproxy as a plain recorder): `discord.com`, `gateway.discord.gg`, `cdn.discordapp.com` (changelog config, bad-domains list), `status.discord.com`, `latency.discord.media` (`/rtc`) and the Spotify connection's `api.spotify.com` and `dealer.spotify.com`. Through `phoecord launch --channel phoenix` with the same idle session, all of the client's 15 established TCP connections went to `127.0.0.1:18463` and none to a public address; no UDP endpoint was open. Nothing went around the proxy in this window (the Sentry bypass of 2026-11-25 shows only when the client reports an error). **Not covered:** uploads, voice (UDP), and picture and attachment loading from `media.discordapp.net` / `cdn.discordapp.com` while scrolling a channel; they need someone at the keyboard.
+
 ### Results
 
 | Question | Windows | Linux |
@@ -279,12 +281,14 @@ With a working setup, use the client for a few minutes (open channels, send a me
 | mitmproxy CA in the system store accepted | not needed | not run |
 | TLS crates seen | `rustls` 0.23.46, `rustls-platform-verifier` 0.7.1, `rustls-native-certs` 0.8.5, `aws-lc-rs` 1.18.2; no `webpki-roots` path | not run |
 | HTTP/2 or QUIC required | HTTP/2 not required; no UDP seen outside voice (voice not tested); `h2` 0.4.20 and `quinn` 0.11.9 are linked | not run |
-| Hosts through the proxy | intercepted: `discord.com`, `gateway.discord.gg`; tunnelled: `status.discord.com`, `cdn.discordapp.com`, `latency.discord.media`, `remote-auth-gateway.discord.gg` (signed out), connected-account services | not run |
+| Hosts through the proxy | intercepted: `discord.com`, `gateway.discord.gg`; tunnelled: `status.discord.com`, `cdn.discordapp.com`, `latency.discord.media`, `remote-auth-gateway.discord.gg` (signed out), connected-account services (`api.spotify.com`, `dealer.spotify.com`); signed in past the account screen (2026-11-26): the same set, and every TCP connection of the client went to the proxy | not run |
 | Hosts that bypass it | `o64374.ingest.sentry.io` (error reporting), with the flag and with the system proxy | not run |
 
 ### What the answers mean for 2.1.8
 
-On Windows the first row applies, through `--proxy-server` or the system setting rather than `HTTPS_PROXY`: no hook is needed. `phoecord launch` already passes the flag; a client started any other way needs the flag in its shortcut or the system setting. **Ruling (2026-11-26): option 1, no hook** (`docs/DECISIONS.md`). Still open for 2.1.8: the check on a fresh install with no manual setup.
+On Windows the first row applies, through `--proxy-server` or the system setting rather than `HTTPS_PROXY`: no hook is needed. `phoecord launch` already passes the flag; a client started any other way needs the flag in its shortcut or the system setting. **Ruling (2026-11-26): option 1, no hook** (`docs/DECISIONS.md`).
+
+**Fresh install (2.1.8, 2026-11-26, Windows, a release build from `main`).** Empty config and data folders (`PHOECORD_CONFIG` / `PHOECORD_DATA`), then only `phoecord setup --accept-terms --channel phoenix`: it created the CA, trusted it in `CurrentUser\Root` (one Windows confirmation) and added the "Discord Phoenix (PhoeCord)" shortcut, whose command is `phoecord launch --channel phoenix`. That command, with nothing set by hand, chose the proxy (the signature check found no `http_poll`, `gateway_registry` or outgoing-send locator), started the proxy and Phoenix with the loader injected. Result: REST went through the proxy (NoTrack answered `POST /science` locally), the gateway was decoded by the proxy (`gateway connected (Json, Zstd)` once a gateway plugin was on), the loader reported to the proxy (`loader connected: build 0.1.0.2208`), and every established TCP connection of the client was to `127.0.0.1:18463`. **Passes.**
 
 | Proxy setting | System CA | Option (`ARCHITECTURE.md`, "Phoenix and the proxy") |
 |:---|:---|:---|
@@ -356,7 +360,7 @@ Run the same capture against today's Electron client (`Discord.exe --proxy-serve
 
 `tests/fixtures/phoenix/` gets at least `HELLO`, `READY` and `MESSAGE_CREATE`, decoded. They are **rewritten, not redacted**: keep keys, nesting and value types; replace every string, every snowflake (including snowflakes used as map keys) and every number that identifies something with invented values. Delete nothing from the shape. `READY` carries the email, phone, session ids, resume URL, analytics token, settings, relationships and server names; none of it may reach the repository.
 
-Decoding the capture and rewriting it is the second half of 2.1.4. It is not written yet, because it depends on the encoding found above.
+**Recorded (2026-11-26):** `HELLO.json`, `READY.json` and `MESSAGE_CREATE.json` from one signed-in Phoenix session, decoded (zstd-stream, one context per connection) and rewritten with `scripts/scrub_fixture.py` (task 2.1.10). On top of the tool, `READY`'s millisecond timestamps, activity start times, decoration expiry and name colours were replaced by fixed values, and the guilds' `data_mode` enum was set back to its real value `"partial"` (the scrubber rewrites every string). Left as captured: Discord's experiment hashes and bucket numbers (`experiments`, `guild_experiments`, `apex_experiments`), which are the client's global rollout configuration, not account data. The raw capture, the decoded events and the id map were deleted after scrubbing.
 
 ### Event shapes
 
@@ -368,11 +372,22 @@ For each event name, compare the set of key paths and value types between the tw
 |:---|:---|:---|
 | Encoding | **JSON** | not run |
 | Compression | **zstd-stream** | not run |
-| Gateway version (`v=`) | not run | not run |
-| Other URL parameters | not run | not run |
-| Decodes with the current codec | **yes** | not run |
-| Events only on this client | not run | not run |
-| Fields added or removed | not run | not run |
+| Gateway version (`v=`) | **9** | **9** |
+| Other URL parameters | `/?encoding=json&v=9&compress=zstd-stream`, nothing else | `/?encoding=etf&v=9&compress=zstd-stream` (Discord Canary 1.0.1364) |
+| Decodes with the current codec | **yes** | yes (`etf` and `zstd-stream` are both handled by `codec.rs`) |
+| Events only on this client | none seen: every event name of the Phoenix session also occurs on Electron | — |
+| Fields added or removed | see below | — |
+
+The Electron column is Discord Canary 1.0.1364 on the same account, recorded the same way a few minutes later: today's desktop client sends ETF, not JSON, and already uses `zstd-stream`.
+
+**Event shapes (key paths and value types, snowflake map keys folded).** `HELLO`: identical. `MESSAGE_CREATE`, `PRESENCE_UPDATE`, `VOICE_STATE_UPDATE`, `SESSIONS_REPLACE`: no structural difference; the key-path differences come from the content of the particular messages and presences, and every type difference is a snowflake, which is a string in JSON and an integer in ETF. **`READY` differs, and it matters for plugins:**
+
+- Every guild arrives with `data_mode: "partial"` on Phoenix (`"full"` on Electron): no `channels`, `roles`, `emojis`, `stickers` or `properties`; instead `channel_updates` and `partial_updates`, changes against what the client already has. Phoenix keeps its own cache (open question 9) and asks for a partial `READY`.
+- No `user_settings_proto` on Phoenix.
+- `private_channels` and `user_guild_settings` carry fewer fields; `read_state` entries gain `badge_count`, `last_acked_id` and `read_state_type`.
+- `READY_SUPPLEMENTAL` has 48 key paths that Electron's lacks.
+
+So on Phoenix, a plugin that builds its picture of channels or roles from `READY` (ShowHiddenChannels, PermissionsViewer, anything reading `guilds[].channels`) sees nothing there and needs the data from another source: REST, later `GUILD_CREATE` / `CHANNEL_*` events, or in-process from the client's store. This is a finding for 2.4.1.
 
 No `undecodable gateway payload` line appeared at debug level during about 45 seconds of one connection, so no change to `codec.rs` is needed for what was seen. The URL parameters are not logged, and the client's full event traffic was not seen (see the status of part 2).
 
@@ -446,12 +461,12 @@ What the reconnaissance confirmed, and what each later task takes from it:
 
 Questions that are still open, by the task that has to answer them:
 
-- **2.1.3:** endpoints beyond the account screen (uploads, voice, CDN), and Linux.
-- **2.1.4:** the gateway version and other URL parameters, the event comparison with the Electron client, and fixtures (`tests/fixtures/phoenix/`). All of these need an account the client accepts.
-- **2.1.8:** the check on a fresh install with no manual setup.
+- **2.1.3:** uploads, voice and media loading while scrolling (signed-in start-up and idle traffic are done), and Linux.
+- **2.1.4:** done on Windows (2026-11-26): `v=9`, JSON with `zstd-stream`, fixtures, the comparison with Discord Canary. Open: Linux.
 - **2.2.2:** the response layout (status, headers, body) for `on_response`; the `Bytes` vtable a replaced body needs; whether Control Flow Guard breaks an inline detour; at run time, whether the method encoding the `send` detour assumes (`http::Method` tag first) holds. Part 1 (read-only detour on `send`) is in the loader.
 - **2.2.3:** the type of the handlers' payload argument (JSON text, `serde_json::Value` or a typed struct) and the registry entry layout; whether `READY` also goes through the ordinary registry or only through the connection loop's special path. Without the payload type no detour can hand `d` to `Engine::on_dispatch`.
 - **2.2.4:** the layout of the command enum the encoder takes and the type of its output (a hook there sees a typed command, not JSON); where heartbeat, identify and resume are sent, if a plugin ever needs them. The `gateway_send` locator is in the loader; while the hook is missing, Phoenix launches use the proxy.
+- **2.4.1 (new from 2.1.4):** Phoenix's `READY` is partial (no channels, roles or emojis), so plugins that read them from `READY` need another source.
 - **2.2.8:** a real Phoenix update was never observed: what `app\` and the `updates` folder look like before and after, and whether a running client is swapped or waits. The installer must also know about the system helper in `%ProgramFiles%\Common Files\Discord\DiscordPhoenix\`.
 - **2.3.1:** where the palette lives (see the decisions table).
 - **Sideload:** never tested (see "Loading path"). Not needed now; worth one test if injection ever stops working.
@@ -460,7 +475,7 @@ Questions that are still open, by the task that has to answer them:
 Risks:
 
 - **One build.** Every finding is from `0.1.0.2208`. No signature is in `signatures/` until 2.2.9 checks it on two adjacent builds, so until then in-process cannot be the default for anyone.
-- **The test account.** The client stops at "This app isn't available for your account" after `READY`. Everything past that screen (messages, uploads, settings, the UI hook points in a live client) is unobserved, and 2.1.4's fixtures and 1.1.9 wait for an accepted account.
+- **The test account.** Until 2026-11-25 the client stopped at "This app isn't available for your account" after `READY`; on 2026-11-26 the same account was let in. Access can change again on Discord's side.
 - **The access gate.** `DiscordApp::render` checks an access gate and can show a "Build expired" banner; a build the gate rejects is unusable whatever PhoeCord does.
 - **Detection time.** On Discord Canary (224 MiB) the loader took about 130 ms to detect the build, over the 20 ms target (2.2.11). Phoenix's executable is more than twice as large, so hashing `.text` will take longer; this is measured on Phoenix by nobody yet.
 - **Two `Found<T>` types.** `hooks::found::Found<T>` (2.2.2/2.2.3) and `locators::Found<T>` (2.2.5) are separate; they should become one before part 2 of 2.2.5 adds the target locators.
