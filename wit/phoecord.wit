@@ -202,6 +202,11 @@ interface host {
     /// `fetch` with extra request headers (name, value). The host refuses `Host`,
     /// `Authorization`, `Cookie`, `Proxy-*` and hop-by-hop headers. Right `fetch`.
     fetch-with: func(method: string, url: string, headers: list<tuple<string, string>>, body: option<tree>) -> result<host-response, string>;
+    /// The raw query string (no leading `?`) of the REST call being handled, during a
+    /// `rest-request` or `rest-response` event; `none` otherwise or when the call has none.
+    /// Routes never carry the query. It can hold what the user typed: do not log it.
+    /// Always allowed.
+    request-query: func() -> option<string>;
 }
 
 world plugin {

@@ -348,6 +348,8 @@ pub struct ProxyHost<'a> {
     pub sends: Vec<(i64, Val)>,
     /// Server → client payloads queued by plugins with `Host::emit_dispatch`.
     pub locals: Vec<Val>,
+    /// Query string of the REST call being handled ([`Host::request_query`]).
+    query: Option<String>,
 }
 
 impl<'a> ProxyHost<'a> {
@@ -359,7 +361,14 @@ impl<'a> ProxyHost<'a> {
             fetch_hosts: Vec::new(),
             sends: Vec::new(),
             locals: Vec::new(),
+            query: None,
         }
+    }
+
+    /// The same host for one REST call with this query string (no leading `?`).
+    pub fn with_query(mut self, query: Option<&str>) -> ProxyHost<'a> {
+        self.query = query.filter(|q| !q.is_empty()).map(str::to_string);
+        self
     }
 }
 
@@ -397,6 +406,10 @@ impl Host for ProxyHost<'_> {
 
     fn self_id(&self) -> Option<u64> {
         self.shared.account.lock().unwrap().user_id
+    }
+
+    fn request_query(&self) -> Option<String> {
+        self.query.clone()
     }
 
     fn notify(&mut self, title: &str, body: &str) {

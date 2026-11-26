@@ -54,6 +54,14 @@ pub fn route_of(url: &str) -> String {
     }
 }
 
+/// `https://discord.com/api/v9/gifs/search?q=cat#x` → `Some("q=cat")`; `None` without a query.
+/// Plugins read it with `Host::request_query`; `route_of` drops it.
+pub fn query_of(url: &str) -> Option<&str> {
+    let url = url.split('#').next().unwrap_or("");
+    let q = url.split_once('?')?.1;
+    (!q.is_empty()).then_some(q)
+}
+
 fn is_version(s: &str) -> bool {
     !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
 }
@@ -71,6 +79,7 @@ pub fn request(
     can_replace_body: bool,
 ) -> Result<HttpOutcome, String> {
     let route = route_of(url);
+    let query = query_of(url);
     // A body that is not JSON (an upload) is left alone: plugins see none and cannot change it.
     let (mut val, opaque) = match body {
         None | Some([]) => (None, false),
@@ -79,7 +88,7 @@ pub fn request(
             Err(_) => (None, true),
         },
     };
-    let (outcome, effects) = engine.on_request(method, &route, &mut val);
+    let (outcome, effects) = engine.on_request_with_query(method, &route, query, &mut val);
     match outcome {
         RequestOutcome::Forward { changed } => {
             if !changed || opaque {
@@ -115,13 +124,14 @@ pub fn response(
     can_replace_body: bool,
 ) -> Result<HttpOutcome, String> {
     let route = route_of(url);
+    let query = query_of(url);
     if !engine.wants_response(method, &route) {
         return Ok(HttpOutcome::pass(Effects::default()));
     }
     let json = serde_json::from_slice(body)
         .map_err(|e| format!("{method} {route}: response body is not JSON ({e})"))?;
     let mut val = Val::from_json(json);
-    let (changed, effects) = engine.on_response(method, &route, status, &mut val);
+    let (changed, effects) = engine.on_response_with_query(method, &route, query, status, &mut val);
     if !changed {
         return Ok(HttpOutcome::pass(effects));
     }
@@ -151,5 +161,12 @@ mod tests {
         assert_eq!(route_of("https://cdn.example.com/a/b#x"), "/a/b");
         assert_eq!(route_of("https://discord.com"), "/");
         assert_eq!(route_of("/v/x"), "/v/x");
+        assert_eq!(
+            query_of("https://discord.com/api/v9/gifs/search?q=cat&limit=5#x"),
+            Some("q=cat&limit=5")
+        );
+        assert_eq!(query_of("https://discord.com/api/v9/gifs/search?"), None);
+        assert_eq!(query_of("https://discord.com/a#frag?x=1"), None);
+        assert_eq!(query_of("https://discord.com/api/v9/users/@me"), None);
     }
 }

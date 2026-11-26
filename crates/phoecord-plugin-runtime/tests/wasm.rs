@@ -266,3 +266,54 @@ mod limits {
         assert!(!plugin.is_disabled(), "{:?}", host.logs);
     }
 }
+
+/// A host that knows the query string of the REST call being handled.
+struct QueryHost(Option<String>);
+
+impl phoecord_core::Host for QueryHost {
+    fn setting(&self, _: &str) -> Option<Val> {
+        None
+    }
+    fn kv_get(&self, _: &str) -> Option<Val> {
+        None
+    }
+    fn kv_set(&mut self, _: &str, _: Val) {}
+    fn self_id(&self) -> Option<u64> {
+        None
+    }
+    fn notify(&mut self, _: &str, _: &str) {}
+    fn log(&mut self, _: &str) {}
+    fn emit_send(&mut self, _: i64, _: Val) {}
+    fn guild_emojis(&self, _: u64) -> Vec<u64> {
+        Vec::new()
+    }
+    fn channel_guild(&self, _: u64) -> Option<u64> {
+        None
+    }
+    fn request_query(&self) -> Option<String> {
+        self.0.clone()
+    }
+}
+
+#[test]
+fn a_guest_reads_the_query_of_the_request_it_handles() {
+    let chain = chain_of(guest());
+    let mut host = QueryHost(Some("q=cat%20gif&limit=5".into()));
+    assert_eq!(
+        chain.rest_request(&mut host, "GET", "/query", None),
+        Outcome::Replied {
+            by: "test_guest".into(),
+            status: 200,
+            body: Some(Val::Str("q=cat%20gif&limit=5".into())),
+        }
+    );
+    // A host without a query (or one that predates `request_query`) answers `none`.
+    assert_eq!(
+        chain.rest_request(&mut NullHost::default(), "GET", "/query", None),
+        Outcome::Replied {
+            by: "test_guest".into(),
+            status: 404,
+            body: None,
+        }
+    );
+}

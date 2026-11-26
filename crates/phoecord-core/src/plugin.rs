@@ -218,6 +218,15 @@ pub trait Host {
     fn cancel_schedule(&mut self, tag: &str) {
         let _ = tag;
     }
+    /// The raw query string (no leading `?`) of the REST call being handled, while a plugin
+    /// handles its [`Event::RestRequest`] or [`Event::RestResponse`]; `None` for other events and
+    /// for calls without one. [`Event`] routes never carry the query, so `wants` matches the
+    /// path alone; a plugin that needs a parameter (`GET /gifs/search?q=…`) reads it here and
+    /// decodes it with [`crate::route::query_pairs`]. The query can hold what the user typed, so
+    /// do not log it. Added to v1 as an additive method; the default (a host without it) is `None`.
+    fn request_query(&self) -> Option<String> {
+        None
+    }
     /// Called by the plugin chain right after `begin_plugin` with the hosts the plugin's manifest
     /// lists in `fetch`, so [`Host::fetch`] can check its allow-list. Plugins never call this.
     fn set_fetch_hosts(&mut self, hosts: &[String]) {

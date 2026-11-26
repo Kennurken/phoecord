@@ -6,7 +6,7 @@ in its plan's `ai/ledger.md` first, then rerun the script.
 
 ## Phase 1. Before the Phoenix Canary public beta
 
-Source: `docs/phase-1/ai/ledger.md`, decisions: 50.
+Source: `docs/phase-1/ai/ledger.md`, decisions: 52.
 
 - Ruling: the repository is public on Nanda070's account (owner Nanda, 2026-11-23, "Public" (translated)) — why: open-source MIT project — risk: everything pushed is published at once; secrets rules in AGENTS.md and SECRETS.md
 - Ruling: the copyright holder is Cheterin Group, next to the retained upstream MIT copyright line (owner Nanda, 2026-11-23, "Copyright in LICENSE" (translated)) — why: project ownership — risk: none
@@ -58,6 +58,8 @@ Source: `docs/phase-1/ai/ledger.md`, decisions: 50.
 - Ruling: tasks 1.4.10 and 1.5.9 move to Phase 2 as 2.4.8 and 2.2.11, same person and same "done when" (owner Nanda, 2026-11-26, "1 4 11 отмени // 1.4.10 и 1.5.9 перенси в phase 2 // 1.2.17 XS закрой, 2 оставь запрет" (translated: "cancel 1.4.11 // move 1.4.10 and 1.5.9 to phase 2 // 1.2.17: close XS; item 2: keep the ban")) — why: the owner's call — risk: the 0.5.1 macOS fixes and the loader in Discord Canary stay unverified until then
 - Ruling: XSOverlay is dropped, no local UDP or WebSocket right is added and 1.2.17 closes without it (owner Nanda, 2026-11-26, "Не делать" (translated: "do not do it"), the answer to what "XS закрой" meant) — why: the owner's call — risk: no VR notifications
 - Ruling: `fetch_with` keeps refusing credential headers, so DeepL and Kagi stay on the Google fallback and ReviewDB stays read only (owner Nanda, 2026-11-26, "1 4 11 отмени // 1.4.10 и 1.5.9 перенси в phase 2 // 1.2.17 XS закрой, 2 оставь запрет" (translated: "cancel 1.4.11 // move 1.4.10 and 1.5.9 to phase 2 // 1.2.17: close XS; item 2: keep the ban")) — why: the owner's call; the host keeps credential headers out of plugin requests — risk: parity with Vencord stays incomplete in these three places
+- Ruling: the plugin API gets `Host::request_query()` (WASM `request-query`, always allowed), the raw query string of the REST call a plugin is handling; `Event` routes stay the path alone, additive with `API_VERSION` 1 (owner Nanda, 2026-11-26, "Сделай это" (translated: "do it"), on the proposal to unblock GifProviderSwitcher this way) — why: `GET /gifs/search` carries the search text in the query string and plugin routes drop it (1.2.15 blocker, 2026-11-25 18:26); a new host method keeps native `Event` matches and already-built WASM plugins working, a new field in `Event` would not — risk: the query can hold what the user typed; hosts and plugins must not log it
+- Ruling: 1.2.15, GifProviderSwitcher uses the Tenor and Giphy API keys Vencord ships (owner Nanda, 2026-11-26, "Ключи из Vencord" (translated: "keys from Vencord")) — why: the answer to buslan07's question in the 1.2.15 entry of 2026-11-25 18:26 — risk: the keys are shared with Vencord; if a provider revokes or rate-limits them the plugin stops for everyone, so the plugin also takes the user's own key as a fallback
 
 ## Phase 2. Phoenix Canary release
 

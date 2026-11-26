@@ -269,14 +269,41 @@ impl Proxy {
     }
 
     pub fn on_request(&self, method: &str, route: &str, body: &mut Option<Val>) -> RequestOutcome {
-        let (outcome, effects) = self.engine.on_request(method, route, body);
+        self.on_request_with_query(method, route, None, body)
+    }
+
+    /// [`Proxy::on_request`] for a call with a query string (no leading `?`).
+    pub fn on_request_with_query(
+        &self,
+        method: &str,
+        route: &str,
+        query: Option<&str>,
+        body: &mut Option<Val>,
+    ) -> RequestOutcome {
+        let (outcome, effects) = self
+            .engine
+            .on_request_with_query(method, route, query, body);
         self.deliver(effects);
         outcome
     }
 
     /// A REST answer: plugins may rewrite `body`; returns whether they did.
     pub fn on_response(&self, method: &str, route: &str, status: u16, body: &mut Val) -> bool {
-        let (changed, effects) = self.engine.on_response(method, route, status, body);
+        self.on_response_with_query(method, route, None, status, body)
+    }
+
+    /// [`Proxy::on_response`] for a call with a query string (no leading `?`).
+    pub fn on_response_with_query(
+        &self,
+        method: &str,
+        route: &str,
+        query: Option<&str>,
+        status: u16,
+        body: &mut Val,
+    ) -> bool {
+        let (changed, effects) = self
+            .engine
+            .on_response_with_query(method, route, query, status, body);
         self.deliver(effects);
         changed
     }
@@ -571,6 +598,78 @@ mod tests {
         let (p, _, _) = timer_proxy(&[]);
         let out = p.chain_queued(vec![(3, Val::map())]);
         assert_eq!(out, vec![queued_frame(3, Val::map())]);
+    }
+
+    /// Wants `GET /gifs/search` and answers it with what `Host::request_query` gives; on the
+    /// response, writes it into the body.
+    struct QueryEcho(Manifest);
+
+    impl Plugin for QueryEcho {
+        fn manifest(&self) -> &Manifest {
+            &self.0
+        }
+        fn wants(&self, e: &EventKind) -> bool {
+            matches!(
+                e,
+                EventKind::RestRequest {
+                    route: "/gifs/search",
+                    ..
+                } | EventKind::RestResponse {
+                    route: "/gifs/search",
+                    ..
+                }
+            )
+        }
+        fn on_event(&self, host: &mut dyn Host, e: Event<'_>) -> Verdict {
+            let q = Val::Str(host.request_query().unwrap_or_else(|| "none".into()));
+            match e {
+                Event::RestRequest { .. } => Verdict::Reply {
+                    status: 200,
+                    body: Some(q),
+                },
+                Event::RestResponse { body, .. } => {
+                    *body = q;
+                    Verdict::Changed
+                }
+                _ => Verdict::Pass,
+            }
+        }
+    }
+
+    #[test]
+    fn plugins_read_the_query_of_the_call_they_handle() {
+        let dir = std::env::temp_dir().join(format!("phoecord-test-query-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let paths = Paths {
+            config: dir.join("config.toml"),
+            data: dir.join("data"),
+        };
+        let chain = Chain::new(vec![Box::new(QueryEcho(manifest("query_echo")))]);
+        let mut cfg = Config::default();
+        cfg.set_enabled("query_echo", true).unwrap();
+        let p = Proxy::new(paths, cfg, chain, false).unwrap();
+        // The route alone decides `wants`; the query never shows up in it.
+        assert!(p.wants_request("GET", "/gifs/search"));
+        let mut body = None;
+        assert_eq!(
+            p.on_request_with_query("GET", "/gifs/search", Some("q=cat&limit=5"), &mut body),
+            RequestOutcome::Reply {
+                status: 200,
+                body: Some(Val::Str("q=cat&limit=5".into()))
+            }
+        );
+        // No query (and the old entry point) reads as `None`.
+        assert_eq!(
+            p.on_request("GET", "/gifs/search", &mut body),
+            RequestOutcome::Reply {
+                status: 200,
+                body: Some(Val::Str("none".into()))
+            }
+        );
+        let mut v = Val::map();
+        assert!(p.on_response_with_query("GET", "/gifs/search", Some("q=dog"), 200, &mut v));
+        assert_eq!(v, Val::Str("q=dog".into()));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -176,6 +176,8 @@ async fn forward(
     app.net.observe(&up.host, parts.uri.path(), &parts.headers);
     let method = parts.method.as_str().to_string();
     let route = route_of(parts.uri.path());
+    // Plugins see the path as `route` and the query only through `Host::request_query`.
+    let query = parts.uri.query().map(str::to_string);
 
     let mut kept: Option<Bytes> = None;
     let mut stream = Some(body);
@@ -201,7 +203,7 @@ async fn forward(
         }
     }
 
-    let changed = match app.on_request(&method, &route, &mut json) {
+    let changed = match app.on_request_with_query(&method, &route, query.as_deref(), &mut json) {
         RequestOutcome::Reply { status, body } => return Ok(local_reply(status, body)),
         RequestOutcome::Forward { changed } => changed,
     };
@@ -254,7 +256,7 @@ async fn forward(
         let mut plain = plain;
         if let Ok(j) = serde_json::from_slice(&plain) {
             let mut v = Val::from_json(j);
-            if app.on_response(&method, &route, status, &mut v) {
+            if app.on_response_with_query(&method, &route, query.as_deref(), status, &mut v) {
                 plain = Bytes::from(serde_json::to_vec(&v.to_json())?);
             }
         }
