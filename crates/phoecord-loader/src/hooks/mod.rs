@@ -75,7 +75,7 @@ impl HookRuntime {
                 method,
                 url,
                 body,
-                self.plan.can_replace_body(),
+                self.plan.can_replace_request_body(),
             )
         })
     }
@@ -157,6 +157,7 @@ mod tests {
             (0x40, 0xA4),
             (0x50, 0xA5),
             (0x58, 0xA6),
+            (0x68, 0xA7),
         ] {
             t[i] = b;
         }
@@ -194,6 +195,7 @@ mod tests {
         rust_dealloc = { aob = "A4" }
         gateway_registry = { aob = "A5" }
         gateway_send = { aob = "A6" }
+        bytes_static_vtable = { aob = "A7" }
     "#;
 
     fn runtime_with(plan: HookPlan) -> (HookRuntime, Arc<Mutex<Vec<String>>>) {

@@ -60,6 +60,8 @@ pub unsafe extern "system" fn DllMain(module: HMODULE, reason: u32, reserved: *m
         // FreeLibrary (reserved == null), not process exit: hooks point into this image, so they
         // must be removed before it is unmapped. On process exit nothing needs undoing.
         DLL_PROCESS_DETACH if reserved.is_null() => {
+            #[cfg(target_arch = "x86_64")]
+            crate::hooks::detour::uninstall_poll();
             if let Ok(set) = crate::hook::global().try_lock() {
                 let _ = set.uninstall_all();
             }

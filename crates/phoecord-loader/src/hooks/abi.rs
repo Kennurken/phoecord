@@ -70,6 +70,10 @@ pub enum AbiError {
     NotHttp,
     /// The method word is not one of the encodings this build is known to use.
     UnknownMethod(u8),
+    /// A ready answer's status is not an HTTP status.
+    BadStatus(u16),
+    /// A ready answer's body `Vec` does not look like one.
+    BadBody,
 }
 
 impl fmt::Display for AbiError {
@@ -79,6 +83,8 @@ impl fmt::Display for AbiError {
             AbiError::BadUrl => f.write_str("the URL field does not hold a string"),
             AbiError::NotHttp => f.write_str("the URL field does not hold an http(s) URL"),
             AbiError::UnknownMethod(t) => write!(f, "unknown method encoding (tag {t})"),
+            AbiError::BadStatus(c) => write!(f, "the response status {c} is not an HTTP status"),
+            AbiError::BadBody => f.write_str("the response body field does not hold a byte vector"),
         }
     }
 }
@@ -213,6 +219,59 @@ pub fn read_body(mem: &dyn Memory, req: usize, image: Range<usize>) -> Body {
         }
         _ => Body::Opaque,
     }
+}
+
+/// The response side (2.2.2 part 2): what `poll` of the response future writes through its first
+/// argument. Read live on Phoenix `0.1.0.2208` (private recon notes): the first word is `0` for a
+/// ready, successful answer; the status is a `u16`; the body is a `Vec<u8>` the client owns
+/// (capacity, pointer, length), not a `Bytes`.
+pub const POLL_READY_OK: usize = 0;
+/// Offset of the body `Vec<u8>` in the `poll` output: capacity, pointer, length.
+pub const RESP_BODY: usize = 0x60;
+/// Offset of the status (`u16`) in the `poll` output.
+pub const RESP_STATUS: usize = 0x78;
+
+/// A ready REST answer, with where its body lives (for replacing it).
+#[derive(Debug, PartialEq, Eq)]
+pub struct Response {
+    pub status: u16,
+    pub body: Vec<u8>,
+    /// The body's `Vec` words as found: capacity and pointer (the length is `body.len()`).
+    pub cap: usize,
+    pub ptr: usize,
+}
+
+/// The `poll` output at `out`: `None` while the future is pending or failed (left alone), else the
+/// answer. A field that does not look right is an error, and the answer passes untouched.
+pub fn read_response(mem: &dyn Memory, out: usize) -> Option<Result<Response, AbiError>> {
+    if mem.word(out)? != POLL_READY_OK {
+        return None;
+    }
+    let mut st = [0u8; 2];
+    if !mem.read(out + RESP_STATUS, &mut st) {
+        return Some(Err(AbiError::Unreadable(out + RESP_STATUS)));
+    }
+    let status = u16::from_le_bytes(st);
+    if !(100..=599).contains(&status) {
+        return Some(Err(AbiError::BadStatus(status)));
+    }
+    let w = |i: usize| mem.word(out + RESP_BODY + 8 * i);
+    let (Some(cap), Some(ptr), Some(len)) = (w(0), w(1), w(2)) else {
+        return Some(Err(AbiError::Unreadable(out + RESP_BODY)));
+    };
+    if len > cap || len > MAX_BODY || (len > 0 && ptr == 0) {
+        return Some(Err(AbiError::BadBody));
+    }
+    let mut body = vec![0u8; len];
+    if len > 0 && !mem.read(ptr, &mut body) {
+        return Some(Err(AbiError::Unreadable(ptr)));
+    }
+    Some(Ok(Response {
+        status,
+        body,
+        cap,
+        ptr,
+    }))
 }
 
 #[cfg(test)]
@@ -390,5 +449,56 @@ mod tests {
             decode_method(&mem, &raw),
             Err(AbiError::UnknownMethod(TAG_INLINE))
         );
+    }
+
+    const OUT: usize = 0x9000;
+    const RBODY: usize = 0xa000;
+
+    fn ready(status: u16, body: &[u8]) -> Fake {
+        let mut out = vec![0u8; 0x80];
+        put(&mut out, 0, POLL_READY_OK);
+        put(&mut out, RESP_BODY, body.len() + 5);
+        put(
+            &mut out,
+            RESP_BODY + 8,
+            if body.is_empty() { 1 } else { RBODY },
+        );
+        put(&mut out, RESP_BODY + 16, body.len());
+        out[RESP_STATUS..RESP_STATUS + 2].copy_from_slice(&status.to_le_bytes());
+        // The upper bytes of the status word hold other data in the client.
+        out[RESP_STATUS + 2] = 0x8d;
+        Fake(vec![(OUT, out), (RBODY, body.to_vec())])
+    }
+
+    fn patch_out(mem: &mut Fake, at: usize, w: usize) {
+        let out = &mut mem.0.iter_mut().find(|(b, _)| *b == OUT).unwrap().1;
+        put(out, at, w);
+    }
+
+    #[test]
+    fn a_ready_answer_reads_status_and_body() {
+        let mem = ready(200, br#"{"a":1}"#);
+        let r = read_response(&mem, OUT).unwrap().unwrap();
+        assert_eq!((r.status, r.body.as_slice()), (200, &br#"{"a":1}"#[..]));
+        assert_eq!((r.cap, r.ptr), (12, RBODY));
+    }
+
+    #[test]
+    fn an_empty_204_has_an_unallocated_body() {
+        let mem = ready(204, b"");
+        let r = read_response(&mem, OUT).unwrap().unwrap();
+        assert_eq!((r.status, r.body.len(), r.ptr), (204, 0, 1));
+    }
+
+    #[test]
+    fn pending_and_wrong_fields_are_left_alone() {
+        let mut mem = ready(200, b"{}");
+        patch_out(&mut mem, 0, usize::MAX - 1);
+        assert!(read_response(&mem, OUT).is_none(), "pending");
+        let mut mem = ready(200, b"{}");
+        patch_out(&mut mem, RESP_BODY + 16, 99);
+        assert_eq!(read_response(&mem, OUT), Some(Err(AbiError::BadBody)));
+        let mem = ready(42, b"{}");
+        assert_eq!(read_response(&mem, OUT), Some(Err(AbiError::BadStatus(42))));
     }
 }

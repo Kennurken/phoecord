@@ -10,7 +10,8 @@
 //! | Name | Target | Used by |
 //! |:---|:---|:---|
 //! | `http_send` | entry of `ReqwestTransport::send` (inline hook) | REST requests |
-//! | `http_poll` | `.rdata` slot of the `poll` entry of the response future's vtable | REST responses |
+//! | `http_poll` | the response future's vtable (through `rip`: the one instruction that loads it); `poll` is its slot at [`POLL_SLOT`] | REST responses |
+//! | `bytes_static_vtable` | `bytes`'s static `Bytes` vtable (no-op drop, never unique), through `rip` | replacing a request body |
 //! | `rust_alloc`, `rust_dealloc` | the host's allocator shims | replacing a body |
 //! | `gateway_registry` | the event registry table | Gateway dispatch |
 //! | `gateway_send` | entry of the outgoing frame encoder (`gateway_send_encode` in the recon notes) | Gateway send |
@@ -20,6 +21,9 @@ use std::fmt;
 
 pub const HTTP_SEND: &str = "http_send";
 pub const HTTP_POLL: &str = "http_poll";
+pub const BYTES_STATIC: &str = "bytes_static_vtable";
+/// Offset of `poll` in a Rust trait-object vtable for `dyn Future`: drop, size, align, then `poll`.
+pub const POLL_SLOT: u32 = 0x18;
 pub const RUST_ALLOC: &str = "rust_alloc";
 pub const RUST_DEALLOC: &str = "rust_dealloc";
 pub const GATEWAY_REGISTRY: &str = "gateway_registry";
@@ -58,9 +62,12 @@ pub struct Found<T> {
 /// Entry of the transport's `send` function.
 #[derive(Debug, PartialEq, Eq)]
 pub struct HttpSend;
-/// Slot of `poll` in the response future's vtable.
+/// The response future's vtable; its `poll` slot is at [`POLL_SLOT`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct HttpPoll;
+/// `bytes`'s static vtable: a `Bytes` with it never frees its buffer.
+#[derive(Debug, PartialEq, Eq)]
+pub struct BytesStatic;
 /// The host's `__rust_alloc` and `__rust_dealloc` (the second is `dealloc_rva`).
 #[derive(Debug, PartialEq, Eq)]
 pub struct Allocator {
@@ -112,6 +119,13 @@ impl Scan<'_> {
         })
     }
 
+    pub fn bytes_static(&self) -> Result<Found<BytesStatic>, LocatorError> {
+        Ok(Found {
+            rva: self.rva(BYTES_STATIC)?,
+            target: BytesStatic,
+        })
+    }
+
     /// Both shims or neither: a body allocated by one and freed by the wrong one corrupts the heap.
     pub fn allocator(&self) -> Result<Found<Allocator>, LocatorError> {
         let alloc = self.rva(RUST_ALLOC)?;
@@ -142,6 +156,7 @@ impl Scan<'_> {
 pub struct HookPlan {
     pub send: Result<Found<HttpSend>, LocatorError>,
     pub poll: Result<Found<HttpPoll>, LocatorError>,
+    pub bytes_static: Result<Found<BytesStatic>, LocatorError>,
     pub allocator: Result<Found<Allocator>, LocatorError>,
     pub registry: Result<Found<GatewayRegistry>, LocatorError>,
     pub gateway_send: Result<Found<GatewaySend>, LocatorError>,
@@ -152,6 +167,7 @@ impl HookPlan {
         HookPlan {
             send: scan.http_send(),
             poll: scan.http_poll(),
+            bytes_static: scan.bytes_static(),
             allocator: scan.allocator(),
             registry: scan.gateway_registry(),
             gateway_send: scan.gateway_send(),
@@ -176,9 +192,15 @@ impl HookPlan {
         self.poll.is_ok()
     }
 
-    /// Without the allocator a changed body cannot be handed back; a local reply still can.
+    /// A changed response body is a `Vec<u8>` the client frees: it needs the host's allocator.
     pub fn can_replace_body(&self) -> bool {
         self.allocator.is_ok()
+    }
+
+    /// A changed request body is a `Bytes` with the static vtable over memory PhoeCord keeps: it
+    /// needs that vtable, not the allocator.
+    pub fn can_replace_request_body(&self) -> bool {
+        self.bytes_static.is_ok()
     }
 
     pub fn gateway(&self) -> bool {
@@ -195,7 +217,8 @@ impl HookPlan {
         };
         note(self.send.as_ref().err(), "REST request hook");
         note(self.poll.as_ref().err(), "REST response hook");
-        note(self.allocator.as_ref().err(), "body replacement");
+        note(self.bytes_static.as_ref().err(), "request body replacement");
+        note(self.allocator.as_ref().err(), "response body replacement");
         note(self.registry.as_ref().err(), "Gateway hook");
         note(self.gateway_send.as_ref().err(), "Gateway send hook");
         out

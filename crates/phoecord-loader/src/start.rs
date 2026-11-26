@@ -108,7 +108,16 @@ mod windows {
                 return mark_failed(launched, text_hash, &log);
             }
         };
-        let send = found.send.as_ref().ok().map(|f| f.rva);
+        let base = image.start;
+        let abs = |rva: u32| base + rva as usize;
+        let send = found.send.as_ref().ok().map(|f| abs(f.rva));
+        let poll_vtable = found.poll.as_ref().ok().map(|f| abs(f.rva));
+        let bytes_static = found.bytes_static.as_ref().ok().map(|f| abs(f.rva));
+        let allocator = found
+            .allocator
+            .as_ref()
+            .ok()
+            .map(|f| (abs(f.rva), abs(f.target.dealloc_rva)));
         let transport = Arc::new(InProcessTransport::new(engine, found, log.clone()));
         if !transport.is_active() {
             log(
@@ -125,7 +134,7 @@ mod windows {
                 None
             }
         };
-        let Some(rva) = send else {
+        let Some(send) = send else {
             // `is_active` needs every locator, so this cannot happen; refuse rather than guess.
             log("in-process: no send locator although the transport is on; nothing hooked");
             return mark_failed(launched, text_hash, &log);
@@ -138,23 +147,29 @@ mod windows {
                     return mark_failed(launched, text_hash, &log);
                 }
             };
-            let target = image.start + rva as usize;
-            // SAFETY: `target` is the unique match of the `http_send` locator inside this image.
+            let targets = crate::hooks::detour::Targets {
+                send,
+                poll_vtable,
+                bytes_static,
+                allocator,
+            };
+            // SAFETY: every address is the unique match of its locator inside this image.
             unsafe {
                 crate::hooks::detour::prepare(
                     &mut set,
-                    target,
+                    targets,
                     image,
                     Box::new(SendSink(transport.clone())),
                     log.clone(),
                 )
             }
             .and_then(|()| set.install_all())
+            .and_then(|()| crate::hooks::detour::install_poll())
         };
         match installed {
-            Ok(()) => {
-                log("in-process: send detour installed; plugins see REST requests in-process")
-            }
+            Ok(()) => log(
+                "in-process: send detour and poll swap installed; plugins see REST requests and answers in-process",
+            ),
             Err(e) => {
                 log(&format!("in-process: send detour not installed ({e})"));
                 return mark_failed(launched, text_hash, &log);
