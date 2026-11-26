@@ -449,9 +449,9 @@ Questions that are still open, by the task that has to answer them:
 - **2.1.3:** endpoints beyond the account screen (uploads, voice, CDN), and Linux.
 - **2.1.4:** the gateway version and other URL parameters, the event comparison with the Electron client, and fixtures (`tests/fixtures/phoenix/`). All of these need an account the client accepts.
 - **2.1.8:** the check on a fresh install with no manual setup.
-- **2.2.2:** the response layout (status, headers, body) for `on_response`; whether Control Flow Guard breaks an inline detour.
-- **2.2.3:** the registry entry layout; whether `READY` also goes through the ordinary registry or only through the connection loop's special path.
-- **2.2.4:** where heartbeat, identify and resume are sent, if a plugin ever needs them.
+- **2.2.2:** the response layout (status, headers, body) for `on_response`; the `Bytes` vtable a replaced body needs; whether Control Flow Guard breaks an inline detour; at run time, whether the method encoding the `send` detour assumes (`http::Method` tag first) holds. Part 1 (read-only detour on `send`) is in the loader.
+- **2.2.3:** the type of the handlers' payload argument (JSON text, `serde_json::Value` or a typed struct) and the registry entry layout; whether `READY` also goes through the ordinary registry or only through the connection loop's special path. Without the payload type no detour can hand `d` to `Engine::on_dispatch`.
+- **2.2.4:** the layout of the command enum the encoder takes and the type of its output (a hook there sees a typed command, not JSON); where heartbeat, identify and resume are sent, if a plugin ever needs them. The `gateway_send` locator is in the loader; while the hook is missing, Phoenix launches use the proxy.
 - **2.2.8:** a real Phoenix update was never observed: what `app\` and the `updates` folder look like before and after, and whether a running client is swapped or waits. The installer must also know about the system helper in `%ProgramFiles%\Common Files\Discord\DiscordPhoenix\`.
 - **2.3.1:** where the palette lives (see the decisions table).
 - **Sideload:** never tested (see "Loading path"). Not needed now; worth one test if injection ever stops working.
