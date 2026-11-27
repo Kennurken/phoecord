@@ -4,7 +4,7 @@
 //! **`send(self, request)`** takes the transport in `rcx` and the request in `rdx` and returns the
 //! boxed response future (data pointer and vtable in `rax:rdx`). The naked [`send_entry`] calls
 //! [`on_send`] with the arguments, then the original `send`, then [`on_sent`] with what it returned,
-//! and hands the return registers back unchanged. `on_send` reads the request through
+//! and hands the return registers back unchanged, or a local reply's future in their place. `on_send` reads the request through
 //! [`ProcessMemory`] (`ReadProcessMemory` on this process: a wrong offset is a refused read, not an
 //! access violation) and asks the [`SendSink`]; `on_sent` remembers which future answers which
 //! request, so the response side knows the method and URL.
@@ -20,8 +20,15 @@
 //!   host allocation is needed;
 //! - a changed **response** body is a `Vec<u8>` the client frees, so it is allocated and the old
 //!   one freed through the host's `__rust_alloc` / `__rust_dealloc`; without them it is not applied;
-//! - a **local reply** is logged and not applied: answering without the network needs a ready
-//!   future of the client's own type (an open question for the owner).
+//! - a **local reply** (`Verdict::Reply`, ruling 2026-11-27) replaces the future `send` returns.
+//!   `send` hands back a `Box<dyn Future>` fat pointer, and a caller only ever calls `poll` and
+//!   `drop` through its vtable, so the reply is PhoeCord's own future: [`REPLY_VTABLE`] with
+//!   [`reply_poll`], which writes a ready answer at once ([`abi::ready_output`]). The original `send`
+//!   still runs, so the request is dropped the way the client drops it: its future is an `async`
+//!   body that does nothing before its first `poll`, and it is dropped unpolled through its own
+//!   vtable (no network). The reply's state and body live in the client's allocator (the client
+//!   frees the state through the vtable's size; [`reply_drop`] frees a body never handed over);
+//!   without the allocator shims the request is sent unchanged.
 //!
 //! Every problem is logged once per kind and the call goes on untouched. Nothing here unwinds into
 //! the client: the Rust parts run under the panic guard. The naked entries have no unwind data, so
@@ -133,6 +140,94 @@ thread_local! {
     static INSIDE: Cell<bool> = const { Cell::new(false) };
     /// The request `on_send` read, for `on_sent` on the same thread.
     static PENDING: RefCell<Option<(String, String)>> = const { RefCell::new(None) };
+    /// A local reply's state (client memory, [`REPLY_SIZE`] bytes) `on_send` prepared, for
+    /// `on_sent` on the same thread to return in place of `send`'s future; `0` for none.
+    static REPLY: Cell<usize> = const { Cell::new(0) };
+}
+
+/// A local reply's state, in the client's allocator: status, then the body `Vec` (capacity,
+/// pointer, length). [`reply_poll`] hands the body over and leaves an empty `Vec` behind.
+const REPLY_SIZE: usize = 4 * 8;
+const REPLY_STATUS: usize = 0;
+const REPLY_BODY: usize = 1;
+
+/// The vtable of `dyn Future<Output = Result<Response, _>>` as rustc lays it out: drop, size,
+/// alignment, then `poll` (the slot the client calls at `+0x18`, as on its own future).
+#[repr(C)]
+pub struct FutureVtable {
+    drop: unsafe extern "C" fn(*mut usize),
+    size: usize,
+    align: usize,
+    poll: unsafe extern "C" fn(*mut u8, *mut usize, *mut c_void) -> *mut u8,
+}
+
+/// The vtable of every local reply's future.
+pub static REPLY_VTABLE: FutureVtable = FutureVtable {
+    drop: reply_drop,
+    size: REPLY_SIZE,
+    align: 8,
+    poll: reply_poll,
+};
+
+/// `poll` of a local reply: `out` gets a ready answer with the reply's status and body, whatever
+/// the context; the body moves to the client, so a second poll (which the client never makes)
+/// would answer with an empty one. Returns `out`, as the client's own `poll` does.
+///
+/// # Safety
+/// Called by the client through [`REPLY_VTABLE`]: `out` is its `0x80`-byte output and `this` the
+/// state [`prepare_reply`] filled.
+unsafe extern "C" fn reply_poll(out: *mut u8, this: *mut usize, _cx: *mut c_void) -> *mut u8 {
+    if out.is_null() || this.is_null() {
+        return out;
+    }
+    // SAFETY: per the contract above; `this` holds four words, `out` 0x80 bytes.
+    unsafe {
+        let w = |i: usize| this.add(i);
+        let bytes = abi::ready_output(
+            *w(REPLY_STATUS) as u16,
+            *w(REPLY_BODY),
+            *w(REPLY_BODY + 1),
+            *w(REPLY_BODY + 2),
+        );
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, bytes.len());
+        w(REPLY_BODY).write(0);
+        w(REPLY_BODY + 1).write(1);
+        w(REPLY_BODY + 2).write(0);
+    }
+    out
+}
+
+/// Drop of a local reply: frees a body `poll` never handed over. The client frees the state
+/// itself afterwards ([`REPLY_SIZE`], alignment 8), as for any boxed future.
+///
+/// # Safety
+/// Called by the client through [`REPLY_VTABLE`] on the state [`prepare_reply`] filled.
+unsafe extern "C" fn reply_drop(this: *mut usize) {
+    if !this.is_null() {
+        // SAFETY: per the contract above.
+        unsafe { free_reply_body(this) };
+    }
+}
+
+/// Frees the body of a reply state, if it still owns one, and leaves an empty `Vec`.
+///
+/// # Safety
+/// `this` must be a reply state whose body was allocated with the client's allocator.
+unsafe fn free_reply_body(this: *mut usize) {
+    let Some((_, dealloc)) = STATE.get().and_then(|s| s.allocator) else {
+        return;
+    };
+    // SAFETY: forwarded; `dealloc` is the client's `__rust_dealloc(ptr, size, align)`.
+    unsafe {
+        let cap = *this.add(REPLY_BODY);
+        if cap > 0 {
+            let dealloc: unsafe extern "C" fn(*mut u8, usize, usize) = std::mem::transmute(dealloc);
+            dealloc(*this.add(REPLY_BODY + 1) as *mut u8, cap, 1);
+            this.add(REPLY_BODY).write(0);
+            this.add(REPLY_BODY + 1).write(1);
+            this.add(REPLY_BODY + 2).write(0);
+        }
+    }
 }
 
 /// Prepares the detour on `send` (not active until the set is installed) and remembers where the
@@ -240,8 +335,14 @@ unsafe extern "C" fn send_entry() {
         "mov [rsp + 0x28], rdx",
         "mov rcx, rax",
         "call {on_sent}",
+        "test rax, rax",
+        "jz 2f",
+        "lea rdx, [rip + {reply_vtable}]",
+        "jmp 3f",
+        "2:",
         "mov rax, [rsp + 0x20]",
         "mov rdx, [rsp + 0x28]",
+        "3:",
         "add rsp, 0x38",
         "pop rdi",
         "pop rsi",
@@ -249,6 +350,7 @@ unsafe extern "C" fn send_entry() {
         on_send = sym on_send,
         on_sent = sym on_sent,
         original = sym SEND_ORIGINAL,
+        reply_vtable = sym REPLY_VTABLE,
     );
 }
 
@@ -292,22 +394,32 @@ fn guarded(state: &State, breaker: &Breaker, f: impl FnOnce()) {
 extern "C" fn on_send(_transport: usize, request: usize) {
     let Some(state) = STATE.get() else { return };
     PENDING.with(|p| p.borrow_mut().take());
+    discard_reply(state, REPLY.with(|r| r.replace(0)));
     guarded(state, &state.send, || observe_request(state, request));
 }
 
-/// After the original `send`: `future` / `vtable` are the boxed future it returned.
-extern "C" fn on_sent(future: usize, vtable: usize) {
-    let Some(state) = STATE.get() else { return };
+/// After the original `send`: `future` / `vtable` are the boxed future it returned. Returns a local
+/// reply's state, which the entry returns with [`REPLY_VTABLE`] in place of that future (dropped
+/// here, unpolled), or `0` to return the future.
+extern "C" fn on_sent(future: usize, vtable: usize) -> usize {
+    let Some(state) = STATE.get() else { return 0 };
+    let reply = REPLY.with(|r| r.replace(0));
+    if reply != 0 {
+        PENDING.with(|p| p.borrow_mut().take());
+        guarded(state, &state.send, || drop_unpolled(state, future, vtable));
+        return reply;
+    }
     let Some(pending) = PENDING.with(|p| p.borrow_mut().take()) else {
-        return;
+        return 0;
     };
     if Some(vtable) != state.poll_vtable {
-        return once(state, LOG_FUTURE, || {
+        once(state, LOG_FUTURE, || {
             "http_poll: send did not return the response future the locator found; answers pass untouched".into()
         });
+        return 0;
     }
     let Ok(mut map) = state.futures.lock() else {
-        return;
+        return 0;
     };
     if map.len() >= MAX_FUTURES {
         map.clear();
@@ -316,6 +428,118 @@ extern "C" fn on_sent(future: usize, vtable: usize) {
         });
     }
     map.insert(future, pending);
+    0
+}
+
+/// Drops the boxed future `send` returned for a request answered locally, as the client's
+/// `Box<dyn Future>` drop would: `drop` from its vtable, then `__rust_dealloc` with the vtable's
+/// size and alignment. A vtable that does not check out leaks the future instead (it was never
+/// polled, so nothing was sent).
+fn drop_unpolled(state: &State, future: usize, vtable: usize) {
+    let mem = ProcessMemory;
+    let (Some(drop), Some(size), Some(align)) = (
+        mem.word(vtable),
+        mem.word(vtable + 8),
+        mem.word(vtable + 16),
+    ) else {
+        return leaked(state);
+    };
+    let sane = (drop == 0 || state.image.contains(&drop))
+        && align.is_power_of_two()
+        && align <= 4096
+        && size <= MAX_FUTURE_SIZE;
+    let Some((_, dealloc)) = state.allocator.filter(|_| sane && future != 0) else {
+        return leaked(state);
+    };
+    // SAFETY: `future` / `vtable` are the `Box<dyn Future>` the client's `send` just returned and
+    // nothing else holds (the entry returns the reply in its place). `drop` is the vtable's
+    // `drop_in_place(*mut Self)`, `dealloc` the client's `__rust_dealloc(ptr, size, align)`; both
+    // take scalar arguments, the same registers in the Rust and C ABIs on Windows x64.
+    unsafe {
+        if drop != 0 {
+            let drop: unsafe extern "C" fn(usize) = std::mem::transmute(drop);
+            drop(future);
+        }
+        if size != 0 {
+            let dealloc: unsafe extern "C" fn(usize, usize, usize) = std::mem::transmute(dealloc);
+            dealloc(future, size, align);
+        }
+    }
+}
+
+/// The largest future [`drop_unpolled`] believes a vtable about (the client's own is `0x618`).
+const MAX_FUTURE_SIZE: usize = 1 << 20;
+
+fn leaked(state: &State) {
+    once(state, LOG_LEAK, || {
+        "http_send: the future of a locally answered request could not be dropped; it is leaked (never polled, nothing sent)".into()
+    });
+}
+
+/// Builds a local reply's state in the client's memory and leaves it for `on_sent`. Without the
+/// allocator shims, or when the client's allocator refuses, the request is sent unchanged.
+fn prepare_reply(state: &State, status: u16, body: Vec<u8>, method: &str, route: &str) {
+    let Some((alloc, dealloc)) = state.allocator else {
+        return once(state, LOG_REPLY, || {
+            format!(
+                "http_send: {method} {route}: no allocator for this build, a local reply is not applied; request sent unchanged"
+            )
+        });
+    };
+    // SAFETY: `alloc` / `dealloc` are the client's `__rust_alloc(size, align) -> *mut u8` and
+    // `__rust_dealloc(ptr, size, align)`. Each buffer is filled before anything points at it; a
+    // refused allocation frees what was already allocated.
+    unsafe {
+        let alloc: unsafe extern "C" fn(usize, usize) -> *mut u8 = std::mem::transmute(alloc);
+        let dealloc: unsafe extern "C" fn(*mut u8, usize, usize) = std::mem::transmute(dealloc);
+        let (cap, ptr) = if body.is_empty() {
+            (0, 1usize)
+        } else {
+            let p = alloc(body.len(), 1);
+            if p.is_null() {
+                return refused(state, method, route);
+            }
+            std::ptr::copy_nonoverlapping(body.as_ptr(), p, body.len());
+            (body.len(), p as usize)
+        };
+        let this = alloc(REPLY_SIZE, 8).cast::<usize>();
+        if this.is_null() {
+            if cap > 0 {
+                dealloc(ptr as *mut u8, cap, 1);
+            }
+            return refused(state, method, route);
+        }
+        this.add(REPLY_STATUS).write(usize::from(status));
+        this.add(REPLY_BODY).write(cap);
+        this.add(REPLY_BODY + 1).write(ptr);
+        this.add(REPLY_BODY + 2).write(body.len());
+        REPLY.with(|r| r.set(this as usize));
+    }
+    once(state, LOG_FIRST_REPLY, || {
+        format!("http_send: {method} {route}: answered locally ({status}), first local reply")
+    });
+}
+
+fn refused(state: &State, method: &str, route: &str) {
+    once(state, LOG_ALLOC, || {
+        format!(
+            "http_send: {method} {route}: the client's allocator refused a local reply; request sent unchanged"
+        )
+    });
+}
+
+/// Frees a reply state `on_sent` never picked up (the original `send` did not come back on this
+/// thread); `0` is none.
+fn discard_reply(state: &State, this: usize) {
+    let Some((_, dealloc)) = state.allocator.filter(|_| this != 0) else {
+        return;
+    };
+    // SAFETY: `this` is a state `prepare_reply` allocated and nothing else refers to.
+    unsafe {
+        free_reply_body(this as *mut usize);
+        let dealloc: unsafe extern "C" fn(*mut u8, usize, usize) = std::mem::transmute(dealloc);
+        dealloc(this as *mut u8, REPLY_SIZE, 8);
+    }
 }
 
 /// After the original `poll`: `out` holds its output, `future` is the future polled.
@@ -336,6 +560,8 @@ const LOG_ALLOC: u32 = 256;
 const LOG_FIRST_SEND: u32 = 512;
 const LOG_FIRST_POLL: u32 = 1024;
 const LOG_HEADERS: u32 = 2048;
+const LOG_FIRST_REPLY: u32 = 4096;
+const LOG_LEAK: u32 = 8192;
 
 fn once(state: &State, kind: u32, line: impl FnOnce() -> String) {
     if LOGGED.fetch_or(kind, Ordering::Relaxed) & kind == 0 {
@@ -395,12 +621,13 @@ fn observe_request(state: &State, request: usize) {
             }
             replace_request_body(state, request, new, &head.method, &route);
         }
-        HttpAction::Reply { .. } => once(state, LOG_REPLY, || {
-            format!(
-                "http_send: {} {route}: a local reply is not applied in-process yet; request sent unchanged",
-                head.method
-            )
-        }),
+        HttpAction::Reply { status, body } => prepare_reply(
+            state,
+            status,
+            body.unwrap_or_default(),
+            &head.method,
+            &route,
+        ),
     }
 }
 

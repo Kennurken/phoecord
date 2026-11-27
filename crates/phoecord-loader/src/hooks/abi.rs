@@ -401,6 +401,32 @@ pub fn read_response(mem: &dyn Memory, out: usize) -> Option<Result<Response, Ab
     }))
 }
 
+/// Size of the `poll` output (`Poll<Result<Response, _>>`): the client copies exactly this many
+/// bytes out on a ready answer.
+pub const POLL_OUT_LEN: usize = 0x80;
+/// The response's `HeaderMap`: the first `0x60` bytes of the output. Word 0 is also where the
+/// client keeps `Poll`'s and `Result`'s tag (`0` for `Ready(Ok)`, `-2` for `Pending`).
+pub const RESP_HEADERS_LEN: usize = 0x60;
+
+/// What a local reply's `poll` writes through its output pointer (2.2.2, local replies): a ready,
+/// successful answer with `status`, an empty header map and the body `Vec` (capacity, pointer,
+/// length), which the caller has allocated with the client's allocator (the client frees it).
+///
+/// The empty header map is all zeroes: word 0 (the tag) must be `0`, and every other field of an
+/// empty `http::HeaderMap` is a capacity, a length or the mask, all `0`, or a pointer the client
+/// never reads while the map is empty (`get` returns early on no entries; drop frees nothing of
+/// capacity `0`). So the bytes are right whatever order rustc gave the fields.
+pub fn ready_output(status: u16, cap: usize, ptr: usize, len: usize) -> [u8; POLL_OUT_LEN] {
+    let mut out = [0u8; POLL_OUT_LEN];
+    out[..8].copy_from_slice(&POLL_READY_OK.to_le_bytes());
+    for (i, w) in [cap, ptr, len].into_iter().enumerate() {
+        let at = RESP_BODY + 8 * i;
+        out[at..at + 8].copy_from_slice(&w.to_le_bytes());
+    }
+    out[RESP_STATUS..RESP_STATUS + 2].copy_from_slice(&status.to_le_bytes());
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -627,6 +653,25 @@ mod tests {
         assert_eq!(read_response(&mem, OUT), Some(Err(AbiError::BadBody)));
         let mem = ready(42, b"{}");
         assert_eq!(read_response(&mem, OUT), Some(Err(AbiError::BadStatus(42))));
+    }
+
+    #[test]
+    fn a_local_reply_reads_back_as_a_ready_answer() {
+        let body = br#"{"ok":true}"#;
+        let out = ready_output(200, 16, RBODY, body.len());
+        assert!(
+            out[..RESP_HEADERS_LEN].iter().all(|b| *b == 0),
+            "empty headers"
+        );
+        let mem = Fake(vec![(OUT, out.to_vec()), (RBODY, body.to_vec())]);
+        let r = read_response(&mem, OUT).unwrap().unwrap();
+        assert_eq!((r.status, r.body.as_slice()), (200, &body[..]));
+        assert_eq!((r.cap, r.ptr), (16, RBODY));
+        // A 204 without a body: the same empty `Vec` the client itself writes.
+        let out = ready_output(204, 0, 1, 0);
+        let mem = Fake(vec![(OUT, out.to_vec())]);
+        let r = read_response(&mem, OUT).unwrap().unwrap();
+        assert_eq!((r.status, r.body.len(), r.cap, r.ptr), (204, 0, 0, 1));
     }
 
     const BUCKETS_AT: usize = 0x8000;
