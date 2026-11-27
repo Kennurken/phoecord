@@ -63,7 +63,7 @@ Plugin API changes (`phoecord-core::plugin`) are made by Nanda only.
 
 ## Open tasks
 
-Open tasks only, 27.11.2026: 28 (matvee 11, buslan 10, ken 7, Nanda 1). "Waits on" is who or what has to move first; "the render slot": answered by a live probe on 27.11: none of the slots of the `{drop,size,align,fn0,fn1}` records renders (they are update callbacks run through the 2.3.10 dispatcher), so the surfaces that waited on it hook through 2.3.10's wrap or their own render function instead. Details and history in the Tasks table below, which stays the only place status is tracked; update both together.
+Open tasks only, 27.11.2026: 28 (matvee 11, buslan 10, ken 7, Nanda 1). "Waits on" is who or what has to move first; "the render slot": answered by the UI probe on 27.11: every view type has two generic wrappers whose closure calls the view's own `render`; the render functions of 44 views are in `phoecord-recon` (live-probes-2026-11-27.md), so most surfaces can be hooked now. Details and history in the Tasks table below, which stays the only place status is tracked; update both together.
 
 | Task | What | Owner | What is left | Waits on |
 |:--|:--|:--|:--|:--|
@@ -77,22 +77,22 @@ Open tasks only, 27.11.2026: 28 (matvee 11, buslan 10, ken 7, Nanda 1). "Waits o
 | **2.2.9** | Signatures unique on two builds | buslan | not started | buslan; a second Phoenix build |
 | **2.3.1** | Theme engine | matvee | `ManaTheme`'s field layout, the hook | Nanda (RE: the fields), then matvee |
 | **2.3.3** | Settings tab in Phoenix | ken | the native page, package install / remove | ken; the owner's call on the package store |
-| **2.3.4** | MessageLogger UI | matvee | find `RowView`'s render through 2.3.10's dispatcher (its vtable record is not a render entry, live 27.11), the locator, wiring `Accessory::for_message` | matvee (2.3.10) |
+| **2.3.4** | MessageLogger UI | matvee | the locator and the hook on `RowView`'s render (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)), wiring `Accessory::for_message` | matvee |
 | **2.3.8** | CDN picture hook | buslan | CDN images pass neither the REST `send` hook nor WinHTTP/WinINet (live 27.11); GIF/MP4 load through Windows Media Foundation; the static leads stayed silent; next: a pass with never-loaded images on `libdiscord_media::loader` and the image cache | Nanda (RE: a live pass with uncached images), then buslan |
 | **2.3.9** | FixImagesQuality default mode | buslan | everything | 2.3.8 |
 | **2.3.10** | Generic view-render wrap | matvee | the hook (swap the incoming vtable for a wrapper) | matvee |
-| **2.3.12** | Modals | matvee | the locator and the hook on `ShellModals` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
-| **2.3.13** | User names | matvee | everything | Nanda (RE: the function address) |
-| **2.3.14** | Profiles | matvee | the locator and the hook on `ShellUserPopout` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
-| **2.3.15** | Chat input | buslan | the locator and the hook on `ComposerView` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
-| **2.3.16** | Voice and audio | buslan | everything | Nanda (RE: per-leaf anchors) |
-| **2.3.17** | Account panel | buslan | the locator and the inline detour on the build entry | buslan |
-| **2.3.18** | Media | buslan | the locator and the hook on `VideoView` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
-| **2.3.19** | Channel and server lists | buslan | the locators and hooks on `ChannelListModel`, `RailModel`, the rail icon | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
+| **2.3.12** | Modals | matvee | the locator and the hook on `nav::overlays::LayerHost` / `OverlayLayer` (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)); the modal stack `mana_gpui::components::layers::Layers` is a separate entity | matvee |
+| **2.3.13** | User names | matvee | names render inside `RowView`, `MemberRowView` and the rich-text state; no view of their own (live 27.11): hook inside those renders | Nanda (RE: the name element inside the row renders), then matvee |
+| **2.3.14** | Profiles | matvee | the locator and the hook on `profile::ProfileView` (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)) | matvee |
+| **2.3.15** | Chat input | buslan | the pickers (`PickerView`, `GifPicker`, `StickerTab`) and `TypingIndicator` have render functions (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)); `ComposerView` itself never passed the dispatcher (the input is `InputBaseState<TextareaMode>`) | Nanda (RE: the composer's render), then buslan |
+| **2.3.16** | Voice and audio | buslan | `PingChip`, `VoiceInviteSuggestionsButton` have render functions (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)); `VoiceUi`, `CallWindows`, `DmCallView` seen, other wrappers | Nanda (RE: the call panel's render), then buslan |
+| **2.3.17** | Account panel | buslan | the locator and the hook on `user_panel_view::PanelView`'s render (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)) | buslan |
+| **2.3.18** | Media | buslan | the locator and the hook on `media_viewer::video::VideoView`'s render (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)); the viewer root `media_viewer::view::Viewer` and `VideoPlayer` use another wrapper | buslan |
+| **2.3.19** | Channel and server lists | buslan | locators and hooks on the renders of `RailView`, the rail tiles, `ChannelListView`, `ChannelRowView`, `DmRowView`, `GuildHeaderView`, `MemberRowView` (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)) | buslan |
 | **2.3.20** | Client behaviour patches | buslan | which `PermissionWatch` record is which prompt, the locator and the hook | Nanda (RE: confirm the prompts), then buslan |
-| **2.3.21** | Overlay | matvee | the overlay element and the hook on `DiscordApp::render` | matvee |
-| **2.3.22** | Themes picker | matvee | the picker in PhoeCord's own tab | 2.3.3 (native page) and 2.3.1 |
-| **2.3.23** | Toolbox | buslan | the locator, the hook and the button on `TitleBarModel` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
+| **2.3.21** | Overlay | matvee | the overlay element and the hook on `DiscordApp`'s render (confirmed live 27.11, same function as #169) or `OverlayLayer`'s | matvee |
+| **2.3.22** | Themes picker | matvee | the picker in PhoeCord's own tab; Discord's settings pages (`PageContent`, `SidebarView`, `HeaderView`) have render functions (render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)) | 2.3.3 (native page) and 2.3.1 |
+| **2.3.23** | Toolbox | buslan | the button on `workspace::ChromeView`'s render (the window chrome, which renders the title bar; render function found live 27.11 (`phoecord-recon`, live-probes-2026-11-27.md, UI pass)) | buslan |
 | **2.4.1** | Top plugins on Phoenix | ken | the UI parts; NoTrack and SilentTyping (local replies), MessageLogger bulk deletes (queued payloads) | 2.2.7's open parts and the 2.3 UI hooks |
 | **2.4.7** | v1.0 release | Nanda | the release itself | every other open task |
 

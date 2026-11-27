@@ -478,7 +478,7 @@ Updated 2026-11-27 against the phase-2 task table. Answered since stage 2.1: the
 
 Open, by what has to answer it (RE is Nanda's, ruling 2026-11-27):
 
-- **Where each view renders** (2.3.4, 2.3.12, 2.3.14, 2.3.15, 2.3.18, 2.3.19, 2.3.23): the `{drop,size,align,fn0,fn1}` records are update callbacks, not render entries (live probe 27.11: never called while their views were shown and used); the surfaces go through 2.3.10's dispatcher wrap or their own render function.
+- **Where each view renders:** answered by the UI probe (27.11): each view type has two generic wrappers that call its `render` through a closure; the render functions of 44 views are in the private notes. Still open: the composer's own view (2.3.15), the call panel (2.3.16), where user names are drawn inside rows (2.3.13).
 - **The client's per-frame handler** (2.2.3, 2.2.7): found live 27.11 with its arguments (the frame record with the JSON text as a `Vec<u8>`, the session object); open: building and handing it a frame PhoeCord makes (ken).
 - **IDENTIFY and heartbeat** (2.2.4, 2.2.7): IDENTIFY is built once at connect by its own function, which serializes `ClientState` (found live 27.11 with `ClientState`'s layout: `guild_versions` is a `BTreeMap`, emptied for the call; open: installing the hook before IDENTIFY, about 0.35 s after start); the gateway's op 1 heartbeat path is still unconfirmed.
 - **A ready response future** (2.2.2): `Ready`/`Pending` is resolved; one `Ready(Err)` site and how to build a future of the client's type are open (local replies: NoTrack, SilentTyping).
