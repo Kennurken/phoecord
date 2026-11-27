@@ -166,6 +166,8 @@ The goal is full Vencord parity on Phoenix, visual plugins and panels included: 
 
 ## Later (after 1.0)
 
+- **Built-in DPI bypass for Discord** (owner's ruling, 2026-11-27): Discord reachable from Russian networks without a separate tool, switched on in the installer, touching Discord's traffic only (its domains, IPs and voice UDP ports; other programs untouched). Based on Flowseal's [zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) (MIT; `winws.exe` and WinDivert from bol-van's zapret), Windows first. The driver needs administrator rights: one UAC prompt and a service when it is turned on. The strategy is picked automatically (Flowseal ships many because providers differ). Updates, proposed and not ruled: binaries and strategies pinned in PhoeCord and shipped through its own signed updates, a daily workflow opening a PR when Flowseal releases (its archives are unsigned and hold a kernel driver), only the Discord domain/IP lists fetched from Flowseal directly and checked. Advertising bypass tools is banned in Russia; using one is not, for individuals, today.
+
 - A third-party plugin catalogue with rights and signature checks.
 - UI plugins through WASM: declarative elements the loader turns into GPUI.
 - The UI layer on macOS and Linux.
