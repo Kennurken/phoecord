@@ -4,6 +4,10 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+
+- 2.2.3 / 2.2.7: `docs/research/inprocess-dispatch.md`, why local server → client payloads (`Host::emit_dispatch`: slash command answers, menu answers) are not shown in an in-process launch yet and what reverse engineering unblocks it; through the proxy they work as before.
+
 ## [0.7.0] - 2026-11-27
 
 The end of stage 2.1 and most of stage 2.2 on Desktop Phoenix: plugin entries in Phoenix's own message, user, channel and server menus, a full `READY` through the proxy, plugins that see your own deletes at once, and the first in-process launch (no proxy) with the REST and gateway hooks. Signature tables now ship inside PhoeCord. New website at https://phoecord.dev. ShowHiddenChannels is removed.

@@ -17,7 +17,9 @@
 //!   number, which the client ignores while its session's `s` still advances.
 //!
 //! Server → client payloads plugins queue (`Host::emit_dispatch`) cannot be handed to the client
-//! from here yet; they are counted and logged once.
+//! from here: the inflater returns one frame per call and this buffer holds one frame, so there
+//! is no slot for an extra one. They are counted and logged once. Delivering them needs the
+//! client's per-frame handler (RE, `docs/research/inprocess-dispatch.md`).
 
 use super::abi::Memory;
 use super::detour::ProcessMemory;
