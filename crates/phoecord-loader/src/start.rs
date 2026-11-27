@@ -84,7 +84,7 @@ mod windows {
         hook,
         hooks::guard::LogFn,
         net::LoaderNet,
-        transport::{Clock, DecodeSink, EncodeSink, InProcessTransport, SendSink},
+        transport::{Clock, DecodeSink, EncodeSink, FrameFeed, InProcessTransport, SendSink},
     };
     use phoecord_transport::config::Paths;
     use std::{ops::Range, sync::Arc, sync::OnceLock};
@@ -129,6 +129,7 @@ mod windows {
         let bytes_static = found.bytes_static.as_ref().ok().map(|f| abs(f.rva));
         let gateway_send = found.gateway_send.as_ref().ok().map(|f| abs(f.rva));
         let inflate = found.inflate.as_ref().ok().map(|f| abs(f.rva));
+        let frame = found.frame.as_ref().ok().map(|f| abs(f.rva));
         let allocator = found
             .allocator
             .as_ref()
@@ -204,6 +205,20 @@ mod windows {
                     )
                 },
                 None => Ok(()),
+            })
+            .and_then(|()| match (inflate, frame, allocator) {
+                // SAFETY: the unique match of the `gateway_frame` locator inside this image and
+                // the allocator shims of the same build.
+                (Some(_), Some(target), Some(alloc)) => unsafe {
+                    crate::hooks::gateway_frame::prepare(
+                        &mut set,
+                        target,
+                        alloc,
+                        Box::new(FrameFeed(transport.clone())),
+                        log.clone(),
+                    )
+                },
+                _ => Ok(()),
             })
             .and_then(|()| set.install_all())
             .and_then(|()| crate::hooks::detour::install_poll())

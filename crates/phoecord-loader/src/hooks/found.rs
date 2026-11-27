@@ -16,6 +16,7 @@
 //! | `gateway_registry` | the build/insert function the first static pass took for the event registry; live it is not on the dispatch path (2.2.3), kept for 2.2.5 | none |
 //! | `gateway_inflate` | the function that inflates one gateway frame into its JSON text (`zstd-stream`), entry for an inline hook | Gateway dispatch |
 //! | `gateway_send` | entry of the outgoing frame encoder (`gateway_send_encode` in the recon notes) | Gateway send |
+//! | `gateway_frame` | entry of the per-frame handler the inflate wrapper calls with each frame's text (inline hook) | queued server → client payloads |
 //! | `client_state` | entry of the `ClientState` serializer `IDENTIFY`'s builder calls (inline hook, installed from `DllMain`) | `full_ready` (2.2.7) |
 //! | `message_menu_push` | entry of the helper that appends one entry record to the message menu's `Vec` (inline hook) | message menu (2.3.5) |
 //! | `message_menu_after_anchor` | the instruction right after the call that appends the native "Copy Message Link" entry (a return address) | message menu |
@@ -36,6 +37,7 @@ pub const RUST_DEALLOC: &str = "rust_dealloc";
 pub const GATEWAY_REGISTRY: &str = "gateway_registry";
 pub const GATEWAY_SEND: &str = "gateway_send";
 pub const GATEWAY_INFLATE: &str = "gateway_inflate";
+pub const GATEWAY_FRAME: &str = "gateway_frame";
 pub const CLIENT_STATE: &str = "client_state";
 pub const MENU_PUSH: &str = "message_menu_push";
 pub const MENU_AFTER_ANCHOR: &str = "message_menu_after_anchor";
@@ -100,6 +102,9 @@ pub struct GatewayInflate;
 /// The encoder of outgoing gateway frames (2.2.4): takes a typed command, not JSON.
 #[derive(Debug, PartialEq, Eq)]
 pub struct GatewaySend;
+/// The client's per-frame gateway handler (2.2.3): delivers queued payloads.
+#[derive(Debug, PartialEq, Eq)]
+pub struct GatewayFrame;
 /// The serializer of the gateway session's `ClientState`, which `IDENTIFY` carries (2.2.7).
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClientState;
@@ -229,6 +234,13 @@ impl Scan<'_> {
         })
     }
 
+    pub fn gateway_frame(&self) -> Result<Found<GatewayFrame>, LocatorError> {
+        Ok(Found {
+            rva: self.rva(GATEWAY_FRAME)?,
+            target: GatewayFrame,
+        })
+    }
+
     pub fn client_state(&self) -> Result<Found<ClientState>, LocatorError> {
         Ok(Found {
             rva: self.rva(CLIENT_STATE)?,
@@ -247,6 +259,8 @@ pub struct HookPlan {
     pub registry: Result<Found<GatewayRegistry>, LocatorError>,
     pub gateway_send: Result<Found<GatewaySend>, LocatorError>,
     pub inflate: Result<Found<GatewayInflate>, LocatorError>,
+    /// Not needed for the transport to run: without it queued payloads are dropped.
+    pub frame: Result<Found<GatewayFrame>, LocatorError>,
 }
 
 impl HookPlan {
@@ -259,6 +273,7 @@ impl HookPlan {
             registry: scan.gateway_registry(),
             gateway_send: scan.gateway_send(),
             inflate: scan.gateway_inflate(),
+            frame: scan.gateway_frame(),
         }
     }
 
@@ -310,6 +325,7 @@ impl HookPlan {
         note(self.allocator.as_ref().err(), "response body replacement");
         note(self.inflate.as_ref().err(), "Gateway hook");
         note(self.gateway_send.as_ref().err(), "Gateway send hook");
+        note(self.frame.as_ref().err(), "delivery of queued payloads");
         out
     }
 }

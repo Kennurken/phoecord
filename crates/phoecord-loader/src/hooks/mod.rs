@@ -23,6 +23,8 @@ pub mod context_menu;
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub mod detour;
 #[cfg(all(windows, target_arch = "x86_64"))]
+pub mod gateway_frame;
+#[cfg(all(windows, target_arch = "x86_64"))]
 pub mod gateway_recv;
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub mod gateway_send;
@@ -198,6 +200,7 @@ mod tests {
             (0x58, 0xA6),
             (0x68, 0xA7),
             (0x78, 0xA8),
+            (0x88, 0xA9),
         ] {
             t[i] = b;
         }
@@ -237,6 +240,7 @@ mod tests {
         gateway_send = { aob = "A6" }
         bytes_static_vtable = { aob = "A7" }
         gateway_inflate = { aob = "A8" }
+        gateway_frame = { aob = "A9" }
     "#;
 
     fn runtime_with(plan: HookPlan) -> (HookRuntime, Arc<Mutex<Vec<String>>>) {
