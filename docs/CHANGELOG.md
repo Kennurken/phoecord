@@ -4,6 +4,9 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+
+- 2.2.7: plugins' `Host::rest`, `rest_files`, `fetch` and `fetch_with` work when Phoenix is launched in-process (no proxy): the loader takes the client's session from its own Discord API requests and calls Discord and the plugin's allowed hosts itself, with the same rules as the proxy (session, Discord's rate limits, HTTPS-only `fetch` to listed hosts without credentials, size limits, 15 s timeout). An `upstream` proxy is not supported in-process yet: such a call fails with an error instead of going out directly.
 ### Fixed
 
 - 2.2.3 / 2.4.1: in an in-process launch on Phoenix, an event a plugin renames now reaches the client under its new name. MessageLogger shows a deleted message by turning its `MESSAGE_DELETE` into a `MESSAGE_UPDATE`; the gateway hook rebuilt the frame with the new data but the old name, so the client still removed the message. Through the proxy this already worked.
