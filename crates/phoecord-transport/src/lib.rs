@@ -31,7 +31,7 @@ pub mod timers;
 
 use config::Config;
 use host::{ProxyHost, Shared};
-use phoecord_core::{EventKind, TIMER_EVENT, Val};
+use phoecord_core::{EventKind, LOCAL_DELETE_EVENT, TIMER_EVENT, Val};
 use phoecord_plugin_runtime::package::PackageSet;
 use phoecord_plugin_runtime::{Chain, Outcome};
 use std::sync::{Arc, Mutex, RwLock};
@@ -157,6 +157,10 @@ impl Engine {
 
     pub fn wants_request(&self, method: &str, route: &str) -> bool {
         self.chain.wants(&EventKind::RestRequest { method, route })
+            || (message_delete(method, route).is_some()
+                && self.chain.wants(&EventKind::Dispatch {
+                    name: LOCAL_DELETE_EVENT,
+                }))
     }
 
     pub fn wants_response(&self, method: &str, route: &str) -> bool {
@@ -217,7 +221,40 @@ impl Engine {
                 }
             }
         };
+        let mut effects = effects;
+        if matches!(outcome, RequestOutcome::Forward { .. })
+            && let Some((channel, message)) = message_delete(method, route)
+        {
+            let local = self.local_delete(channel, message);
+            effects.locals.extend(local.locals);
+            effects.frames.extend(local.frames);
+        }
         (outcome, effects)
+    }
+
+    /// The user deleted a message (task 2.3.6): a [`LOCAL_DELETE_EVENT`] dispatch for every plugin
+    /// that wants it, run when the client's `DELETE` leaves, before Discord confirms. The
+    /// optimistic removal in Phoenix is local and fires this same request at once (checked live,
+    /// 2026-11-27), so the request is the moment. Only an observation: the payload never reaches
+    /// the client, and a verdict on it does not stop the delete.
+    fn local_delete(&self, channel: u64, message: u64) -> Effects {
+        let guild = self
+            .shared
+            .account
+            .lock()
+            .unwrap()
+            .channel_guild
+            .get(&channel)
+            .copied();
+        let mut payload = local_delete_payload(channel, message, guild);
+        let cfg = self.cfg();
+        let mut extra = Vec::new();
+        let mut host = ProxyHost::new(&self.shared, &cfg);
+        self.chain
+            .dispatch(&mut host, LOCAL_DELETE_EVENT, &mut payload, &mut extra);
+        extra.append(&mut host.locals);
+        host.locals = extra;
+        self.finish(host)
     }
 
     /// A REST answer: plugins may rewrite `body`; returns whether they did.
@@ -410,6 +447,38 @@ impl Engine {
     }
 }
 
+/// `DELETE /channels/{channel}/messages/{message}`: the channel and message ids.
+fn message_delete(method: &str, route: &str) -> Option<(u64, u64)> {
+    if method != "DELETE" {
+        return None;
+    }
+    match route
+        .trim_matches('/')
+        .split('/')
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        ["channels", c, "messages", m] => Some((c.parse().ok()?, m.parse().ok()?)),
+        _ => None,
+    }
+}
+
+/// `{"op":0,"t":"PHOECORD_LOCAL_DELETE","d":{"id","channel_id","guild_id"?}}`, ids as strings like
+/// Discord's `MESSAGE_DELETE`; `guild_id` only when the channel's guild is known.
+fn local_delete_payload(channel: u64, message: u64, guild: Option<u64>) -> Val {
+    let mut d = Val::map();
+    d.set("id", Val::Str(message.to_string()));
+    d.set("channel_id", Val::Str(channel.to_string()));
+    if let Some(g) = guild {
+        d.set("guild_id", Val::Str(g.to_string()));
+    }
+    let mut v = Val::map();
+    v.set("op", Val::Int(0));
+    v.set("t", Val::Str(LOCAL_DELETE_EVENT.to_string()));
+    v.set("d", d);
+    v
+}
+
 /// A payload a plugin queued with `Host::emit_send`, as a gateway frame: `{"op": op, "d": payload}`.
 pub fn queued_frame(op: i64, payload: Val) -> Val {
     let mut v = Val::map();
@@ -454,6 +523,131 @@ mod tests {
             e.chain_queued(vec![(3, Val::map())]).frames,
             vec![queued_frame(3, Val::map())]
         );
+    }
+
+    /// Records the `PHOECORD_LOCAL_DELETE` payloads it gets and wants nothing else.
+    struct Deletes(phoecord_core::Manifest, Mutex<Vec<Val>>);
+
+    impl phoecord_core::Plugin for Deletes {
+        fn manifest(&self) -> &phoecord_core::Manifest {
+            &self.0
+        }
+        fn wants(&self, e: &EventKind) -> bool {
+            matches!(e, EventKind::Dispatch { name } if *name == LOCAL_DELETE_EVENT)
+        }
+        fn on_event(
+            &self,
+            _: &mut dyn phoecord_core::Host,
+            e: phoecord_core::Event<'_>,
+        ) -> phoecord_core::Verdict {
+            if let phoecord_core::Event::Dispatch { payload, .. } = e {
+                self.1.lock().unwrap().push(payload.clone());
+            }
+            phoecord_core::Verdict::Pass
+        }
+    }
+
+    fn deletes_engine() -> (Engine, Arc<Deletes>) {
+        let dir =
+            std::env::temp_dir().join(format!("phoecord-test-deletes-{}", std::process::id()));
+        let rec = Arc::new(Deletes(
+            phoecord_core::Manifest::new("deletes", "deletes", "0", ""),
+            Mutex::new(Vec::new()),
+        ));
+        struct Shim(Arc<Deletes>);
+        impl phoecord_core::Plugin for Shim {
+            fn manifest(&self) -> &phoecord_core::Manifest {
+                self.0.manifest()
+            }
+            fn wants(&self, e: &EventKind) -> bool {
+                self.0.wants(e)
+            }
+            fn on_event(
+                &self,
+                h: &mut dyn phoecord_core::Host,
+                e: phoecord_core::Event<'_>,
+            ) -> phoecord_core::Verdict {
+                self.0.on_event(h, e)
+            }
+        }
+        let chain = Chain::new(vec![Box::new(Shim(rec.clone()))]);
+        let e = Engine::new(chain, Shared::new(dir), Config::default());
+        // Test plugins are not in the config; turn them on by hand.
+        e.chain.set_enabled(["deletes".to_string()]);
+        (e, rec)
+    }
+
+    #[test]
+    fn a_message_delete_request_becomes_a_local_delete_dispatch() {
+        let (e, rec) = deletes_engine();
+        // Wanted even though no plugin looks at REST: the in-process `send` detour asks first.
+        assert!(e.wants_request("DELETE", "/channels/11/messages/50"));
+        assert!(!e.wants_request("DELETE", "/channels/11"));
+        assert!(!e.wants_request("GET", "/channels/11/messages/50"));
+
+        let (outcome, effects) = e.on_request("DELETE", "/channels/11/messages/50", &mut None);
+        assert_eq!(outcome, RequestOutcome::Forward { changed: false });
+        assert_eq!(effects, Effects::default());
+        // A guild channel the account knows from READY gets its guild_id.
+        e.shared
+            .account
+            .lock()
+            .unwrap()
+            .channel_guild
+            .insert(12, 10);
+        e.on_request("DELETE", "/channels/12/messages/51", &mut None);
+        // Not a message delete: nothing.
+        e.on_request("DELETE", "/channels/12/messages/x", &mut None);
+        e.on_request("DELETE", "/channels/12/messages/51/reactions", &mut None);
+
+        let got = rec.1.lock().unwrap().clone();
+        assert_eq!(
+            got,
+            vec![
+                local_delete_payload(11, 50, None),
+                local_delete_payload(12, 51, Some(10)),
+            ]
+        );
+        assert_eq!(got[0].str_at(&["t"]), Some(LOCAL_DELETE_EVENT));
+        assert_eq!(got[1].str_at(&["d", "guild_id"]), Some("10"));
+        assert_eq!(got[0].at(&["d", "guild_id"]), None);
+    }
+
+    #[test]
+    fn a_delete_a_plugin_answered_itself_sends_no_local_delete() {
+        let dir =
+            std::env::temp_dir().join(format!("phoecord-test-answered-{}", std::process::id()));
+        struct Blocks;
+        static M: std::sync::OnceLock<phoecord_core::Manifest> = std::sync::OnceLock::new();
+        impl phoecord_core::Plugin for Blocks {
+            fn manifest(&self) -> &phoecord_core::Manifest {
+                M.get_or_init(|| phoecord_core::Manifest::new("blocks", "blocks", "0", ""))
+            }
+            fn wants(&self, e: &EventKind) -> bool {
+                matches!(
+                    e,
+                    EventKind::RestRequest { .. } | EventKind::Dispatch { .. }
+                )
+            }
+            fn on_event(
+                &self,
+                _: &mut dyn phoecord_core::Host,
+                e: phoecord_core::Event<'_>,
+            ) -> phoecord_core::Verdict {
+                match e {
+                    phoecord_core::Event::Dispatch { .. } => panic!("no local delete expected"),
+                    _ => phoecord_core::Verdict::Drop,
+                }
+            }
+        }
+        let e = Engine::new(
+            Chain::new(vec![Box::new(Blocks)]),
+            Shared::new(dir),
+            Config::default(),
+        );
+        e.chain.set_enabled(["blocks".to_string()]);
+        let (outcome, _) = e.on_request("DELETE", "/channels/11/messages/50", &mut None);
+        assert!(matches!(outcome, RequestOutcome::Reply { .. }));
     }
 
     #[test]
