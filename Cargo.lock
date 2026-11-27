@@ -3476,6 +3476,7 @@ dependencies = [
 name = "phoecord-loader"
 version = "0.7.0"
 dependencies = [
+ "memchr",
  "phoecord-core",
  "phoecord-i18n",
  "phoecord-plugin-runtime",
@@ -3487,6 +3488,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "toml 1.2.1+spec-1.1.0",
+ "ureq",
  "windows-sys 0.61.2",
 ]
 
