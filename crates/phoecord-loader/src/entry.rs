@@ -44,6 +44,10 @@ pub unsafe extern "system" fn DllMain(module: HMODULE, reason: u32, reserved: *m
                 if is_child() {
                     return TRUE;
                 }
+                // `full_ready` (2.2.7): `IDENTIFY` leaves before the worker could hook it, so this
+                // one hook goes in now, before the client's code runs (no logging here).
+                #[cfg(target_arch = "x86_64")]
+                crate::hooks::client_state::early_install();
                 let h = CreateThread(
                     std::ptr::null(),
                     0,
@@ -149,6 +153,8 @@ struct Report {
 
 fn run() {
     let log = Logger::from_env();
+    #[cfg(target_arch = "x86_64")]
+    configure_full_ready(&log);
     if let Some(r) = analyze(&log) {
         report_to_proxy(&log, r);
     }
@@ -255,6 +261,15 @@ fn analyze(log: &Logger) -> Option<Report> {
     log.log(&format!("using signature table {key}"));
     let mut missed = 0;
     for (name, r) in signatures::resolve_all(sigs, text, v.text_rva) {
+        // Hooked from `DllMain` already: its first bytes are the hook's jump now, so a rescan
+        // cannot match; `report_full_ready` checks it instead.
+        #[cfg(target_arch = "x86_64")]
+        if name == crate::found::CLIENT_STATE && crate::hooks::client_state::installed() {
+            log.log(&format!(
+                "signature {name}: hooked before the client started"
+            ));
+            continue;
+        }
         match r {
             Ok(rva) => log.log(&format!("signature {name}: rva {rva:#x}")),
             Err(e) => {
@@ -265,6 +280,8 @@ fn analyze(log: &Logger) -> Option<Report> {
     }
     let kind = version::ClientKind::of(&exe.to_string_lossy(), v.file_version.as_deref());
     let mut menu = false;
+    #[cfg(target_arch = "x86_64")]
+    report_full_ready(log, sigs);
     if kind == version::ClientKind::Phoenix {
         let found = report_network_plan(log, sigs, text, &v, image_len());
         if let Some(l) = launched
@@ -291,6 +308,61 @@ fn analyze(log: &Logger) -> Option<Report> {
         "signatures resolved, no UI hook installed".to_string()
     };
     off(v, &reason)
+}
+
+/// `[phoenix] full_ready` for the early `client_state` hook, read first thing (the hook may run
+/// about 0.35 s after start). A missing or unreadable config leaves the default, on.
+#[cfg(target_arch = "x86_64")]
+fn configure_full_ready(log: &Logger) {
+    use phoecord_transport::config::{Config, Paths};
+    let paths = Paths::resolve();
+    if !paths.config.is_file() {
+        return;
+    }
+    match Config::load(&paths.config) {
+        Ok(cfg) => crate::hooks::client_state::configure(cfg.phoenix.full_ready),
+        Err(e) => log.log(&format!(
+            "full_ready: {} not readable ({e:#}); on by default",
+            paths.config.display()
+        )),
+    }
+}
+
+/// How long the worker waits to report the first emptied `IDENTIFY`.
+#[cfg(target_arch = "x86_64")]
+const FULL_READY_WAIT: Duration = Duration::from_secs(30);
+
+/// Logs what the early `client_state` hook did and checks it against the hashed build's table.
+#[cfg(target_arch = "x86_64")]
+fn report_full_ready(log: &Logger, sigs: &[signatures::Signature]) {
+    use crate::hooks::client_state as cs;
+    let Some(status) = cs::status() else { return };
+    log.log(&format!("full_ready: {status}"));
+    match cs::confirm(sigs) {
+        // `IDENTIFY` may still be ahead (the client connects the gateway after its first REST
+        // calls): wait for it on a thread of our own, never the client's.
+        Ok(_) => {
+            std::thread::spawn(|| {
+                let log = Logger::from_env();
+                let started = Instant::now();
+                while started.elapsed() < FULL_READY_WAIT {
+                    let (n, len) = cs::emptied();
+                    if n > 0 {
+                        return log.log(&format!(
+                            "full_ready: IDENTIFY's client_state sent its {len} guild versions as {{}}"
+                        ));
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                log.log(&format!(
+                    "full_ready: no IDENTIFY emptied in {} s (full_ready off, or no guild versions)",
+                    FULL_READY_WAIT.as_secs()
+                ));
+            });
+        }
+        Err(e) if e == "not installed" => {}
+        Err(e) => log.log(&format!("full_ready: {e}")),
+    }
 }
 
 /// The context menu hooks (2.3.5, 2.3.11): plugin entries in Phoenix's own menus. Its entries and
