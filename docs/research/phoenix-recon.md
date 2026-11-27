@@ -474,26 +474,27 @@ What the reconnaissance confirmed, and what each later task takes from it:
 
 ## Open questions and risks
 
-Questions that are still open, by the task that has to answer them:
+Updated 2026-11-27 against the phase-2 task table. Answered since stage 2.1: the response layout, the `Bytes` vtable, Control Flow Guard and the method encoding (2.2.2, run live); the handlers' payload type (typed actions, so 2.2.3 hooks the frame inflater, where every event, `READY` included, is still JSON); the encoder's input and output (2.2.4: a typed command in, the frame `String` out); signatures are public in `signatures/phoenix.toml` and compiled in (2.2.10); the two `Found<T>` types were merged.
 
-- **2.1.3:** uploads, voice and media loading while scrolling (signed-in start-up and idle traffic are done), and Linux.
-- **2.1.4:** done on Windows (2026-11-26): `v=9`, JSON with `zstd-stream`, fixtures, the comparison with Discord Canary. Open: Linux.
-- **2.2.2:** the response layout (status, headers, body) for `on_response`; the `Bytes` vtable a replaced body needs; whether Control Flow Guard breaks an inline detour; at run time, whether the method encoding the `send` detour assumes (`http::Method` tag first) holds. Part 1 (read-only detour on `send`) is in the loader.
-- **2.2.3:** the type of the handlers' payload argument (JSON text, `serde_json::Value` or a typed struct) and the registry entry layout; whether `READY` also goes through the ordinary registry or only through the connection loop's special path. Without the payload type no detour can hand `d` to `Engine::on_dispatch`.
-- **2.2.4:** the layout of the command enum the encoder takes and the type of its output (a hook there sees a typed command, not JSON); where heartbeat, identify and resume are sent, if a plugin ever needs them. The `gateway_send` locator is in the loader; while the hook is missing, Phoenix launches use the proxy.
-- **2.4.1 (new from 2.1.4):** Phoenix's `READY` is partial (no channels, roles or emojis), so plugins that read them from `READY` need another source.
-- **2.2.8:** a real Phoenix update was never observed: what `app\` and the `updates` folder look like before and after, and whether a running client is swapped or waits. The installer must also know about the system helper in `%ProgramFiles%\Common Files\Discord\DiscordPhoenix\`.
-- **2.3.1:** where the palette lives (see the decisions table).
-- **Sideload:** never tested (see "Loading path"). Not needed now; worth one test if injection ever stops working.
+Open, by what has to answer it (RE is Nanda's, ruling 2026-11-27):
+
+- **Which vtable slot renders a view** (2.3.4, 2.3.12, 2.3.14, 2.3.15, 2.3.18, 2.3.19, 2.3.23): every surface has a `{drop,size,align,fn0,fn1}` record; `fn0`/`fn1` are not `request_layout`/`paint` (they sit in GPUI's entity/context-update code), so where each view renders is still open.
+- **The client's per-frame handler** (2.2.3, 2.2.7): the function the inflater's caller hands a frame to; without it no frame can be added in-process (`Host::emit_dispatch`, MessageLogger's bulk deletes).
+- **The identify and heartbeat path** (2.2.4, 2.2.7): they do not pass the encoder; `full_ready` in-process needs the function that writes `IDENTIFY`.
+- **A ready response future** (2.2.2): `Ready`/`Pending` is resolved; one `Ready(Err)` site and how to build a future of the client's type are open (local replies: NoTrack, SilentTyping).
+- **`ManaTheme`'s fields** (2.3.1), **the user-name render** (2.3.13, nothing found yet), **per-element voice anchors** (2.3.16: VolumeBooster's slider found, a CallTimer lead), **which `PermissionWatch` record is which prompt** (2.3.20), **the CDN fetch chain** (2.3.8, 2.3.9: static reading ends in generic handle code; a live trace should settle it), **the role menu** (2.3.11 follow-up: built by a shared builder, needs an anchor by label).
+- **2.1.3:** uploads, voice and media while scrolling, and Linux; the test account is back at Discord's access screen.
+- **2.1.4:** Linux.
+- **2.2.8, 2.2.9:** no Phoenix update has been observed yet: how `app\` and `updates` change, whether a running client is swapped, how often builds ship, and a second build to check every signature on.
+- **Sideload:** never tested; not needed while injection works.
 - **Linux and macOS:** no Phoenix location or layout is known; the proxy with a plain launch is the plan there.
 
 Risks:
 
-- **One build.** Every finding is from `0.1.0.2208`. No signature is in `signatures/` until 2.2.9 checks it on two adjacent builds, so until then in-process cannot be the default for anyone.
-- **The test account.** Until 2026-11-25 the client stopped at "This app isn't available for your account" after `READY`; on 2026-11-26 the same account was let in. Access can change again on Discord's side.
-- **The access gate.** `DiscordApp::render` checks an access gate and can show a "Build expired" banner; a build the gate rejects is unusable whatever PhoeCord does.
-- **Detection time.** On Discord Canary (224 MiB) the loader took about 130 ms to detect the build, over the 20 ms target (2.2.11). Phoenix's executable is more than twice as large, so hashing `.text` will take longer; this is measured on Phoenix by nobody yet.
-- **Two `Found<T>` types.** `hooks::found::Found<T>` (2.2.2/2.2.3) and `locators::Found<T>` (2.2.5) are separate; they should become one before part 2 of 2.2.5 adds the target locators.
+- **One build.** Every finding and every public signature is from `0.1.0.2208`; a new build turns the hooks off until its table is added (degradation keeps the client working).
+- **The access gate.** Discord's own screen ("This app isn't available for your account") blocks some accounts in Phoenix, on and off; Sunbird gets past it next to PhoeCord (`--also-inject`). A build the gate rejects is unusable whatever PhoeCord does.
+- **Public signatures.** Anyone, Discord included, can read what PhoeCord hooks (accepted, ruling 2026-11-27).
+- **Detection time.** Hashing `.text` and resolving the table took about 1.1 s on Phoenix after the SIMD scan (#187); the hooks still go in before `READY`.
 - **Terms.** Client modification and traffic interception break Discord's Terms ([`TERMS.md`](../../TERMS.md)); every live run uses an account that can be lost.
 
 # GPUI symbol import and reference-build comparison (2.2.1)
