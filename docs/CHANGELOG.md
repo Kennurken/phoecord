@@ -4,6 +4,10 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Fixed
+
+- 2.2.7: in an in-process launch on Desktop Phoenix, plugins now see `READY` and `READY_SUPPLEMENTAL`. The loader's signature scan was byte by byte and took about 6 s, so the network hooks went in after the client had already connected to the gateway; the scan now uses a SIMD substring search and the hooks are in about 1 s after start. `phoecord check` is faster too.
+
 ## [0.7.0] - 2026-11-27
 
 The end of stage 2.1 and most of stage 2.2 on Desktop Phoenix: plugin entries in Phoenix's own message, user, channel and server menus, a full `READY` through the proxy, plugins that see your own deletes at once, and the first in-process launch (no proxy) with the REST and gateway hooks. Signature tables now ship inside PhoeCord. New website at https://phoecord.dev. ShowHiddenChannels is removed.
