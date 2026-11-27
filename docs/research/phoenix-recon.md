@@ -483,11 +483,10 @@ Open, by what has to answer it (RE is Nanda's, ruling 2026-11-27):
 - **IDENTIFY and heartbeat** (2.2.4, 2.2.7): IDENTIFY is built once at connect by its own function, which serializes `ClientState` (found live 27.11 with `ClientState`'s layout: `guild_versions` is a `BTreeMap`, emptied for the call; open: installing the hook before IDENTIFY, about 0.35 s after start); the gateway's op 1 heartbeat path is still unconfirmed.
 - **A ready response future** (2.2.2): `Ready`/`Pending` is resolved; one `Ready(Err)` site and how to build a future of the client's type are open (local replies: NoTrack, SilentTyping).
 - **`ManaTheme`'s fields** (2.3.1), **the user-name render** (2.3.13, nothing found yet), **per-element voice anchors** (2.3.16: VolumeBooster's slider found, a CallTimer lead), **which `PermissionWatch` record is which prompt** (2.3.20), **the CDN fetch** (2.3.8, 2.3.9: CDN images pass neither the REST `send` hook nor WinHTTP/WinINet; GIF and MP4 go through Windows Media Foundation; static images may have come from the disk cache, so a pass with never-loaded images is next), **the role menu** (2.3.11 follow-up: built by a shared builder, needs an anchor by label).
-- **2.1.3:** uploads, voice and media while scrolling, and Linux; the test account is back at Discord's access screen.
-- **2.1.4:** Linux.
+- **2.1.3:** closed by the owner (2026-11-27). GIF/MP4 media go through Windows Media Foundation, which may bypass `--proxy-server`.
 - **2.2.8, 2.2.9:** no Phoenix update has been observed yet: how `app\` and `updates` change, whether a running client is swapped, how often builds ship, and a second build to check every signature on.
 - **Sideload:** never tested; not needed while injection works.
-- **Linux and macOS:** no Phoenix location or layout is known; the proxy with a plain launch is the plan there.
+- **Linux and macOS:** checked after the Windows release (ruling 2026-11-27); no Phoenix location or layout is known; the proxy with a plain launch is the plan there.
 
 Risks:
 
