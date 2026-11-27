@@ -185,7 +185,9 @@ impl Scan<'_> {
     }
 
     /// The append helper and anchor of another context menu (`user`, `channel`, `server`): the
-    /// `Found` RVA is the helper, the target the anchor's return address.
+    /// `Found` RVA is the helper, the target the anchor's return address. Only with the `dll`
+    /// feature: `MenuKind` comes from `phoecord-core`, which the CLI, installer and proxy do not link.
+    #[cfg(feature = "dll")]
     pub fn context_menu(
         &self,
         kind: phoecord_core::MenuKind,
