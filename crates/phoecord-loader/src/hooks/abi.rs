@@ -12,6 +12,7 @@
 //!
 //! | Offset | Field | Status in the recon notes |
 //! |:---|:---|:---|
+//! | `+0x18` | `HeaderMap` entries: `Vec` of `0x68`-byte buckets (capacity, pointer, length) | verified live (2026-11-27, see [`read_headers`]) |
 //! | `+0x60` | body tag: `0` none, `1` `bytes::Bytes`, others not decoded | tags 0 and 1 verified |
 //! | `+0x68` | `bytes::Bytes`: four words, in memory vtable, pointer, length, data | verified, word order checked live (see [`BYTES_PTR`]) |
 //! | `+0x98` | URL `String`: capacity, pointer, length | verified |
@@ -74,6 +75,8 @@ pub enum AbiError {
     BadStatus(u16),
     /// A ready answer's body `Vec` does not look like one.
     BadBody,
+    /// The request's header `Vec` does not look like one.
+    BadHeaders,
 }
 
 impl fmt::Display for AbiError {
@@ -85,6 +88,7 @@ impl fmt::Display for AbiError {
             AbiError::UnknownMethod(t) => write!(f, "unknown method encoding (tag {t})"),
             AbiError::BadStatus(c) => write!(f, "the response status {c} is not an HTTP status"),
             AbiError::BadBody => f.write_str("the response body field does not hold a byte vector"),
+            AbiError::BadHeaders => f.write_str("the header field does not hold a header vector"),
         }
     }
 }
@@ -219,6 +223,129 @@ pub fn read_body(mem: &dyn Memory, req: usize, image: Range<usize>) -> Body {
         }
         _ => Body::Opaque,
     }
+}
+
+/// Offset of the request's `HeaderMap` entries, a `Vec` of buckets: capacity, pointer, length.
+pub const HEADERS: usize = 0x18;
+/// Size of one `HeaderMap` bucket in this build.
+pub const BUCKET: usize = 0x68;
+/// Offset in a bucket of its `HeaderValue`'s `Bytes` (four words, same order as the body's).
+pub const BUCKET_VALUE: usize = 0x18;
+/// Offset in a bucket of the `HeaderValue`'s `is_sensitive` flag.
+pub const BUCKET_SENSITIVE: usize = 0x38;
+/// Offset in a bucket of the `HeaderName`: the `Bytes` of a custom name, or for a standard name a
+/// zero first word (the vtable niche) and the `StandardHeader` tag at [`BUCKET_STANDARD`].
+pub const BUCKET_NAME: usize = 0x40;
+/// Offset in a bucket of a standard name's `StandardHeader` tag (one byte).
+pub const BUCKET_STANDARD: usize = 0x48;
+/// The most headers read; a longer `Vec` is refused as a wrong reading.
+pub const MAX_HEADERS: usize = 256;
+/// The longest header value read; a longer one is skipped.
+pub const MAX_HEADER_VALUE: usize = 64 * 1024;
+/// The longest custom header name read.
+const MAX_HEADER_NAME: usize = 128;
+
+/// The `StandardHeader` tags this module names, each checked live on Phoenix `0.1.0.2208`
+/// (2026-11-27) against something its value must look like: `authorization` and `cookie` carry
+/// `is_sensitive`, `user-agent` starts with `Mozilla/`, `origin` is `https://discord.com` long, and
+/// the rest match the declaration order of `http` 1.x. Another standard header is skipped.
+const STANDARD_HEADERS: [(u8, &str); 6] = [
+    (3, "accept-language"),
+    (16, "authorization"),
+    (30, "cookie"),
+    (48, "origin"),
+    (55, "referer"),
+    (70, "user-agent"),
+];
+
+/// One request header. `Debug` never prints the value: it can be the account's token.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Header {
+    /// Lowercase, as `http` stores it.
+    pub name: String,
+    pub value: Vec<u8>,
+    /// `HeaderValue::is_sensitive`, set by the client for `authorization` and `cookie`.
+    pub sensitive: bool,
+}
+
+impl fmt::Debug for Header {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Header({}: <{} bytes redacted>{})",
+            self.name,
+            self.value.len(),
+            if self.sensitive { ", sensitive" } else { "" }
+        )
+    }
+}
+
+/// A `Bytes` at `at` whose vtable is a static of the client (`image`), read when at most `max`
+/// bytes long.
+fn read_bytes(mem: &dyn Memory, at: usize, image: &Range<usize>, max: usize) -> Option<Vec<u8>> {
+    let w = |i: usize| mem.word(at + 8 * i);
+    let (vtable, ptr, len) = (w(BYTES_VTABLE)?, w(BYTES_PTR)?, w(BYTES_LEN)?);
+    if !image.contains(&vtable) || len > max || (len > 0 && ptr == 0) {
+        return None;
+    }
+    let mut b = vec![0u8; len];
+    (len == 0 || mem.read(ptr, &mut b)).then_some(b)
+}
+
+/// The name of the bucket at `at`, `None` for a standard header not in [`STANDARD_HEADERS`] or a
+/// name that does not read as an HTTP token.
+fn header_name(mem: &dyn Memory, at: usize, image: &Range<usize>) -> Option<String> {
+    if mem.word(at + BUCKET_NAME)? == 0 {
+        let mut tag = [0u8; 1];
+        if !mem.read(at + BUCKET_STANDARD, &mut tag) {
+            return None;
+        }
+        return STANDARD_HEADERS
+            .iter()
+            .find(|(t, _)| *t == tag[0])
+            .map(|(_, n)| (*n).to_string());
+    }
+    let b = read_bytes(mem, at + BUCKET_NAME, image, MAX_HEADER_NAME)?;
+    let token =
+        |c: &u8| c.is_ascii_lowercase() || c.is_ascii_digit() || b"-_.!#$%&'*+^`|~".contains(c);
+    (!b.is_empty() && b.iter().all(token)).then(|| String::from_utf8_lossy(&b).into_owned())
+}
+
+/// The headers of the request at `req`, in the client's order. Only the first value of a name is
+/// read (`HeaderMap`'s extra values are not). A bucket that does not check out (an unknown
+/// standard name, a value whose vtable is outside `image`, too long) is skipped; a `Vec` that does
+/// not look like one is an error.
+pub fn read_headers(
+    mem: &dyn Memory,
+    req: usize,
+    image: Range<usize>,
+) -> Result<Vec<Header>, AbiError> {
+    let word = |off: usize| {
+        let at = req + off;
+        mem.word(at).ok_or(AbiError::Unreadable(at))
+    };
+    let (cap, ptr, len) = (word(HEADERS)?, word(HEADERS + 8)?, word(HEADERS + 16)?);
+    if len > cap || len > MAX_HEADERS || (len > 0 && ptr == 0) {
+        return Err(AbiError::BadHeaders);
+    }
+    let mut out = Vec::with_capacity(len);
+    for i in 0..len {
+        let at = ptr + i * BUCKET;
+        let Some(name) = header_name(mem, at, &image) else {
+            continue;
+        };
+        let Some(value) = read_bytes(mem, at + BUCKET_VALUE, &image, MAX_HEADER_VALUE) else {
+            continue;
+        };
+        let mut sensitive = [0u8; 1];
+        mem.read(at + BUCKET_SENSITIVE, &mut sensitive);
+        out.push(Header {
+            name,
+            value,
+            sensitive: sensitive[0] == 1,
+        });
+    }
+    Ok(out)
 }
 
 /// The response side (2.2.2 part 2): what `poll` of the response future writes through its first
@@ -500,5 +627,114 @@ mod tests {
         assert_eq!(read_response(&mem, OUT), Some(Err(AbiError::BadBody)));
         let mem = ready(42, b"{}");
         assert_eq!(read_response(&mem, OUT), Some(Err(AbiError::BadStatus(42))));
+    }
+
+    const BUCKETS_AT: usize = 0x8000;
+    const TEXT_AT: usize = 0x9000;
+
+    /// How one fake bucket names its header.
+    enum Name<'a> {
+        Standard(u8),
+        Custom(&'a str),
+    }
+
+    /// A request whose `HeaderMap` holds `headers` (name, value, sensitive), laid out as Phoenix
+    /// `0.1.0.2208` does: buckets of `0x68` bytes, the value's `Bytes` at `+0x18`, the name at
+    /// `+0x40`, the standard tag at `+0x48`, `is_sensitive` at `+0x38`.
+    fn with_headers(headers: &[(Name<'_>, &[u8], bool)]) -> Fake {
+        let mut req = vec![0u8; 0xf0];
+        put(&mut req, HEADERS, headers.len() + 2);
+        put(&mut req, HEADERS + 8, BUCKETS_AT);
+        put(&mut req, HEADERS + 16, headers.len());
+        let mut buckets = vec![0u8; headers.len() * BUCKET];
+        let mut text = Vec::new();
+        let mut bytes = |buckets: &mut Vec<u8>, at: usize, b: &[u8]| {
+            put(buckets, at + 8 * BYTES_VTABLE, VTABLE);
+            put(buckets, at + 8 * BYTES_PTR, TEXT_AT + text.len());
+            put(buckets, at + 8 * BYTES_LEN, b.len());
+            text.extend_from_slice(b);
+        };
+        for (i, (name, value, sensitive)) in headers.iter().enumerate() {
+            let at = i * BUCKET;
+            bytes(&mut buckets, at + BUCKET_VALUE, value);
+            buckets[at + BUCKET_SENSITIVE] = u8::from(*sensitive);
+            match name {
+                Name::Standard(tag) => buckets[at + BUCKET_STANDARD] = *tag,
+                Name::Custom(n) => bytes(&mut buckets, at + BUCKET_NAME, n.as_bytes()),
+            }
+        }
+        Fake(vec![(REQ, req), (BUCKETS_AT, buckets), (TEXT_AT, text)])
+    }
+
+    fn names(h: &[Header]) -> Vec<&str> {
+        h.iter().map(|h| h.name.as_str()).collect()
+    }
+
+    #[test]
+    fn reads_standard_and_custom_headers_in_order() {
+        let mem = with_headers(&[
+            (Name::Standard(16), b"secret-token", true),
+            (
+                Name::Custom("x-super-properties"),
+                b"eyJvcyI6IldpbmRvd3MifQ==",
+                false,
+            ),
+            (Name::Standard(70), b"Mozilla/5.0", false),
+            (Name::Custom("x-discord-locale"), b"ru", false),
+        ]);
+        let h = read_headers(&mem, REQ, IMAGE).unwrap();
+        assert_eq!(
+            names(&h),
+            [
+                "authorization",
+                "x-super-properties",
+                "user-agent",
+                "x-discord-locale"
+            ]
+        );
+        assert_eq!(h[0].value, b"secret-token");
+        assert!(h[0].sensitive && !h[1].sensitive);
+        assert_eq!(h[2].value, b"Mozilla/5.0");
+    }
+
+    #[test]
+    fn unknown_or_wrong_buckets_are_skipped() {
+        let mut mem = with_headers(&[
+            (Name::Standard(99), b"?", false),
+            (Name::Custom("Not A Token"), b"v", false),
+            (Name::Standard(48), b"https://discord.com", false),
+            (Name::Custom("x-discord-timezone"), b"Asia/Almaty", false),
+        ]);
+        // The last value's vtable is not the client's.
+        let buckets = &mut mem.0.iter_mut().find(|(b, _)| *b == BUCKETS_AT).unwrap().1;
+        put(buckets, 3 * BUCKET + BUCKET_VALUE + 8 * BYTES_VTABLE, 0x42);
+        assert_eq!(names(&read_headers(&mem, REQ, IMAGE).unwrap()), ["origin"]);
+    }
+
+    #[test]
+    fn a_header_vec_that_is_not_one_is_refused() {
+        let mut mem = with_headers(&[(Name::Standard(16), b"t", true)]);
+        patch(&mut mem, HEADERS, 0);
+        assert_eq!(read_headers(&mem, REQ, IMAGE), Err(AbiError::BadHeaders));
+        patch(&mut mem, HEADERS, MAX_HEADERS + 10);
+        patch(&mut mem, HEADERS + 16, MAX_HEADERS + 1);
+        assert_eq!(read_headers(&mem, REQ, IMAGE), Err(AbiError::BadHeaders));
+        let empty = with_headers(&[]);
+        assert_eq!(read_headers(&empty, REQ, IMAGE), Ok(Vec::new()));
+    }
+
+    #[test]
+    fn debug_never_shows_a_header_value() {
+        let h = Header {
+            name: "authorization".into(),
+            value: b"secret-token".to_vec(),
+            sensitive: true,
+        };
+        let shown = format!("{h:?}");
+        assert!(!shown.contains("secret"), "{shown}");
+        assert_eq!(
+            shown,
+            "Header(authorization: <12 bytes redacted>, sensitive)"
+        );
     }
 }
