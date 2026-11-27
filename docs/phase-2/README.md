@@ -70,16 +70,16 @@ Open tasks only, 27.11.2026: 29 (matvee 11, buslan 10, ken 7, Nanda 1). "Waits o
 | **2.1.3** | Proxy behaviour on Phoenix | ken | uploads, voice, media while scrolling; Linux | an account the client lets in |
 | **2.1.10** | Gateway fixtures without personal data | matvee | the capture itself | a throwaway account and a person at the client |
 | **2.2.2** | HTTP transport hook | ken | local replies (a ready response future from `send`); second build (2.2.9) | Nanda (RE: the future's layout, `Ready`/`Pending`/`Err`) |
-| **2.2.3** | Gateway inflate hook | ken | delivering queued payloads (`Host::emit_dispatch`): call the client's per-frame handler with a made-up frame (found live 27.11; its arguments to read); second build (2.2.9) | Nanda (RE: the handler's arguments), then ken |
+| **2.2.3** | Gateway inflate hook | ken | delivering queued payloads: call the per-frame handler again with a copy of a real frame record whose text `Vec` points at PhoeCord's frame (arguments and record layout found live 27.11, in `phoecord-recon`); second build (2.2.9) | ken |
 | **2.2.4** | Outgoing gateway hook | ken | replacing a frame live; dropped frames (need the caller); IDENTIFY does not pass the encoder (checked from 9 ms): it is built by its own function, found live 27.11 | ken |
 | **2.2.5** | Typed locators | matvee | the remaining locators; checked on 0.1.0.2208 only | matvee; 2.2.9 for a second build |
 | **2.2.6** | `phoecord check` | matvee | re-run to confirm `gateway_registry` is unique; CI job on private dumps | matvee |
-| **2.2.7** | In-process transport | ken | `full_ready`: hook the IDENTIFY builder / `ClientState` serializer (found live 27.11) and install it before ~0.3 s; queued payloads (the per-frame handler, found); local replies | Nanda (RE: `ClientState` layout, the handler's arguments, the response future), then ken |
+| **2.2.7** | In-process transport | ken | `full_ready`: hook the `ClientState` serializer, set `guild_versions`' length to 0 for the call, restore it (layout found live 27.11), installed before IDENTIFY (~0.35 s after start); queued payloads (see 2.2.3); local replies | ken; Nanda (RE: the response future) for local replies |
 | **2.2.9** | Signatures unique on two builds | buslan | not started | buslan; a second Phoenix build |
 | **2.3.1** | Theme engine | matvee | `ManaTheme`'s field layout, the hook | Nanda (RE: the fields), then matvee |
 | **2.3.3** | Settings tab in Phoenix | ken | the native page, package install / remove | ken; the owner's call on the package store |
 | **2.3.4** | MessageLogger UI | matvee | find `RowView`'s render through 2.3.10's dispatcher (its vtable record is not a render entry, live 27.11), the locator, wiring `Accessory::for_message` | matvee (2.3.10) |
-| **2.3.8** | CDN picture hook | buslan | the static CDN leads stayed silent while images loaded; images went through WinHTTP/WinINet (live 27.11): confirm the URLs, then a hook on those Windows exports | buslan (a probe on the WinHTTP/WinINet exports) |
+| **2.3.8** | CDN picture hook | buslan | CDN images pass neither the REST `send` hook nor WinHTTP/WinINet (live 27.11); GIF/MP4 load through Windows Media Foundation; the static leads stayed silent; next: a pass with never-loaded images on `libdiscord_media::loader` and the image cache | Nanda (RE: a live pass with uncached images), then buslan |
 | **2.3.9** | FixImagesQuality default mode | buslan | everything | 2.3.8 |
 | **2.3.10** | Generic view-render wrap | matvee | the hook (swap the incoming vtable for a wrapper) | matvee |
 | **2.3.12** | Modals | matvee | the locator and the hook on `ShellModals` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
