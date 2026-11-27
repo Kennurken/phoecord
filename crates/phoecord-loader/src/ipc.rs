@@ -18,6 +18,8 @@
 //! | `ui.event` | loader → proxy | `name`, `payload` (any JSON); `menu_action`: see [`menu_action`] |
 //! | `menu.get` | loader → proxy | `id` |
 //! | `menu.items` | proxy → loader | `id`, `items` ([`MenuItem`]: `plugin`, `entry`, `label`) |
+//! | `plugins.get` | loader → proxy | `id` |
+//! | `plugins.list` | proxy → loader | `id`, `plugins` ([`PluginInfo`]), `more` (another `plugins.list` with this `id` follows) |
 //!
 //! A line longer than [`MAX_LINE`] bytes, invalid JSON, an unknown `type` or another `v` is an
 //! error, and the receiver drops the connection.
@@ -81,6 +83,91 @@ pub enum Msg {
     /// The proxy's answer to `menu.get`: the entries of the plugins that run now.
     #[serde(rename = "menu.items")]
     MenuItems { id: u64, items: Vec<MenuItem> },
+    /// Ask for every plugin the settings tab lists (2.3.3, on the proxy transport, where the
+    /// loader has no engine of its own).
+    #[serde(rename = "plugins.get")]
+    PluginsGet { id: u64 },
+    /// The proxy's answer to `plugins.get`, in as many lines as [`MAX_LINE`] needs: every line
+    /// but the last has `more: true`.
+    #[serde(rename = "plugins.list")]
+    PluginsList {
+        id: u64,
+        plugins: Vec<PluginInfo>,
+        #[serde(default)]
+        more: bool,
+    },
+}
+
+/// One plugin for the settings tab, its setting labels already in the user's language.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PluginInfo {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authors: Vec<String>,
+    /// A WASM package (else built in).
+    #[serde(default)]
+    pub package: bool,
+    /// Turned off for this run by a panic.
+    #[serde(default)]
+    pub crashed: bool,
+    /// The rights a package's `plugin.toml` asks for, as written there.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rights: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<SettingInfo>,
+}
+
+/// One setting as `SettingSpec` describes it; `kind` is `SettingKind::name`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SettingInfo {
+    pub key: String,
+    pub kind: String,
+    pub default: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<Value>,
+    /// The label, translated.
+    pub label: String,
+}
+
+/// `plugins` as `plugins.list` replies to request `id`, each line at most [`MAX_LINE`] bytes. A
+/// plugin that alone does not fit is left out (and named in the `Err` list, for the log).
+pub fn plugins_lines(id: u64, plugins: Vec<PluginInfo>) -> (Vec<Msg>, Vec<String>) {
+    let fits = |plugins: &[PluginInfo]| {
+        encode_line(&Msg::PluginsList {
+            id,
+            plugins: plugins.to_vec(),
+            more: true,
+        })
+        .is_ok()
+    };
+    let mut out: Vec<Vec<PluginInfo>> = vec![Vec::new()];
+    let mut dropped = Vec::new();
+    for p in plugins {
+        if !fits(std::slice::from_ref(&p)) {
+            dropped.push(p.id);
+            continue;
+        }
+        let last = out.last_mut().expect("never empty");
+        last.push(p);
+        if !fits(last) {
+            let p = last.pop().expect("just pushed");
+            out.push(vec![p]);
+        }
+    }
+    let n = out.len();
+    let msgs = out
+        .into_iter()
+        .enumerate()
+        .map(|(i, plugins)| Msg::PluginsList {
+            id,
+            plugins,
+            more: i + 1 < n,
+        })
+        .collect();
+    (msgs, dropped)
 }
 
 /// One plugin entry for a context menu, its label in the user's language.
@@ -275,6 +362,68 @@ pub fn describe_connection(hello: &Msg, status: Option<&Msg>) -> Option<String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn info(id: &str, description_len: usize) -> PluginInfo {
+        PluginInfo {
+            id: id.into(),
+            name: id.into(),
+            version: "1.0.0".into(),
+            description: "d".repeat(description_len),
+            authors: vec![],
+            package: false,
+            crashed: false,
+            rights: vec![],
+            settings: vec![SettingInfo {
+                key: "on".into(),
+                kind: "bool".into(),
+                default: Value::Bool(true),
+                options: vec![],
+                label: "On".into(),
+            }],
+        }
+    }
+
+    #[test]
+    fn the_plugin_list_is_split_into_lines_that_fit() {
+        let plugins: Vec<_> = (0..40).map(|i| info(&format!("p{i}"), 4000)).collect();
+        let (lines, dropped) = plugins_lines(9, plugins.clone());
+        assert!(dropped.is_empty());
+        assert!(lines.len() > 1, "160 KB do not fit one line");
+        let mut back = Vec::new();
+        for (i, m) in lines.iter().enumerate() {
+            let encoded = encode_line(m).unwrap();
+            assert!(encoded.len() <= MAX_LINE + 1);
+            match decode_line(&encoded).unwrap() {
+                Msg::PluginsList { id, plugins, more } => {
+                    assert_eq!(id, 9);
+                    assert_eq!(more, i + 1 < lines.len());
+                    back.extend(plugins);
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+        assert_eq!(back, plugins, "all, in order");
+
+        let (lines, dropped) = plugins_lines(1, vec![info("huge", MAX_LINE), info("ok", 10)]);
+        assert_eq!(dropped, ["huge"]);
+        assert_eq!(
+            lines,
+            [Msg::PluginsList {
+                id: 1,
+                plugins: vec![info("ok", 10)],
+                more: false
+            }]
+        );
+        assert_eq!(
+            plugins_lines(2, vec![]).0,
+            [Msg::PluginsList {
+                id: 2,
+                plugins: vec![],
+                more: false
+            }],
+            "an empty list is still an answer"
+        );
+    }
     use serde_json::json;
     use std::io::Cursor;
 

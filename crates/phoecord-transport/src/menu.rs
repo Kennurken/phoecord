@@ -93,6 +93,13 @@ impl MenuClick {
 
 impl Engine {
     /// The menu entries of every plugin that runs now (enabled and not crashed), in chain order.
+    /// `plugin`'s string `key` in the user's language (`Host::t` outside a plugin call), the key
+    /// itself when the plugin lacks it. The settings tab labels settings with it (2.3.3).
+    pub fn plugin_text(&self, plugin: &str, key: &str) -> String {
+        let lang = self.shared.language(&self.cfg());
+        self.shared.strings.t(plugin, &lang, key, &[])
+    }
+
     pub fn menu_items(&self) -> Vec<MenuItem> {
         let cfg = self.cfg();
         let running = self.chain.enabled_ids();
