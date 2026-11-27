@@ -82,7 +82,7 @@ If you start `phoecord` from a packaged (MSIX / Store) app, for example the Clau
 
 ## 3d. Antivirus or SmartScreen blocks PhoeCord
 
-Releases are unsigned, so Windows SmartScreen shows "Windows protected your PC" (click **More info**, **Run anyway**) and macOS Gatekeeper blocks the first start (right-click, **Open**). First check the file against `SHA256SUMS` from the same release (`Get-FileHash <file> -Algorithm SHA256` on Windows, `shasum -a 256 <file>` on macOS, `sha256sum -c SHA256SUMS --ignore-missing` on Linux). If the hash matches and Defender still quarantines `version.dll`, it is a false positive: tell Nanda the release and the detection name, so the file is (re)submitted to Microsoft ([`GOVERNANCE.md`](GOVERNANCE.md#releases)). If the hash does not match, do not run it and report it privately (§5).
+Release binaries are not code-signed (no publisher certificate; only `SHA256SUMS` is signed, with the owner's minisign key), so Windows SmartScreen shows "Windows protected your PC" (click **More info**, **Run anyway**) and macOS Gatekeeper blocks the first start (right-click, **Open**). First check the file against `SHA256SUMS` from the same release (`Get-FileHash <file> -Algorithm SHA256` on Windows, `shasum -a 256 <file>` on macOS, `sha256sum -c SHA256SUMS --ignore-missing` on Linux), and `SHA256SUMS` itself with `minisign -Vm SHA256SUMS -p crates/phoecord-installer/update-key.pub`. If the hash matches and Defender still quarantines `version.dll`, it is a false positive: tell Nanda the release and the detection name, so the file is (re)submitted to Microsoft ([`GOVERNANCE.md`](GOVERNANCE.md#releases)). If the hash does not match, do not run it and report it privately (§5).
 
 ## 3e. A release run failed
 
