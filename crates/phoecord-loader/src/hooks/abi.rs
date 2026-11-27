@@ -408,6 +408,17 @@ pub const POLL_OUT_LEN: usize = 0x80;
 /// client keeps `Poll`'s and `Result`'s tag (`0` for `Ready(Ok)`, `-2` for `Pending`).
 pub const RESP_HEADERS_LEN: usize = 0x60;
 
+/// The status a local reply hands the client: a plugin's status when `http::StatusCode` accepts it
+/// (`100..=999`), else `204`, as the proxy's local reply does. The client keeps the status as a
+/// `StatusCode`, so a value outside that range must never reach its memory.
+pub fn reply_status(status: u16) -> u16 {
+    if (100..=999).contains(&status) {
+        status
+    } else {
+        204
+    }
+}
+
 /// What a local reply's `poll` writes through its output pointer (2.2.2, local replies): a ready,
 /// successful answer with `status`, an empty header map and the body `Vec` (capacity, pointer,
 /// length), which the caller has allocated with the client's allocator (the client frees it).
@@ -672,6 +683,15 @@ mod tests {
         let mem = Fake(vec![(OUT, out.to_vec())]);
         let r = read_response(&mem, OUT).unwrap().unwrap();
         assert_eq!((r.status, r.body.len(), r.cap, r.ptr), (204, 0, 0, 1));
+    }
+
+    #[test]
+    fn a_status_the_client_cannot_hold_becomes_204() {
+        assert_eq!(reply_status(200), 200);
+        assert_eq!(reply_status(999), 999);
+        assert_eq!(reply_status(0), 204);
+        assert_eq!(reply_status(99), 204);
+        assert_eq!(reply_status(1000), 204);
     }
 
     const BUCKETS_AT: usize = 0x8000;

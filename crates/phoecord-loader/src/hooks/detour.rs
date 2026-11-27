@@ -623,7 +623,7 @@ fn observe_request(state: &State, request: usize) {
         }
         HttpAction::Reply { status, body } => prepare_reply(
             state,
-            status,
+            abi::reply_status(status),
             body.unwrap_or_default(),
             &head.method,
             &route,
