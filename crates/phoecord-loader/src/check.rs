@@ -141,7 +141,7 @@ pub fn check(exe: &[u8], signatures_dir: &Path) -> Result<Report, CheckError> {
         .map_err(|e| CheckError::Exe(e.into()))?
         .section_bytes(".text")
         .ok_or(CheckError::Exe(VersionError::NoTextSection))?;
-    let (set, skipped) = SignatureSet::load_dir(signatures_dir).map_err(CheckError::Signatures)?;
+    let (set, skipped) = SignatureSet::load_with_builtin(Some(signatures_dir));
     let (table, entries) = match set.select(&version) {
         Some((key, sigs)) => {
             let entries = resolve_all(sigs, text, version.text_rva)
@@ -181,7 +181,7 @@ pub fn transport_plan(
         .ok()
         .and_then(|n| u32::try_from(n).ok())
         .unwrap_or(0);
-    let (set, _skipped) = SignatureSet::load_dir(signatures_dir).map_err(CheckError::Signatures)?;
+    let (set, _skipped) = SignatureSet::load_with_builtin(Some(signatures_dir));
     let plan = match set.select(&version) {
         Some((_, sigs)) => Plan::from_hooks(&HookPlan::locate(&Scan {
             sigs,
@@ -303,13 +303,30 @@ mod tests {
     }
 
     #[test]
-    fn bad_exe_and_missing_folder_are_errors() {
+    fn a_bad_exe_is_an_error_and_a_missing_folder_leaves_the_built_in_tables() {
         let dir = Dir::new("bad", &[]);
         assert!(matches!(check(b"nope", &dir.0), Err(CheckError::Exe(_))));
-        assert!(matches!(
-            check(&exe(), &dir.0.join("absent")),
-            Err(CheckError::Signatures(_))
-        ));
+        // No hot-fix folder: only the compiled-in tables, which have no table for this test build.
+        let r = check(&exe(), &dir.0.join("absent")).unwrap();
+        assert_eq!(r.table, None);
+        assert!(r.skipped.is_empty());
+    }
+
+    #[test]
+    fn the_built_in_tables_parse_and_a_folder_replaces_a_build() {
+        let (set, errors) = SignatureSet::load_with_builtin(None);
+        assert!(errors.is_empty(), "{errors:?}");
+        assert!(set.builds().any(|(k, n)| k == "0.1.0.2208" && n > 0));
+        let dir = Dir::new(
+            "override",
+            &[(
+                "z.toml",
+                "[build.\"0.1.0.2208\"]
+only = { aob = \"55 8B EC\" }",
+            )],
+        );
+        let (set, _) = SignatureSet::load_with_builtin(Some(&dir.0));
+        assert!(set.builds().any(|(k, n)| k == "0.1.0.2208" && n == 1));
     }
 
     /// [`exe`] with `SizeOfImage` set, as a real image has it (the locators check results against it).

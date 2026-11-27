@@ -2,11 +2,11 @@
 
 AOB (array-of-bytes) signatures that let the PhoeCord loader find functions in a specific Discord client build. They live apart from the loader code so they can be updated without rebuilding it (ARCHITECTURE.md, "Finding functions").
 
-**This folder ships no real Discord signatures yet.** Real tables are added with the features that need them (Phase 1 stage 1.8 for the current client, Phase 2 for Phoenix). Never commit client binaries, disassembly or dumps of them: a signature is a short byte mask plus a name.
+**The tables here are public and compiled into PhoeCord** (owner's ruling 2026-11-27, task 2.2.10): `phoenix.toml` holds Desktop Phoenix's, so every user has them without a download and gets new ones with PhoeCord's own signed updates. Add a build's signatures there once `phoecord check` finds them all. Never commit client binaries, disassembly or dumps of them: a signature is a short byte mask plus a name.
 
 ## Where the loader looks
 
-`%LOCALAPPDATA%\PhoeCord\signatures\*.toml`. Files are read in name order; a later file replaces a build table with the same key. A file that does not parse is skipped and logged; the rest still load.
+First the tables compiled in from this folder (`phoecord_loader::signatures::BUILTIN`), then `%LOCALAPPDATA%\PhoeCord\signatures\*.toml` on top: files are read in name order and a table there replaces a compiled-in or earlier table with the same build key. A missing folder is fine (the compiled-in tables alone). A file that does not parse is skipped and logged; the rest still load.
 
 ## Hot-fix: a new client build
 

@@ -1,0 +1,14 @@
+# Desktop Phoenix signatures, public (owner's ruling 2026-11-27, task 2.2.10). Compiled into the
+# loader and `phoecord`; a file in %LOCALAPPDATA%\PhoeCord\signatures with the same build key
+# replaces this table (hot-fix, `phoecord signatures install`). Format: signatures/README.md.
+# Context menus (2.3.5, 2.3.11), checked with `phoecord check` on 0.1.0.2208.
+[build."0.1.0.2208"]
+message_menu_push         = { aob = "E8 ?? ?? ?? ?? 90 88 9D 17 11 00 00 88 9D 16 11 00 00 E8 ?? ?? ?? ?? 90 84 C0 0F 84", rip = 1 }
+message_menu_after_anchor = { aob = "90 88 9D 17 11 00 00 88 9D 16 11 00 00 E8 ?? ?? ?? ?? 90 84 C0 0F 84 ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 48 89 85 C0 0C 00 00" }
+message_menu_build_call   = { aob = "E8 ?? ?? ?? ?? 90 48 8D 4D C0 48 89 19 48 8B 85 68 03 00 00 48 89 41 08 48 8B 85 70 03 00 00" }
+user_menu_push            = { aob = "E8 ?? ?? ?? ?? 90 8A 85 BF 11 00 00 0A 85 D0 10 00 00 A8 01 48", rip = 1 }
+user_menu_after_anchor    = { aob = "90 48 8B 9D 70 12 00 00 48 8B 85 E8 01 00 00 48" }
+channel_menu_push         = { aob = "E8 ?? ?? ?? ?? 90 48 8D B5 A0 07 00 00 48 C7 06 04 00 00 00 48", rip = 1 }
+channel_menu_after_anchor = { aob = "90 80 BD E7 15 00 00 01 0F 85 DE 00 00 00 48 8D" }
+server_menu_push          = { aob = "E8 ?? ?? ?? ?? 90 48 8D 75 B0 48 C7 06 04 00 00 00 4C 8D A5 A0", rip = 1 }
+server_menu_after_anchor  = { aob = "90 48 8D 75 B0 48 C7 06 04 00 00 00 4C 8D A5 A0" }

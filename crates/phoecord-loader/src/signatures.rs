@@ -20,6 +20,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// The public signature tables compiled in (`signatures/phoenix.toml`, task 2.2.10): every user
+/// has them without a download. A table of the same build key in [`default_dir`] replaces one of
+/// these (a hot-fix).
+pub const BUILTIN: &str = include_str!("../../../signatures/phoenix.toml");
+
 /// Where the loader reads signatures: `%LOCALAPPDATA%\PhoeCord\signatures`, given the value of
 /// `LOCALAPPDATA`. The installer writes hot-fixes to the same place (2.2.10).
 pub fn default_dir(local_app_data: Option<OsString>) -> Option<PathBuf> {
@@ -55,6 +60,9 @@ pub fn folder_hash(dir: &Path) -> io::Result<String> {
         Err(e) => return Err(e),
     };
     let mut h = Sha256::new();
+    // The compiled-in tables count too: a PhoeCord update with new signatures re-runs the check.
+    h.update((BUILTIN.len() as u64).to_le_bytes());
+    h.update(BUILTIN.as_bytes());
     for p in files {
         let name = p
             .file_name()
@@ -203,6 +211,31 @@ impl SignatureSet {
             }
         }
         Ok((all, errors))
+    }
+
+    /// The compiled-in tables ([`BUILTIN`]), then every `*.toml` of `dir` on top (a table of the
+    /// same build key replaces the compiled-in one). A missing folder is no error: the compiled-in
+    /// tables alone. Files that fail to parse are skipped and reported.
+    pub fn load_with_builtin(dir: Option<&Path>) -> (SignatureSet, Vec<(String, SignatureError)>) {
+        let mut errors = Vec::new();
+        let mut all = match SignatureSet::parse(BUILTIN) {
+            Ok(s) => s,
+            Err(e) => {
+                errors.push(("(built in)".to_string(), e));
+                SignatureSet::default()
+            }
+        };
+        if let Some(dir) = dir {
+            match SignatureSet::load_dir(dir) {
+                Ok((folder, mut errs)) => {
+                    all.builds.extend(folder.builds);
+                    errors.append(&mut errs);
+                }
+                Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+                Err(e) => errors.push((dir.display().to_string(), SignatureError::Io(e))),
+            }
+        }
+        (all, errors)
     }
 
     pub fn is_empty(&self) -> bool {

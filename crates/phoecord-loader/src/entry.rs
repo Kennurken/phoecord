@@ -230,20 +230,9 @@ fn analyze(log: &Logger) -> Option<Report> {
         })
     };
 
-    let Some(dir) = signatures::default_dir(std::env::var_os("LOCALAPPDATA")) else {
-        log.log("no LOCALAPPDATA: UI layer stays off");
-        return off(v, "no LOCALAPPDATA");
-    };
-    let (set, errors) = match signatures::SignatureSet::load_dir(&dir) {
-        Ok(r) => r,
-        Err(e) => {
-            log.log(&format!(
-                "no signatures in {}: {e}; UI layer stays off",
-                dir.display()
-            ));
-            return off(v, "no signatures");
-        }
-    };
+    // The compiled-in public tables, with a hot-fix folder on top when there is one (2.2.10).
+    let dir = signatures::default_dir(std::env::var_os("LOCALAPPDATA"));
+    let (set, errors) = signatures::SignatureSet::load_with_builtin(dir.as_deref());
     for (file, e) in errors {
         log.log(&format!("signature file {file} skipped: {e}"));
     }
