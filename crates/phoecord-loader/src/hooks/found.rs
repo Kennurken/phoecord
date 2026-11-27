@@ -17,6 +17,7 @@
 //! | `gateway_inflate` | the function that inflates one gateway frame into its JSON text (`zstd-stream`), entry for an inline hook | Gateway dispatch |
 //! | `gateway_send` | entry of the outgoing frame encoder (`gateway_send_encode` in the recon notes) | Gateway send |
 //! | `gateway_frame` | entry of the per-frame handler the inflate wrapper calls with each frame's text (inline hook) | queued server → client payloads |
+//! | `client_state` | entry of the `ClientState` serializer `IDENTIFY`'s builder calls (inline hook, installed from `DllMain`) | `full_ready` (2.2.7) |
 //! | `message_menu_push` | entry of the helper that appends one entry record to the message menu's `Vec` (inline hook) | message menu (2.3.5) |
 //! | `message_menu_after_anchor` | the instruction right after the call that appends the native "Copy Message Link" entry (a return address) | message menu |
 //! | `user_menu_push`, `channel_menu_push`, `server_menu_push` | entry of that menu's entry-append helper (inline hook; menus may share one) | context menus (2.3.11) |
@@ -37,6 +38,7 @@ pub const GATEWAY_REGISTRY: &str = "gateway_registry";
 pub const GATEWAY_SEND: &str = "gateway_send";
 pub const GATEWAY_INFLATE: &str = "gateway_inflate";
 pub const GATEWAY_FRAME: &str = "gateway_frame";
+pub const CLIENT_STATE: &str = "client_state";
 pub const MENU_PUSH: &str = "message_menu_push";
 pub const MENU_AFTER_ANCHOR: &str = "message_menu_after_anchor";
 pub const MENU_BUILD_CALL: &str = "message_menu_build_call";
@@ -103,6 +105,9 @@ pub struct GatewaySend;
 /// The client's per-frame gateway handler (2.2.3): delivers queued payloads.
 #[derive(Debug, PartialEq, Eq)]
 pub struct GatewayFrame;
+/// The serializer of the gateway session's `ClientState`, which `IDENTIFY` carries (2.2.7).
+#[derive(Debug, PartialEq, Eq)]
+pub struct ClientState;
 /// Another context menu's entry-append helper (the `Found` RVA) and its anchor.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContextMenu {
@@ -233,6 +238,13 @@ impl Scan<'_> {
         Ok(Found {
             rva: self.rva(GATEWAY_FRAME)?,
             target: GatewayFrame,
+        })
+    }
+
+    pub fn client_state(&self) -> Result<Found<ClientState>, LocatorError> {
+        Ok(Found {
+            rva: self.rva(CLIENT_STATE)?,
+            target: ClientState,
         })
     }
 }
