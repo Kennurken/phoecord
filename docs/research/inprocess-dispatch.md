@@ -72,6 +72,13 @@ actions.
 A paired find helps 2.2.4 the same way: the function that writes one frame to the live gateway
 connection, for `Delivery`'s `FrameSink` (plugin `emit_send` in-process).
 
+A third find, for the full `READY` in-process (`full_ready`, 2.2.7): **where `IDENTIFY` is built
+or sent.** Live (2026-11-27) the encoder hook of 2.2.4 never sees `op 1` or `op 2`, although
+heartbeats are acknowledged, and `IDENTIFY` leaves about one second after the client starts. With
+the faster signature scan the hooks are in about 1.1 s after start and `READY` reaches the plugins
+(9 guilds, all `partial`), so emptying `client_state.guild_versions` needs a hook on that path
+which is in before the first connection.
+
 Question on event order: is "locals queued outside a frame go in before the next real event"
 acceptable as the in-process rule? Through the proxy they go out at once, so the order between a
 local and the next real event can differ by one frame.
