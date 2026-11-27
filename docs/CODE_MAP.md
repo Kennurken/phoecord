@@ -375,7 +375,7 @@ See [`README.md`](README.md) in this folder. Project-level documents live here t
 | `docs/phase-2/` | Phase 2 plan (Phoenix Canary → v1.0): `README.md` (task table), `AGENTS.md`, `ai/spec.md`, `ai/plan.md`, `ai/ledger.md` |
 | `docs/superpowers/` | Design docs (`specs/`) and implementation plans (`plans/`) written with AI agents, e.g. the website's |
 | `docs/re/` | Reverse-engineering notes on the Phoenix client: `gpui-lifecycle.md` (GPUI init chain, main window, injection points) |
-| `docs/research/` | Research documents: `phoenix-desktop.md` (sunbird study), `gpui.md` (GPUI map), `phoenix-recon.md` (findings for 2.1.2, 2.1.5, 2.1.6; method and findings for 2.1.3, 2.1.4, 2.3.7; 2.1.9 completes it) |
+| `docs/research/` | Research documents: `phoenix-desktop.md` (sunbird study), `gpui.md` (GPUI map), `phoenix-recon.md` (findings for 2.1.2, 2.1.5, 2.1.6; method and findings for 2.1.3, 2.1.4, 2.3.7; 2.1.9 completes it), `inprocess-dispatch.md` (why `Host::emit_dispatch` is not delivered in-process yet, what RE unblocks it; 2.2.3, 2.2.7) |
 
 ## 6. Config, environment and files on disk
 

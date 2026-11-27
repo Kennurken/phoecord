@@ -6,6 +6,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
+- 2.2.3 / 2.2.7: `docs/research/inprocess-dispatch.md`, why local server → client payloads (`Host::emit_dispatch`: slash command answers, menu answers) are not shown in an in-process launch yet and what reverse engineering unblocks it; through the proxy they work as before.
 - 2.2.7: plugins' `Host::rest`, `rest_files`, `fetch` and `fetch_with` work when Phoenix is launched in-process (no proxy): the loader takes the client's session from its own Discord API requests and calls Discord and the plugin's allowed hosts itself, with the same rules as the proxy (session, Discord's rate limits, HTTPS-only `fetch` to listed hosts without credentials, size limits, 15 s timeout). An `upstream` proxy is not supported in-process yet: such a call fails with an error instead of going out directly.
 ### Fixed
 

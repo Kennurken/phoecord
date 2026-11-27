@@ -7,7 +7,8 @@
 //!
 //! - server → client payloads can only be handed to the client from inside a registry handler
 //!   (`docs/research/phoenix-desktop.md` §3.2), so they wait in a queue that the dispatch detour
-//!   empties; without a dispatch hook they are dropped;
+//!   empties; without a dispatch hook they are dropped. The inflate hook empties it but cannot
+//!   hand them over yet (`docs/research/inprocess-dispatch.md`);
 //! - client → server frames leave through a [`FrameSink`]. No send function is known (2.1.6,
 //!   2.2.4), so for now they are dropped;
 //! - plugin timers need a clock: [`Clock`], one thread.
