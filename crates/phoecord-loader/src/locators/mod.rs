@@ -17,10 +17,10 @@
 //! - [`exactly_one`] and [`winner`]: turn candidates into a result or a typed error.
 //!
 //! Part 2 adds the locators for the hook targets themselves ([`allocator`], [`http_transport`],
-//! [`gateway`]), each a masked AOB anchor derived from the private `phoecord-recon` notes (never
-//! raw bytes of the dump, per `docs/AGENTS.md`, "Never commit … disassembly"). Every one is
-//! checked against this one build of Phoenix (`0.1.0.2208`) only; cross-build verification is
-//! task 2.2.9.
+//! [`gateway`]) and, for task 2.3.10, the generic view-construction dispatcher ([`anyview`]),
+//! each a masked AOB anchor derived from the private `phoecord-recon` notes (never raw bytes of
+//! the dump, per `docs/AGENTS.md`, "Never commit … disassembly"). Every one is checked against
+//! this one build of Phoenix (`0.1.0.2208`) only; cross-build verification is task 2.2.9.
 //!
 //! [`Image::find_ptr`] (8-byte pointer scan of `.rdata`, needs [`Image::image_base`]) is built for
 //! the one target this part does not close: `http_poll`, the `.rdata` vtable slot of the response
@@ -30,6 +30,7 @@
 //! waits for that anchor. Tests use mock sections, never Discord bytes.
 
 pub mod allocator;
+pub mod anyview;
 pub mod gateway;
 pub mod http_transport;
 mod index;
