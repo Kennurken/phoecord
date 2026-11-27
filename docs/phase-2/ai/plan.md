@@ -9,10 +9,10 @@ Tasks are grouped by stage. Each has files, steps and "done when". Statuses and 
 
 | Area | Owner | Files |
 |:---|:---|:---|
-| Core RE (binary, hooks) | **Nanda** | `crates/phoecord-loader/src/hooks/`, `crates/phoecord-loader/src/locators/` |
+| All RE: every function found in Ghidra, for every task (ruling 2026-11-27) | **Nanda** | `crates/phoecord-loader/src/hooks/`, `crates/phoecord-loader/src/locators/` |
 | Proxy, transport, wire | **ken** | `crates/phoecord-proxy/src/`, `crates/phoecord-transport/src/` |
 | Discovery, installer, CLI | **buslan** | `crates/phoecord-installer/src/`, `crates/phoecord-cli/src/`, `signatures/` |
-| RE support, locators, UI | **matvee** | `crates/phoecord-loader/src/locators/`, `crates/phoecord-loader/src/ui/`, `docs/research/` |
+| Locators and UI hooks from Nanda's findings | **matvee**, **buslan** | `crates/phoecord-loader/src/locators/`, `crates/phoecord-loader/src/ui/`, `docs/research/` |
 | Plugin API, runtime | **Nanda** | `crates/phoecord-core/src/plugin.rs`, `crates/phoecord-plugin-runtime/` |
 | Plugins | **Contributors** | `crates/phoecord-plugins/src/` |
 | Themes | **matvee** + contributors | `crates/phoecord-loader/src/theme/`, `themes/` |
@@ -393,7 +393,7 @@ Added by the owner's ruling of 2026-11-26 (UI surfaces v1.0 needs that no task c
 
 **Done when:** each menu kind takes plugin entries, and a click reaches the plugin as a UI event on Phoenix.
 
-### 2.3.12. Modals (Nanda)
+### 2.3.12. Modals (matvee)
 
 Added by the owner's ruling of 2026-11-26 (UI surfaces v1.0 needs that no task covered). Blocked on the detours (2.2.2/2.2.3) and on an account that gets past Phoenix's access gate.
 
@@ -415,7 +415,7 @@ Added by the owner's ruling of 2026-11-26 (UI surfaces v1.0 needs that no task c
 
 **Done when:** a plugin changes the text, colour and trailing icons of a name in chat, the member list and mentions on Phoenix.
 
-### 2.3.14. Profiles (Nanda)
+### 2.3.14. Profiles (matvee)
 
 Added by the owner's ruling of 2026-11-26 (UI surfaces v1.0 needs that no task covered). Blocked on the detours (2.2.2/2.2.3) and on an account that gets past Phoenix's access gate.
 
@@ -481,7 +481,7 @@ Added by the owner's ruling of 2026-11-26 (UI surfaces v1.0 needs that no task c
 
 **Done when:** a plugin adds, reorders and decorates entries in both lists on Phoenix.
 
-### 2.3.20. Client behaviour patches (Nanda)
+### 2.3.20. Client behaviour patches (buslan)
 
 Added by the owner's ruling of 2026-11-26 (UI surfaces v1.0 needs that no task covered). Blocked on the detours (2.2.2/2.2.3) and on an account that gets past Phoenix's access gate.
 
@@ -514,7 +514,7 @@ Added by the owner's ruling of 2026-11-26 (UI surfaces v1.0 needs that no task c
 
 **Done when:** a theme is picked and applied without a restart on Phoenix.
 
-### 2.3.23. Toolbox (Nanda)
+### 2.3.23. Toolbox (buslan)
 
 Added by the owner's ruling of 2026-11-26 (UI surfaces v1.0 needs that no task covered). Blocked on the detours (2.2.2/2.2.3) and on an account that gets past Phoenix's access gate.
 
