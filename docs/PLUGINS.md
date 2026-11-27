@@ -191,7 +191,7 @@ The 30 🎨 plugins of v1.0: BetterFolders, ShowMeYourName, RoleColorEverywhere,
 | VencordToolbox | Quick actions button | ♻️ Replaced | — | PhoeCord toolbox in the client (2.3) |
 | VesktopPatches | Vesktop patches | ⛔ N/A | — | Vesktop only |
 | ViewIcons | Click avatars and banners to view them | 🎨 UI | v1.0 | 2 |
-| ViewRaw | View raw message, channel or server JSON | 🌐 + 🎨 | v1.0 | done: data — `/phoecord viewraw`; message menu entry `view_raw` in Phoenix's message menu (2.3.5, answer as a local message, checked live 2026-11-27) / 2 (other menus, modal, copy buttons) |
+| ViewRaw | View raw message, channel or server JSON | 🌐 + 🎨 | v1.0 | done: data — `/phoecord viewraw`; "View Raw" in Phoenix's message, user and channel menus (2.3.5, 2.3.11; answer as a local message, checked live 2026-11-27) / 2 (other menus, modal, copy buttons) |
 | VoiceChatDoubleClick | Join voice on double-click | 🎨 UI | 1.x | 2 |
 | VoiceDownload | Download voice messages | 🎨 UI | v1.0 | 2 |
 | VoiceMessages | Send voice messages like on mobile | 🌐 + 🎨 | v1.0 | done: data — `/phoecord voicemessage` (an .ogg file) / 2 (recording) |

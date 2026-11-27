@@ -20,10 +20,12 @@
 //! fetch = ["api.example.com"]  # outside hosts `Host::fetch` may call (needs the `fetch` right);
 //!                               # "*.example.com" matches exactly one more label
 //!
-//! # Message context menu entries on Phoenix: clicking one sends `ui:menu_action` with its `id`.
+//! # Context menu entries on Phoenix: clicking one sends `ui:menu_action` (message menu) or
+//! # `ui:user_menu_action` / `ui:channel_menu_action` / `ui:server_menu_action` with its `id`.
 //! [[menu]]
 //! id = "copy_raw"              # snake_case, unique in the plugin
 //! label = "menu-copy-raw"      # a key of the plugin's own i18n/<lang>.ftl
+//! kind = "message"             # optional: message (default), user, channel or server
 //!
 //! # Settings shown in the PhoeCord settings tab, in this order. Values are still read with
 //! # `Host::setting(key)` from the plugin's `config.toml` section; this only describes them.
@@ -62,8 +64,8 @@
 use crate::wasm::{Setup, WasmPlugin, WasmRuntime};
 use phoecord_core::plugin::API_VERSION;
 use phoecord_core::{
-    Event, EventKind, Host, Layer, Manifest, MenuEntry, Plugin, SettingKind, SettingSpec, Val,
-    Verdict,
+    Event, EventKind, Host, Layer, Manifest, MenuEntry, MenuKind, Plugin, SettingKind, SettingSpec,
+    Val, Verdict,
 };
 use phoecord_i18n::PluginStrings;
 use serde::Deserialize;
@@ -136,6 +138,9 @@ fn toml_to_val(v: &toml::Value) -> Option<Val> {
 struct RawMenuEntry {
     id: String,
     label: String,
+    /// `message` (default), `user`, `channel` or `server`.
+    #[serde(default)]
+    kind: Option<String>,
 }
 
 fn default_layers() -> Vec<String> {
@@ -196,7 +201,16 @@ impl PackageManifest {
             if menu.iter().any(|m| m.id == entry.id) {
                 return Err(format!("menu id {:?} is listed twice", entry.id));
             }
-            menu.push(MenuEntry::new(entry.id, entry.label));
+            let kind = match entry.kind.as_deref() {
+                None => MenuKind::Message,
+                Some(k) => MenuKind::from_name(k).ok_or_else(|| {
+                    format!(
+                        "menu entry {:?}: kind {k:?} is not message, user, channel or server",
+                        entry.id
+                    )
+                })?,
+            };
+            menu.push(MenuEntry::new(entry.id, entry.label).in_menu(kind));
         }
         let mut settings: Vec<SettingSpec> = Vec::new();
         for raw in raw.setting {
@@ -969,14 +983,16 @@ hint = \"h\"
         let base = "id = \"p\"\nname = \"p\"\nversion = \"0.1.0\"\napi = 1\n";
         let toml = format!(
             "{base}[[menu]]\nid = \"copy_raw\"\nlabel = \"menu-copy-raw\"\n\
-             [[menu]]\nid = \"quote\"\nlabel = \"menu-quote\"\n"
+             [[menu]]\nid = \"quote\"\nlabel = \"menu-quote\"\n\
+             [[menu]]\nid = \"avatar\"\nlabel = \"menu-avatar\"\nkind = \"user\"\n"
         );
         let p = PackageManifest::parse(&toml).unwrap();
         assert_eq!(
             p.manifest.menu,
             vec![
                 MenuEntry::new("copy_raw", "menu-copy-raw"),
-                MenuEntry::new("quote", "menu-quote")
+                MenuEntry::new("quote", "menu-quote"),
+                MenuEntry::new("avatar", "menu-avatar").in_menu(MenuKind::User),
             ]
         );
         assert!(
@@ -991,6 +1007,7 @@ hint = \"h\"
             "[[menu]]\nid = \"a\"\nlabel = \" \"\n",
             "[[menu]]\nid = \"a\"\nlabel = \"x\"\n[[menu]]\nid = \"a\"\nlabel = \"y\"\n",
             "[[menu]]\nid = \"a\"\nlabel = \"x\"\nicon = \"y\"\n",
+            "[[menu]]\nid = \"a\"\nlabel = \"x\"\nkind = \"emoji\"\n",
         ] {
             assert!(
                 PackageManifest::parse(&format!("{base}{bad}")).is_err(),

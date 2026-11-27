@@ -284,7 +284,7 @@ fn analyze(log: &Logger) -> Option<Report> {
         {
             start_in_process(l, found, &v.text_hash);
         }
-        menu = install_message_menu(log, sigs, text, &v);
+        menu = install_context_menus(log, sigs, text, &v);
     } else {
         log.log("Electron client: the in-process network hooks do not apply");
     }
@@ -304,10 +304,10 @@ fn analyze(log: &Logger) -> Option<Report> {
     off(v, &reason)
 }
 
-/// The message context menu hook (2.3.5): plugin entries in Phoenix's own menu. Its entries and
+/// The context menu hooks (2.3.5, 2.3.11): plugin entries in Phoenix's own menus. Its entries and
 /// clicks go to the engine of an in-process launch, or to the proxy over the loader IPC. Returns
 /// whether it is on.
-fn install_message_menu(
+fn install_context_menus(
     log: &Logger,
     sigs: &[signatures::Signature],
     text: &[u8],
@@ -315,35 +315,54 @@ fn install_message_menu(
 ) -> bool {
     #[cfg(target_arch = "x86_64")]
     {
-        use crate::hooks::message_menu::{self, MenuSink, Targets};
-        let found = crate::hooks::found::Scan {
+        use crate::hooks::context_menu::{self, IdSource, MenuSink, MenuTarget};
+        use crate::ui::context_menu as layout;
+        use phoecord_core::MenuKind;
+        let scan = crate::hooks::found::Scan {
             sigs,
             text,
             text_rva: v.text_rva,
             image_len: image_len(),
-        }
-        .message_menu();
-        let found = match found {
-            Ok(f) => f,
-            Err(e) => {
-                log.log(&format!("message menu: off ({e})"));
-                return false;
-            }
         };
         // SAFETY: a null module name returns the host exe's base, mapped for the life of the
         // process.
         let base = unsafe { GetModuleHandleW(std::ptr::null()) } as usize;
-        let targets = Targets {
-            push: base + found.rva as usize,
-            after_anchor: base + found.target.after_anchor_rva as usize,
-            build_call: base + found.target.build_call_rva as usize,
-        };
+        let mut targets = Vec::new();
+        match scan.message_menu() {
+            Ok(f) => targets.push(MenuTarget {
+                kind: MenuKind::Message,
+                push: base + f.rva as usize,
+                after_anchor: base + f.target.after_anchor_rva as usize,
+                ids: IdSource::BuildCall(base + f.target.build_call_rva as usize),
+            }),
+            Err(e) => log.log(&format!("context menu: message menu off ({e})")),
+        }
+        for (kind, at) in [
+            (MenuKind::User, layout::USER_ANCHOR),
+            (MenuKind::Channel, layout::CHANNEL_ANCHOR),
+            (MenuKind::Server, layout::SERVER_ANCHOR),
+        ] {
+            match scan.context_menu(kind) {
+                Ok(f) => targets.push(MenuTarget {
+                    kind,
+                    push: base + f.rva as usize,
+                    after_anchor: base + f.target.after_anchor_rva as usize,
+                    ids: IdSource::Closure(at),
+                }),
+                Err(e) => log.log(&format!("context menu: {} menu off ({e})", kind.name())),
+            }
+        }
+        if targets.is_empty() {
+            return false;
+        }
+        let names: Vec<&str> = targets.iter().map(|t| t.kind.name()).collect();
+        let names = names.join(", ");
         let sink: std::sync::Arc<dyn MenuSink> = match crate::start::running() {
             Some(t) => std::sync::Arc::new(InProcessMenu(t)),
             None => match pipe::current_pipe_name() {
                 Ok(name) => std::sync::Arc::new(IpcMenu(name)),
                 Err(e) => {
-                    log.log(&format!("message menu: off (cannot name the pipe: {e})"));
+                    log.log(&format!("context menu: off (cannot name the pipe: {e})"));
                     return false;
                 }
             },
@@ -352,20 +371,22 @@ fn install_message_menu(
             std::sync::Arc::new(|l: &str| Logger::from_env().log(l));
         let installed = match crate::hook::global().lock() {
             // SAFETY: every target is the unique match of its locator inside this image.
-            Ok(mut set) => unsafe { message_menu::prepare(&mut set, targets, sink, hook_log) }
+            Ok(mut set) => unsafe { context_menu::prepare(&mut set, targets, sink, hook_log) }
                 .and_then(|()| set.install_all()),
             Err(_) => {
-                log.log("message menu: off (hook set poisoned)");
+                log.log("context menu: off (hook set poisoned)");
                 return false;
             }
         };
         match installed {
             Ok(()) => {
-                log.log("message menu: hooked; plugin entries show in the message context menu");
+                log.log(&format!(
+                    "context menu: hooked ({names}); plugin entries show there"
+                ));
                 true
             }
             Err(e) => {
-                log.log(&format!("message menu: not installed ({e})"));
+                log.log(&format!("context menu: not installed ({e})"));
                 false
             }
         }
@@ -373,7 +394,7 @@ fn install_message_menu(
     #[cfg(not(target_arch = "x86_64"))]
     {
         let _ = (sigs, text, v);
-        log.log("message menu: not on this architecture");
+        log.log("context menu: not on this architecture");
         false
     }
 }
@@ -383,26 +404,70 @@ fn install_message_menu(
 struct IpcMenu(String);
 
 #[cfg(target_arch = "x86_64")]
-impl crate::hooks::message_menu::MenuSink for IpcMenu {
-    fn items(&self) -> Vec<crate::hooks::message_menu::Item> {
+impl crate::hooks::context_menu::MenuSink for IpcMenu {
+    fn items(&self) -> Vec<crate::hooks::context_menu::Item> {
         match pipe::request(&self.0, &Msg::MenuGet { id: 1 }) {
             Ok(Msg::MenuItems { items, .. }) => items
                 .into_iter()
-                .map(|i| crate::hooks::message_menu::Item {
+                .map(|i| crate::hooks::context_menu::Item {
                     plugin: i.plugin,
                     entry: i.entry,
                     label: i.label,
+                    menu: i.menu,
                 })
                 .collect(),
             _ => Vec::new(),
         }
     }
 
-    fn click(&self, plugin: &str, entry: &str, t: crate::ui::message_menu::MenuTarget) {
-        let msg = ipc::menu_action(plugin, entry, t.channel_id, t.message_id);
+    fn click(&self, plugin: &str, entry: &str, click: phoecord_transport::menu::MenuClick) {
+        let msg = ipc::menu_action(plugin, entry, &ipc_click(click));
         if let Err(e) = pipe::send_all(&self.0, &[msg]) {
             Logger::from_env().log(&format!("message menu: click not sent to the proxy ({e})"));
         }
+    }
+}
+
+/// A click in the IPC's form.
+#[cfg(target_arch = "x86_64")]
+fn ipc_click(click: phoecord_transport::menu::MenuClick) -> ipc::Click {
+    use phoecord_transport::menu::MenuClick as C;
+    let menu = click.kind().name().to_string();
+    match click {
+        C::Message {
+            channel_id,
+            message_id,
+        } => ipc::Click {
+            menu,
+            channel_id: Some(channel_id),
+            message_id: Some(message_id),
+            ..ipc::Click::default()
+        },
+        C::User {
+            user_id,
+            guild_id,
+            channel_id,
+        } => ipc::Click {
+            menu,
+            user_id: Some(user_id),
+            guild_id,
+            channel_id,
+            ..ipc::Click::default()
+        },
+        C::Channel {
+            channel_id,
+            guild_id,
+        } => ipc::Click {
+            menu,
+            channel_id: Some(channel_id),
+            guild_id,
+            ..ipc::Click::default()
+        },
+        C::Server { guild_id } => ipc::Click {
+            menu,
+            guild_id: Some(guild_id),
+            ..ipc::Click::default()
+        },
     }
 }
 
@@ -411,24 +476,22 @@ impl crate::hooks::message_menu::MenuSink for IpcMenu {
 struct InProcessMenu(std::sync::Arc<crate::transport::InProcessTransport>);
 
 #[cfg(target_arch = "x86_64")]
-impl crate::hooks::message_menu::MenuSink for InProcessMenu {
-    fn items(&self) -> Vec<crate::hooks::message_menu::Item> {
+impl crate::hooks::context_menu::MenuSink for InProcessMenu {
+    fn items(&self) -> Vec<crate::hooks::context_menu::Item> {
         self.0
             .menu_items()
             .into_iter()
-            .map(|i| crate::hooks::message_menu::Item {
+            .map(|i| crate::hooks::context_menu::Item {
                 plugin: i.plugin,
                 entry: i.entry,
                 label: i.label,
+                menu: i.menu,
             })
             .collect()
     }
 
-    fn click(&self, plugin: &str, entry: &str, t: crate::ui::message_menu::MenuTarget) {
-        if let Err(e) = self
-            .0
-            .menu_action(plugin, entry, t.channel_id, t.message_id)
-        {
+    fn click(&self, plugin: &str, entry: &str, click: phoecord_transport::menu::MenuClick) {
+        if let Err(e) = self.0.menu_action(plugin, entry, click) {
             Logger::from_env().log(&format!("message menu: {e}"));
         }
     }

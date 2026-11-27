@@ -33,13 +33,7 @@ pub type Sink = Arc<dyn Fn(String) + Send + Sync>;
 /// to run one. [`crate::Proxy`] is the real one; set it with [`set_ui`] before [`spawn`].
 pub trait UiHost: Send + Sync {
     fn menu_items(&self) -> Vec<ipc::MenuItem>;
-    fn menu_action(
-        &self,
-        plugin: &str,
-        entry: &str,
-        channel_id: u64,
-        message_id: u64,
-    ) -> Result<(), String>;
+    fn menu_action(&self, plugin: &str, entry: &str, click: &ipc::Click) -> Result<(), String>;
 }
 
 static UI: std::sync::OnceLock<Arc<dyn UiHost>> = std::sync::OnceLock::new();
@@ -197,8 +191,8 @@ pub fn serve_connection<R: BufRead, W: Write>(
             Msg::SettingsValue { .. } => break "dropped: a reply sent to the proxy".to_string(),
             Msg::UiEvent { name, payload } if name == "menu_action" => {
                 match (ipc::parse_menu_action(&payload), UI.get()) {
-                    (Some((plugin, entry, channel, message)), Some(ui)) => {
-                        if let Err(e) = ui.menu_action(&plugin, &entry, channel, message) {
+                    (Some((plugin, entry, click)), Some(ui)) => {
+                        if let Err(e) = ui.menu_action(&plugin, &entry, &click) {
                             tracing::debug!("loader menu_action {plugin}/{entry}: {e}");
                         }
                     }
@@ -354,13 +348,15 @@ mod tests {
                 plugin: "view_raw".into(),
                 entry: "view_raw".into(),
                 label: "View Raw".into(),
+                menu: "message".into(),
             }]
         }
-        fn menu_action(&self, plugin: &str, entry: &str, c: u64, m: u64) -> Result<(), String> {
+        fn menu_action(&self, plugin: &str, entry: &str, c: &ipc::Click) -> Result<(), String> {
+            let (ch, m) = (c.channel_id.unwrap_or(0), c.message_id.unwrap_or(0));
             self.0
                 .lock()
                 .unwrap()
-                .push(format!("{plugin}/{entry} {c} {m}"));
+                .push(format!("{plugin}/{entry} {} {ch} {m}", c.menu));
             Ok(())
         }
     }
@@ -377,7 +373,16 @@ mod tests {
         let (end, _, replies) = run(
             script(&[
                 Msg::MenuGet { id: 3 },
-                ipc::menu_action("view_raw", "view_raw", 11, 50),
+                ipc::menu_action(
+                    "view_raw",
+                    "view_raw",
+                    &ipc::Click {
+                        menu: "message".into(),
+                        channel_id: Some(11),
+                        message_id: Some(50),
+                        ..ipc::Click::default()
+                    },
+                ),
             ]),
             &s,
         );
@@ -389,7 +394,7 @@ mod tests {
                 items: fake.menu_items()
             }]
         );
-        assert_eq!(*fake.0.lock().unwrap(), ["view_raw/view_raw 11 50"]);
+        assert_eq!(*fake.0.lock().unwrap(), ["view_raw/view_raw message 11 50"]);
     }
 
     #[test]

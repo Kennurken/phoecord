@@ -141,6 +141,16 @@ if let Event::Ui(u) = event
 }
 ```
 
+
+### `user_menu_action`, `channel_menu_action`, `server_menu_action`
+
+The same as `menu_action`, for entries you put in another menu with `kind` in `[[menu]]` (`MenuEntry::in_menu` in Rust): `user` (a name in chat, the member list, a DM), `channel` (the channel list), `server` (a server icon). Task 2.3.11; delivered only to the plugin that declared the entry. Payloads, ids as strings, optional ones left out when the menu has none:
+
+- `user_menu_action`: `{"entry", "user_id", "guild_id"?, "channel_id"?}` (no `guild_id` in a DM);
+- `channel_menu_action`: `{"entry", "channel_id", "guild_id"?}` (look the server up with `Host::channel_guild` when it is missing);
+- `server_menu_action`: `{"entry", "guild_id"}`.
+
+List `"ui:user_menu_action"` (and so on) in `events`. Rust: `Event::Ui(UiEvent::UserMenuAction { entry, user_id, guild_id, channel_id })`, `ChannelMenuAction`, `ServerMenuAction`.
 ## Quick reference: which verdict for what
 
 | I want to … | Event | Verdict |

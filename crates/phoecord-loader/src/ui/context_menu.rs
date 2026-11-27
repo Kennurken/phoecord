@@ -1,4 +1,4 @@
-//! Plugin entries in Phoenix's message context menu (task 2.3.5): the pure part.
+//! Plugin entries in Phoenix's context menus (tasks 2.3.5, 2.3.11): the pure part.
 //!
 //! Found live on Phoenix 0.1.0.2208 (private recon notes, 2.3.5): the right-click menu and the
 //! "..." button share one build function, which runs on every frame while a menu is open. Each
@@ -8,7 +8,7 @@
 //! own handler and no native dispatcher is involved. The build function's context holds the
 //! channel and the message the menu is for.
 //!
-//! So the hook (`hooks::message_menu`, Windows) appends, right after the native "Copy Message
+//! So the hook (`hooks::context_menu`, Windows) appends, right after the native "Copy Message
 //! Link" entry, one record per plugin entry: a copy of that native record with PhoeCord's label,
 //! element id and handler ([`build_record`]). This module has the layout and the pure steps, tested
 //! on plain bytes.
@@ -27,6 +27,58 @@ pub const ID_MAX: usize = 15;
 /// Offsets of the channel and message ids (`u64`) in the build function's context (`rdx`).
 pub const CONTEXT_CHANNEL: usize = 0x80;
 pub const CONTEXT_MESSAGE: usize = 0x88;
+
+/// Where the ids sit in a native anchor entry's click handler: offsets into its closure (the value
+/// of its `RcBox`, at `+0x10`). Found live on Phoenix 0.1.0.2208 (2.3.11).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ClosureIds {
+    pub user: Option<usize>,
+    pub guild: Option<usize>,
+    pub channel: Option<usize>,
+}
+
+/// The user menu's "Block" entry: server, channel and the user. ("Profile" holds the same ids but
+/// sits alone in its section, where an appended entry is not drawn.)
+pub const USER_ANCHOR: ClosureIds = ClosureIds {
+    user: Some(0x30),
+    guild: Some(0x8),
+    channel: Some(0x18),
+};
+/// The channel menu's "Copy Link" entry: the channel. ("Mark As Read" sits alone in its section.)
+pub const CHANNEL_ANCHOR: ClosureIds = ClosureIds {
+    user: None,
+    guild: None,
+    channel: Some(0x30),
+};
+/// The server menu's "Mark As Read" entry: the server.
+pub const SERVER_ANCHOR: ClosureIds = ClosureIds {
+    user: None,
+    guild: Some(0x0),
+    channel: None,
+};
+
+/// The ids a closure holds, read through `word`; an id that is unreadable or does not look like a
+/// snowflake is `None` (a user menu in a DM has no server).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ReadIds {
+    pub user: Option<u64>,
+    pub guild: Option<u64>,
+    pub channel: Option<u64>,
+}
+
+/// The ids in the closure of the handler whose `RcBox` is at `rc`.
+pub fn read_closure(rc: usize, at: &ClosureIds, word: impl Fn(usize) -> Option<usize>) -> ReadIds {
+    let value = rc.checked_add(0x10);
+    let id = |off: Option<usize>| {
+        let v = word(value?.checked_add(off?)?)? as u64;
+        plausible_snowflake(v).then_some(v)
+    };
+    ReadIds {
+        user: id(at.user),
+        guild: id(at.guild),
+        channel: id(at.channel),
+    }
+}
 
 /// The ids of the message a menu is for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -119,6 +171,46 @@ mod tests {
         assert_eq!(r[..HANDLER_RC], template[..HANDLER_RC]);
         assert_eq!(r[0xb0..LABEL_PTR], template[0xb0..LABEL_PTR]);
         assert_eq!(r[ELEMENT_ID + 16..], template[ELEMENT_ID + 16..]);
+    }
+
+    #[test]
+    fn closure_ids_are_read_from_the_handler_value() {
+        // The owner's live check: server, channel and user in "Block"'s closure.
+        let rc = 0x9000;
+        let (g, c, u) = (
+            1324239354154975252u64,
+            1533312669321531572u64,
+            936039926477242468u64,
+        );
+        let mem = move |a: usize| match a - rc - 0x10 {
+            0x8 => Some(g as usize),
+            0x18 => Some(c as usize),
+            0x30 => Some(u as usize),
+            _ => Some(0),
+        };
+        assert_eq!(
+            read_closure(rc, &USER_ANCHOR, mem),
+            ReadIds {
+                user: Some(u),
+                guild: Some(g),
+                channel: Some(c)
+            }
+        );
+        // In a DM the server slot holds no snowflake.
+        let dm = move |a: usize| {
+            if a - rc - 0x10 == 0x30 {
+                Some(u as usize)
+            } else {
+                Some(0)
+            }
+        };
+        let ids = read_closure(rc, &USER_ANCHOR, dm);
+        assert_eq!((ids.user, ids.guild), (Some(u), None));
+        assert_eq!(
+            read_closure(rc, &SERVER_ANCHOR, mem).guild,
+            None,
+            "0x0 holds no id here"
+        );
     }
 
     #[test]

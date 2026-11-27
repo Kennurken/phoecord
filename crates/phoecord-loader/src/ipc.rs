@@ -83,38 +83,68 @@ pub enum Msg {
     MenuItems { id: u64, items: Vec<MenuItem> },
 }
 
-/// One plugin entry for the message context menu, its label in the user's language.
+/// One plugin entry for a context menu, its label in the user's language.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MenuItem {
     pub plugin: String,
     pub entry: String,
     pub label: String,
+    /// The menu it goes in: `message` (absent from older proxies), `user`, `channel`, `server`.
+    #[serde(default = "message_menu")]
+    pub menu: String,
+}
+
+fn message_menu() -> String {
+    "message".into()
+}
+
+/// The ids of the menu a click was in; which ones are set depends on `menu`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Click {
+    pub menu: String,
+    pub user_id: Option<u64>,
+    pub guild_id: Option<u64>,
+    pub channel_id: Option<u64>,
+    pub message_id: Option<u64>,
 }
 
 /// A click on a plugin's menu entry as a `ui.event`: name `menu_action`, payload
-/// `{"plugin", "entry", "channel_id", "message_id"}` (ids as strings, as in Discord's JSON).
-pub fn menu_action(plugin: &str, entry: &str, channel_id: u64, message_id: u64) -> Msg {
+/// `{"plugin", "entry", "menu", "user_id"?, "guild_id"?, "channel_id"?, "message_id"?}` (ids as
+/// strings, as in Discord's JSON).
+pub fn menu_action(plugin: &str, entry: &str, click: &Click) -> Msg {
+    let mut p = serde_json::Map::new();
+    p.insert("plugin".into(), plugin.into());
+    p.insert("entry".into(), entry.into());
+    p.insert("menu".into(), click.menu.clone().into());
+    for (k, v) in [
+        ("user_id", click.user_id),
+        ("guild_id", click.guild_id),
+        ("channel_id", click.channel_id),
+        ("message_id", click.message_id),
+    ] {
+        if let Some(v) = v {
+            p.insert(k.into(), v.to_string().into());
+        }
+    }
     Msg::UiEvent {
         name: "menu_action".into(),
-        payload: serde_json::json!({
-            "plugin": plugin,
-            "entry": entry,
-            "channel_id": channel_id.to_string(),
-            "message_id": message_id.to_string(),
-        }),
+        payload: Value::Object(p),
     }
 }
 
-/// The fields of a `menu_action` payload: (plugin, entry, channel id, message id).
-pub fn parse_menu_action(payload: &Value) -> Option<(String, String, u64, u64)> {
+/// The fields of a `menu_action` payload: (plugin, entry, click). A payload without `menu` is a
+/// message-menu click.
+pub fn parse_menu_action(payload: &Value) -> Option<(String, String, Click)> {
     let s = |k: &str| payload.get(k)?.as_str().map(str::to_string);
     let id = |k: &str| payload.get(k)?.as_str()?.parse::<u64>().ok();
-    Some((
-        s("plugin")?,
-        s("entry")?,
-        id("channel_id")?,
-        id("message_id")?,
-    ))
+    let click = Click {
+        menu: s("menu").unwrap_or_else(message_menu),
+        user_id: id("user_id"),
+        guild_id: id("guild_id"),
+        channel_id: id("channel_id"),
+        message_id: id("message_id"),
+    };
+    Some((s("plugin")?, s("entry")?, click))
 }
 
 /// A message on the wire.
@@ -291,7 +321,7 @@ mod tests {
                 name: "settings.opened".into(),
                 payload: json!({"tab": 3, "list": [1, 2]}),
             },
-            menu_action("view_raw", "view_raw", 11, 50),
+            menu_action("view_raw", "view_raw", &message_click(11, 50)),
             Msg::MenuGet { id: 7 },
             Msg::MenuItems {
                 id: 7,
@@ -299,30 +329,51 @@ mod tests {
                     plugin: "view_raw".into(),
                     entry: "view_raw".into(),
                     label: "Исходник".into(),
+                    menu: "message".into(),
                 }],
             },
         ]
     }
 
+    fn message_click(channel: u64, message: u64) -> Click {
+        Click {
+            menu: "message".into(),
+            channel_id: Some(channel),
+            message_id: Some(message),
+            ..Click::default()
+        }
+    }
+
     #[test]
     fn a_menu_action_reads_back() {
-        let Msg::UiEvent { name, payload } = menu_action("p", "e", 1219803441186996275, 7) else {
+        let click = message_click(1219803441186996275, 7);
+        let Msg::UiEvent { name, payload } = menu_action("p", "e", &click) else {
             panic!("not a ui.event");
         };
         assert_eq!(name, "menu_action");
         assert_eq!(payload["channel_id"], "1219803441186996275");
+        assert!(payload.get("user_id").is_none(), "unset ids are left out");
         assert_eq!(
             parse_menu_action(&payload),
-            Some(("p".into(), "e".into(), 1219803441186996275, 7))
+            Some(("p".into(), "e".into(), click))
         );
+        // From before `menu` existed: a message-menu click.
+        let old = json!({"plugin": "p", "entry": "e", "channel_id": "1", "message_id": "2"});
+        assert_eq!(parse_menu_action(&old).unwrap().2, message_click(1, 2));
         assert_eq!(parse_menu_action(&json!({"plugin": "p"})), None);
-        assert_eq!(
-            parse_menu_action(
-                &json!({"plugin": "p", "entry": "e", "channel_id": 1, "message_id": "2"})
-            ),
-            None,
-            "ids are strings"
-        );
+        let user = Click {
+            menu: "user".into(),
+            user_id: Some(5),
+            guild_id: Some(6),
+            ..Click::default()
+        };
+        let Msg::UiEvent { payload, .. } = menu_action("p", "e", &user) else {
+            panic!()
+        };
+        assert_eq!(parse_menu_action(&payload).unwrap().2, user);
+        let item: MenuItem =
+            serde_json::from_value(json!({"plugin": "p", "entry": "e", "label": "l"})).unwrap();
+        assert_eq!(item.menu, "message");
     }
 
     #[test]

@@ -257,13 +257,9 @@ impl InProcessTransport {
         &self,
         plugin: &str,
         entry: &str,
-        channel_id: u64,
-        message_id: u64,
+        click: phoecord_transport::menu::MenuClick,
     ) -> Result<(), String> {
-        let effects = self
-            .hooks
-            .engine()
-            .menu_action(plugin, entry, channel_id, message_id)?;
+        let effects = self.hooks.engine().menu_action(plugin, entry, click)?;
         self.deliver(|d| d.effects(effects));
         Ok(())
     }

@@ -387,10 +387,11 @@ impl Chain {
     }
 
     /// A UI event from a loader hook through the chain (read-only: every verdict counts as `Pass`,
-    /// so no plugin can stop it from reaching the next). [`UiEvent::MenuAction`] is never broadcast:
-    /// it goes only to the plugin that declared the entry, through [`Chain::ui_to`].
+    /// so no plugin can stop it from reaching the next). A menu click ([`UiEvent::menu_entry`]) is
+    /// never broadcast: it goes only to the plugin that declared the entry, through
+    /// [`Chain::ui_to`].
     pub fn ui(&self, host: &mut dyn ChainHost, event: UiEvent<'_>) -> Outcome {
-        if matches!(event, UiEvent::MenuAction { .. }) {
+        if event.menu_entry().is_some() {
             return Outcome::Untouched;
         }
         self.run(host, &EventKind::Ui { name: event.name() }, |p, h| {

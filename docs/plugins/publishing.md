@@ -67,7 +67,7 @@ label = "menu-copy-raw"
 | `events` | no, default none | What you may see; filter syntax in [Events](events.md). With none, nothing is delivered |
 | `rights` | no, default none | Which `Host` calls you may make; [Rights](rights.md). An unknown name fails to load |
 | `fetch` | no | Outside hosts for the `fetch` right: `"api.example.com"` or `"*.example.com"` (exactly one more label). Needs `rights = ["fetch", …]` too |
-| `[[menu]]` | no | One table per message context-menu entry (Phoenix, task 2.3.5): `id` (`snake_case`, unique in the plugin) and `label` (a key of your `i18n/<lang>.ftl`, not empty). Also list `"ui:menu_action"` in `events` to receive the clicks ([Events](events.md#menu_action)) |
+| `[[menu]]` | no | One table per message context-menu entry (Phoenix, task 2.3.5): `id` (`snake_case`, unique in the plugin), `label` (a key of your `i18n/<lang>.ftl`, not empty) and optionally `kind`: `message` (default), `user`, `channel` or `server` (task 2.3.11). Also list `"ui:menu_action"` in `events` to receive the clicks ([Events](events.md#menu_action)) |
 
 Things that are **not** in `plugin.toml`:
 

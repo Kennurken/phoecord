@@ -23,10 +23,15 @@ use crate::commands::{
     Kept, Subcommand, invocation, is_interaction, kept_answer, message_ref, snowflake_arg,
 };
 use phoecord_core::plugin::HostResponse;
-use phoecord_core::{Event, EventKind, Host, Manifest, MenuEntry, Plugin, UiEvent, Val, Verdict};
+use phoecord_core::{
+    Event, EventKind, Host, Manifest, MenuEntry, MenuKind, Plugin, UiEvent, Val, Verdict,
+};
 
 /// The message context menu entry (Phoenix, task 2.4.2 d): the clicked message's raw JSON.
 const MENU_VIEW: &str = "view_raw";
+/// The same "View Raw" in the user and channel menus (2.3.11).
+const MENU_VIEW_USER: &str = "view_raw_user";
+const MENU_VIEW_CHANNEL: &str = "view_raw_channel";
 
 const PLUGIN_ID: &str = "view_raw";
 const SUB: &str = "viewraw";
@@ -59,7 +64,11 @@ impl ViewRaw {
                 );
                 m.authors = vec!["Cheterin Group".into()];
                 m.vencord = Some("ViewRaw".into());
-                m.menu = vec![MenuEntry::new(MENU_VIEW, "menu-view-raw")];
+                m.menu = vec![
+                    MenuEntry::new(MENU_VIEW, "menu-view-raw"),
+                    MenuEntry::new(MENU_VIEW_USER, "menu-view-raw").in_menu(MenuKind::User),
+                    MenuEntry::new(MENU_VIEW_CHANNEL, "menu-view-raw").in_menu(MenuKind::Channel),
+                ];
                 m
             },
             kept: Kept::default(),
@@ -303,12 +312,42 @@ impl Plugin for ViewRaw {
     fn wants(&self, event: &EventKind) -> bool {
         match event {
             EventKind::RestRequest { method, route } => is_interaction(method, route),
-            EventKind::Ui { name } => *name == "menu_action",
+            EventKind::Ui { name } => matches!(
+                *name,
+                "menu_action" | "user_menu_action" | "channel_menu_action"
+            ),
             _ => false,
         }
     }
 
     fn on_event(&self, host: &mut dyn Host, event: Event<'_>) -> Verdict {
+        // The user and channel menus: the raw user or channel, as a local message in the channel
+        // the menu belongs to (a user menu opened outside a channel shows nothing).
+        let other = match event {
+            Event::Ui(UiEvent::UserMenuAction {
+                entry: MENU_VIEW_USER,
+                user_id,
+                guild_id,
+                channel_id: Some(channel_id),
+            }) => Some(("user", user_id, channel_id, guild_id)),
+            Event::Ui(UiEvent::ChannelMenuAction {
+                entry: MENU_VIEW_CHANNEL,
+                channel_id,
+                guild_id,
+            }) => Some(("channel", channel_id, channel_id, guild_id)),
+            _ => None,
+        };
+        if let Some((kind, id, channel_id, guild_id)) = other {
+            let inv = crate::commands::Invocation {
+                sub: SUB.into(),
+                options: vec![("kind".into(), kind.into()), ("id".into(), id.to_string())],
+                channel_id: Some(channel_id),
+                guild_id: guild_id.or_else(|| host.channel_guild(channel_id)),
+            };
+            let text = self.run(host, &inv);
+            host.emit_dispatch(crate::commands::local_message(channel_id, &text));
+            return Verdict::Pass;
+        }
         if let Event::Ui(UiEvent::MenuAction {
             entry,
             channel_id,
@@ -404,6 +443,27 @@ mod tests {
         click(&p, &mut h, MENU_VIEW);
         let text = local_text(&h);
         assert!(text.contains("\"content\": \"hi\""), "{text}");
+    }
+
+    #[test]
+    fn the_user_and_channel_menus_show_the_raw_object() {
+        let p = ViewRaw::new();
+        let kinds: Vec<MenuKind> = p.manifest().menu.iter().map(|m| m.menu).collect();
+        assert_eq!(
+            kinds,
+            [MenuKind::Message, MenuKind::User, MenuKind::Channel]
+        );
+        let mut h =
+            Rec::default().answer("GET", "/channels/9", 200, r#"{"id":"9","name":"general"}"#);
+        p.on_event(
+            &mut h,
+            Event::Ui(UiEvent::ChannelMenuAction {
+                entry: MENU_VIEW_CHANNEL,
+                channel_id: 9,
+                guild_id: None,
+            }),
+        );
+        assert!(local_text(&h).contains("\"name\": \"general\""));
     }
 
     #[test]

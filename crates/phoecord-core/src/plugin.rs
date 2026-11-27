@@ -83,9 +83,10 @@ pub struct Manifest {
     /// Outside hosts `Host::fetch` may call: exact host names (no scheme or port), or a pattern
     /// `*.example.com` that matches exactly one more DNS label (see [`fetch_host_matches`]).
     pub fetch: Vec<String>,
-    /// Entries the plugin adds to the message context menu on Phoenix (task 2.3.5). Clicking one
-    /// delivers [`UiEvent::MenuAction`] with its [`MenuEntry::id`]. WASM packages declare them as
-    /// `[[menu]]` in `plugin.toml`.
+    /// Entries the plugin adds to Phoenix's context menus (tasks 2.3.5, 2.3.11), each in the menu
+    /// its [`MenuEntry::menu`] names. Clicking one delivers that menu's `UiEvent` (see
+    /// [`MenuKind`]) with its [`MenuEntry::id`]. WASM packages declare them as `[[menu]]` in
+    /// `plugin.toml`.
     pub menu: Vec<MenuEntry>,
     /// The plugin's settings, in the order the PhoeCord settings tab shows them (task 2.3.3).
     /// Only a description: values still come from [`Host::setting`], and a key missing here is
@@ -118,23 +119,71 @@ impl Manifest {
     }
 }
 
-/// One entry of the message context menu, declared in [`Manifest::menu`].
+/// One entry of a context menu, declared in [`Manifest::menu`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct MenuEntry {
-    /// Stable within the plugin, `snake_case`; comes back as [`UiEvent::MenuAction`]'s `entry`.
+    /// Stable within the plugin, `snake_case`; comes back as the click event's `entry`.
     pub id: String,
     /// A key of the plugin's own `i18n/<lang>.ftl`, shown through [`Host::t`] (the key itself
     /// when the bundle lacks it).
     pub label: String,
+    /// Which menu it goes in ([`MenuKind::Message`] unless set).
+    pub menu: MenuKind,
 }
 
 impl MenuEntry {
+    /// An entry of the message context menu.
     pub fn new(id: impl Into<String>, label: impl Into<String>) -> MenuEntry {
         MenuEntry {
             id: id.into(),
             label: label.into(),
+            menu: MenuKind::Message,
         }
+    }
+
+    /// The same entry in another menu.
+    pub fn in_menu(mut self, menu: MenuKind) -> MenuEntry {
+        self.menu = menu;
+        self
+    }
+}
+
+/// The context menu an entry goes in, and the event its click delivers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum MenuKind {
+    /// A message's menu (right-click or "..."): [`UiEvent::MenuAction`].
+    #[default]
+    Message,
+    /// A user's menu (a name in chat, the member list, a DM): [`UiEvent::UserMenuAction`].
+    User,
+    /// A channel's menu in the channel list: [`UiEvent::ChannelMenuAction`].
+    Channel,
+    /// A server's menu (its icon): [`UiEvent::ServerMenuAction`].
+    Server,
+}
+
+impl MenuKind {
+    pub const ALL: [MenuKind; 4] = [
+        MenuKind::Message,
+        MenuKind::User,
+        MenuKind::Channel,
+        MenuKind::Server,
+    ];
+
+    /// The stable name: `message`, `user`, `channel`, `server` (`kind` in `plugin.toml`).
+    pub fn name(self) -> &'static str {
+        match self {
+            MenuKind::Message => "message",
+            MenuKind::User => "user",
+            MenuKind::Channel => "channel",
+            MenuKind::Server => "server",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<MenuKind> {
+        MenuKind::ALL.into_iter().find(|k| k.name() == name)
     }
 }
 
@@ -340,6 +389,26 @@ pub enum UiEvent<'a> {
         channel_id: u64,
         message_id: u64,
     },
+    /// A click on one of this plugin's [`MenuKind::User`] entries (task 2.3.11): the user's menu,
+    /// from a name in chat, the member list or a DM. `guild_id` in a server, `channel_id` where the
+    /// menu was opened from a channel. Delivered to the declaring plugin only.
+    /// Val form: `{"entry", "user_id", "guild_id"?, "channel_id"?}`.
+    UserMenuAction {
+        entry: &'a str,
+        user_id: u64,
+        guild_id: Option<u64>,
+        channel_id: Option<u64>,
+    },
+    /// A click on one of this plugin's [`MenuKind::Channel`] entries (task 2.3.11): a channel's
+    /// menu in the channel list. Val form: `{"entry", "channel_id", "guild_id"?}`.
+    ChannelMenuAction {
+        entry: &'a str,
+        channel_id: u64,
+        guild_id: Option<u64>,
+    },
+    /// A click on one of this plugin's [`MenuKind::Server`] entries (task 2.3.11): a server's menu
+    /// from its icon. Val form: `{"entry", "guild_id"}`.
+    ServerMenuAction { entry: &'a str, guild_id: u64 },
 }
 
 impl<'a> UiEvent<'a> {
@@ -347,33 +416,97 @@ impl<'a> UiEvent<'a> {
     pub fn name(&self) -> &'static str {
         match self {
             UiEvent::MenuAction { .. } => "menu_action",
+            UiEvent::UserMenuAction { .. } => "user_menu_action",
+            UiEvent::ChannelMenuAction { .. } => "channel_menu_action",
+            UiEvent::ServerMenuAction { .. } => "server_menu_action",
+        }
+    }
+
+    /// For a click on a menu entry: the entry id and the menu it is in. Such an event goes only
+    /// to the plugin that declared the entry.
+    pub fn menu_entry(&self) -> Option<(&'a str, MenuKind)> {
+        match *self {
+            UiEvent::MenuAction { entry, .. } => Some((entry, MenuKind::Message)),
+            UiEvent::UserMenuAction { entry, .. } => Some((entry, MenuKind::User)),
+            UiEvent::ChannelMenuAction { entry, .. } => Some((entry, MenuKind::Channel)),
+            UiEvent::ServerMenuAction { entry, .. } => Some((entry, MenuKind::Server)),
         }
     }
 
     /// The event's data as a map (see the variants for the shapes).
     pub fn to_val(&self) -> Val {
         let id = |n: u64| Val::Str(n.to_string());
+        let mut out = Vec::new();
+        let mut put = |k: &str, v: Val| out.push((Val::Str(k.into()), v));
         match *self {
             UiEvent::MenuAction {
                 entry,
                 channel_id,
                 message_id,
-            } => Val::Map(vec![
-                (Val::Str("entry".into()), Val::Str(entry.into())),
-                (Val::Str("channel_id".into()), id(channel_id)),
-                (Val::Str("message_id".into()), id(message_id)),
-            ]),
+            } => {
+                put("entry", Val::Str(entry.into()));
+                put("channel_id", id(channel_id));
+                put("message_id", id(message_id));
+            }
+            UiEvent::UserMenuAction {
+                entry,
+                user_id,
+                guild_id,
+                channel_id,
+            } => {
+                put("entry", Val::Str(entry.into()));
+                put("user_id", id(user_id));
+                if let Some(g) = guild_id {
+                    put("guild_id", id(g));
+                }
+                if let Some(c) = channel_id {
+                    put("channel_id", id(c));
+                }
+            }
+            UiEvent::ChannelMenuAction {
+                entry,
+                channel_id,
+                guild_id,
+            } => {
+                put("entry", Val::Str(entry.into()));
+                put("channel_id", id(channel_id));
+                if let Some(g) = guild_id {
+                    put("guild_id", id(g));
+                }
+            }
+            UiEvent::ServerMenuAction { entry, guild_id } => {
+                put("entry", Val::Str(entry.into()));
+                put("guild_id", id(guild_id));
+            }
         }
+        Val::Map(out)
     }
 
     /// The event back from its `name` and [`UiEvent::to_val`] form, e.g. a loader's `ui.event`.
     /// `None` for an unknown name or a payload that misses a field.
     pub fn from_val(name: &str, payload: &'a Val) -> Option<UiEvent<'a>> {
+        let entry = || payload.get("entry")?.as_str();
+        let id = |k: &str| payload.get(k)?.snowflake();
         match name {
             "menu_action" => Some(UiEvent::MenuAction {
-                entry: payload.get("entry")?.as_str()?,
-                channel_id: payload.get("channel_id")?.snowflake()?,
-                message_id: payload.get("message_id")?.snowflake()?,
+                entry: entry()?,
+                channel_id: id("channel_id")?,
+                message_id: id("message_id")?,
+            }),
+            "user_menu_action" => Some(UiEvent::UserMenuAction {
+                entry: entry()?,
+                user_id: id("user_id")?,
+                guild_id: id("guild_id"),
+                channel_id: id("channel_id"),
+            }),
+            "channel_menu_action" => Some(UiEvent::ChannelMenuAction {
+                entry: entry()?,
+                channel_id: id("channel_id")?,
+                guild_id: id("guild_id"),
+            }),
+            "server_menu_action" => Some(UiEvent::ServerMenuAction {
+                entry: entry()?,
+                guild_id: id("guild_id")?,
             }),
             _ => None,
         }
@@ -756,6 +889,54 @@ mod tests {
             }
         );
         assert_eq!(LOCAL_DELETE_EVENT, "PHOECORD_LOCAL_DELETE");
+    }
+
+    #[test]
+    fn the_other_menus_round_trip_with_their_optional_ids() {
+        let events = [
+            UiEvent::UserMenuAction {
+                entry: "copy_avatar",
+                user_id: 7,
+                guild_id: Some(10),
+                channel_id: None,
+            },
+            UiEvent::UserMenuAction {
+                entry: "copy_avatar",
+                user_id: 7,
+                guild_id: None,
+                channel_id: Some(11),
+            },
+            UiEvent::ChannelMenuAction {
+                entry: "e",
+                channel_id: 11,
+                guild_id: Some(10),
+            },
+            UiEvent::ServerMenuAction {
+                entry: "e",
+                guild_id: 10,
+            },
+        ];
+        for ev in events {
+            let val = ev.to_val();
+            assert_eq!(
+                UiEvent::from_val(ev.name(), &val),
+                Some(ev),
+                "{}",
+                ev.name()
+            );
+        }
+        let user = events[0].to_val();
+        assert_eq!(user.str_at(&["guild_id"]), Some("10"));
+        assert_eq!(user.get("channel_id"), None, "absent, not null");
+        assert_eq!(events[2].menu_entry(), Some(("e", MenuKind::Channel)));
+        assert_eq!(
+            MenuEntry::new("a", "b").in_menu(MenuKind::User).menu,
+            MenuKind::User
+        );
+        assert_eq!(MenuEntry::new("a", "b").menu, MenuKind::Message);
+        for k in MenuKind::ALL {
+            assert_eq!(MenuKind::from_name(k.name()), Some(k));
+        }
     }
 
     #[test]

@@ -18,6 +18,8 @@
 //! | `gateway_send` | entry of the outgoing frame encoder (`gateway_send_encode` in the recon notes) | Gateway send |
 //! | `message_menu_push` | entry of the helper that appends one entry record to the message menu's `Vec` (inline hook) | message menu (2.3.5) |
 //! | `message_menu_after_anchor` | the instruction right after the call that appends the native "Copy Message Link" entry (a return address) | message menu |
+//! | `user_menu_push`, `channel_menu_push`, `server_menu_push` | entry of that menu's entry-append helper (inline hook; menus may share one) | context menus (2.3.11) |
+//! | `user_menu_after_anchor`, `channel_menu_after_anchor`, `server_menu_after_anchor` | the instruction after the call that appends the menu's anchor entry ("Block", "Copy Link", "Mark As Read") | context menus |
 //! | `message_menu_build_call` | the `call` (E8 rel32) of the menu build function in its live caller; its target is the build function | message menu |
 
 use crate::signatures::{ResolveError, Signature};
@@ -36,6 +38,12 @@ pub const GATEWAY_INFLATE: &str = "gateway_inflate";
 pub const MENU_PUSH: &str = "message_menu_push";
 pub const MENU_AFTER_ANCHOR: &str = "message_menu_after_anchor";
 pub const MENU_BUILD_CALL: &str = "message_menu_build_call";
+pub const USER_PUSH: &str = "user_menu_push";
+pub const USER_AFTER: &str = "user_menu_after_anchor";
+pub const CHANNEL_PUSH: &str = "channel_menu_push";
+pub const CHANNEL_AFTER: &str = "channel_menu_after_anchor";
+pub const SERVER_PUSH: &str = "server_menu_push";
+pub const SERVER_AFTER: &str = "server_menu_after_anchor";
 
 /// Why a locator found nothing usable.
 #[derive(Debug, PartialEq, Eq)]
@@ -90,6 +98,12 @@ pub struct GatewayInflate;
 /// The encoder of outgoing gateway frames (2.2.4): takes a typed command, not JSON.
 #[derive(Debug, PartialEq, Eq)]
 pub struct GatewaySend;
+/// Another context menu's entry-append helper (the `Found` RVA) and its anchor.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ContextMenu {
+    pub after_anchor_rva: u32,
+}
+
 /// The message menu's entry-append helper (the `Found` RVA), with the two other places the hook
 /// needs.
 #[derive(Debug, PartialEq, Eq)]
@@ -167,6 +181,26 @@ impl Scan<'_> {
         Ok(Found {
             rva: self.rva(GATEWAY_INFLATE)?,
             target: GatewayInflate,
+        })
+    }
+
+    /// The append helper and anchor of another context menu (`user`, `channel`, `server`): the
+    /// `Found` RVA is the helper, the target the anchor's return address.
+    pub fn context_menu(
+        &self,
+        kind: phoecord_core::MenuKind,
+    ) -> Result<Found<ContextMenu>, LocatorError> {
+        let (push, after) = match kind {
+            phoecord_core::MenuKind::User => (USER_PUSH, USER_AFTER),
+            phoecord_core::MenuKind::Channel => (CHANNEL_PUSH, CHANNEL_AFTER),
+            phoecord_core::MenuKind::Server => (SERVER_PUSH, SERVER_AFTER),
+            _ => return Err(LocatorError::Missing(MENU_PUSH)),
+        };
+        Ok(Found {
+            rva: self.rva(push)?,
+            target: ContextMenu {
+                after_anchor_rva: self.rva(after)?,
+            },
         })
     }
 

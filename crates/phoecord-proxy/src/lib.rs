@@ -264,12 +264,9 @@ impl Proxy {
         &self,
         plugin: &str,
         entry: &str,
-        channel_id: u64,
-        message_id: u64,
+        click: phoecord_transport::menu::MenuClick,
     ) -> std::result::Result<(), String> {
-        let effects = self
-            .engine
-            .menu_action(plugin, entry, channel_id, message_id)?;
+        let effects = self.engine.menu_action(plugin, entry, click)?;
         self.deliver(effects);
         Ok(())
     }
@@ -354,6 +351,7 @@ impl ipc::UiHost for Proxy {
                 plugin: m.plugin,
                 entry: m.entry,
                 label: m.label,
+                menu: m.menu,
             })
             .collect()
     }
@@ -362,16 +360,74 @@ impl ipc::UiHost for Proxy {
         &self,
         plugin: &str,
         entry: &str,
-        channel_id: u64,
-        message_id: u64,
+        click: &phoecord_loader::ipc::Click,
     ) -> std::result::Result<(), String> {
-        Proxy::menu_action(self, plugin, entry, channel_id, message_id)
+        Proxy::menu_action(self, plugin, entry, menu_click(click)?)
     }
+}
+
+/// A click from the loader IPC as the engine's `MenuClick`; an id its menu needs is required.
+pub fn menu_click(
+    c: &phoecord_loader::ipc::Click,
+) -> std::result::Result<phoecord_transport::menu::MenuClick, String> {
+    use phoecord_transport::menu::MenuClick;
+    let need = |v: Option<u64>, what: &str| {
+        v.ok_or_else(|| format!("{} menu click without {what}", c.menu))
+    };
+    Ok(match c.menu.as_str() {
+        "message" => MenuClick::Message {
+            channel_id: need(c.channel_id, "channel_id")?,
+            message_id: need(c.message_id, "message_id")?,
+        },
+        "user" => MenuClick::User {
+            user_id: need(c.user_id, "user_id")?,
+            guild_id: c.guild_id,
+            channel_id: c.channel_id,
+        },
+        "channel" => MenuClick::Channel {
+            channel_id: need(c.channel_id, "channel_id")?,
+            guild_id: c.guild_id,
+        },
+        "server" => MenuClick::Server {
+            guild_id: need(c.guild_id, "guild_id")?,
+        },
+        other => return Err(format!("unknown menu {other:?}")),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_ipc_click_needs_the_ids_of_its_menu() {
+        use phoecord_loader::ipc::Click;
+        use phoecord_transport::menu::MenuClick;
+        let user = Click {
+            menu: "user".into(),
+            user_id: Some(7),
+            guild_id: Some(10),
+            ..Click::default()
+        };
+        assert_eq!(
+            menu_click(&user),
+            Ok(MenuClick::User {
+                user_id: 7,
+                guild_id: Some(10),
+                channel_id: None
+            })
+        );
+        let no_user = Click {
+            menu: "user".into(),
+            ..Click::default()
+        };
+        assert!(menu_click(&no_user).is_err());
+        let odd = Click {
+            menu: "emoji".into(),
+            ..Click::default()
+        };
+        assert!(menu_click(&odd).is_err());
+    }
     use host::ProxyHost;
 
     use phoecord_core::{
