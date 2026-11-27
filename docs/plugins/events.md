@@ -111,13 +111,13 @@ Discord never sends these; PhoeCord injects them as ordinary `dispatch` events, 
 
 ### `PHOECORD_LOCAL_DELETE`
 
-`LOCAL_DELETE_EVENT = "PHOECORD_LOCAL_DELETE"`. The Phoenix loader sends it when the user deletes a message, **before** Discord confirms (the client's optimistic delete, task 2.3.6; the hook that emits it is tracked in [`docs/phase-2/README.md`](../phase-2/README.md)). The payload is shaped like Discord's `MESSAGE_DELETE`:
+`LOCAL_DELETE_EVENT = "PHOECORD_LOCAL_DELETE"`. PhoeCord sends it when the user deletes a message, **before** Discord confirms (the client's optimistic delete, task 2.3.6): at the moment the client's `DELETE /channels/{channel}/messages/{message}` leaves, on every client and both transports (proxy and Phoenix in-process). Phoenix removes the message locally and sends that request at once, so this is the same moment. It does not fire when a plugin answered or dropped that request itself, nor for deletes plugins make with `Host::rest`. You do not need a `rest_request` filter for it, only `dispatch:PHOECORD_LOCAL_DELETE`. The payload is shaped like Discord's `MESSAGE_DELETE`:
 
 ```json
 {"op": 0, "t": "PHOECORD_LOCAL_DELETE", "d": {"id": "<message>", "channel_id": "<channel>", "guild_id": "<guild>"}}
 ```
 
-(`guild_id` only in a server.) It is an **observation**: dropping it does not stop the delete, and Discord's own `MESSAGE_DELETE` still follows when the server confirms. A message logger uses it to keep the text of a message the user removed before the server told anyone.
+(`guild_id` only in a server whose channels PhoeCord already knows from `READY` or a later event; otherwise it is left out.) It is an **observation**: dropping it does not stop the delete, and Discord's own `MESSAGE_DELETE` still follows when the server confirms. A message logger uses it to keep the text of a message the user removed before the server told anyone.
 
 ## UI events
 

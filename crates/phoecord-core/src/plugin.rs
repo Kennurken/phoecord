@@ -39,12 +39,14 @@ pub const API_VERSION: u32 = 1;
 /// [`Plugin::wants`]. Discord never sends a dispatch with this name.
 pub const TIMER_EVENT: &str = "PHOECORD_TIMER";
 
-/// Name of the dispatch the Phoenix loader sends when the user deletes a message, before Discord
-/// confirms it (the client's optimistic delete, task 2.3.6).
+/// Name of the dispatch the host sends when the user deletes a message, before Discord confirms
+/// it (the client's optimistic delete, task 2.3.6). It fires when the client's
+/// `DELETE /channels/{channel}/messages/{message}` leaves, on every transport and client, unless a
+/// plugin answered or dropped that request itself.
 ///
 /// The payload is a whole frame shaped like Discord's `MESSAGE_DELETE`:
 /// `{"op":0,"t":"PHOECORD_LOCAL_DELETE","d":{"id":<message>,"channel_id":<channel>,"guild_id":<guild>}}`
-/// (`guild_id` only in a guild). It is an observation: dropping it does not stop the delete, and
+/// (`guild_id` only when the channel's guild is known from `READY` or a later event). It is an observation: dropping it does not stop the delete, and
 /// Discord's own `MESSAGE_DELETE` still follows when the server confirms. Discord never sends a
 /// dispatch with this name.
 pub const LOCAL_DELETE_EVENT: &str = "PHOECORD_LOCAL_DELETE";
