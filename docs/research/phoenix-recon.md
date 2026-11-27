@@ -478,11 +478,11 @@ Updated 2026-11-27 against the phase-2 task table. Answered since stage 2.1: the
 
 Open, by what has to answer it (RE is Nanda's, ruling 2026-11-27):
 
-- **Which vtable slot renders a view** (2.3.4, 2.3.12, 2.3.14, 2.3.15, 2.3.18, 2.3.19, 2.3.23): every surface has a `{drop,size,align,fn0,fn1}` record; `fn0`/`fn1` are not `request_layout`/`paint` (they sit in GPUI's entity/context-update code), so where each view renders is still open.
-- **The client's per-frame handler** (2.2.3, 2.2.7): the function the inflater's caller hands a frame to; without it no frame can be added in-process (`Host::emit_dispatch`, MessageLogger's bulk deletes).
-- **The identify and heartbeat path** (2.2.4, 2.2.7): they do not pass the encoder; `full_ready` in-process needs the function that writes `IDENTIFY`.
+- **Where each view renders** (2.3.4, 2.3.12, 2.3.14, 2.3.15, 2.3.18, 2.3.19, 2.3.23): the `{drop,size,align,fn0,fn1}` records are update callbacks, not render entries (live probe 27.11: never called while their views were shown and used); the surfaces go through 2.3.10's dispatcher wrap or their own render function.
+- **The client's per-frame handler** (2.2.3, 2.2.7): found live 27.11 (called once per inflated frame by the inflate wrapper); open: its arguments, to hand it a frame PhoeCord makes.
+- **IDENTIFY and heartbeat** (2.2.4, 2.2.7): IDENTIFY is built once at connect by its own function, which serializes `ClientState` (found live 27.11; open: `ClientState`'s layout, and installing the hook before ~0.3 s); the gateway's op 1 heartbeat path is still unconfirmed.
 - **A ready response future** (2.2.2): `Ready`/`Pending` is resolved; one `Ready(Err)` site and how to build a future of the client's type are open (local replies: NoTrack, SilentTyping).
-- **`ManaTheme`'s fields** (2.3.1), **the user-name render** (2.3.13, nothing found yet), **per-element voice anchors** (2.3.16: VolumeBooster's slider found, a CallTimer lead), **which `PermissionWatch` record is which prompt** (2.3.20), **the CDN fetch chain** (2.3.8, 2.3.9: static reading ends in generic handle code; a live trace should settle it), **the role menu** (2.3.11 follow-up: built by a shared builder, needs an anchor by label).
+- **`ManaTheme`'s fields** (2.3.1), **the user-name render** (2.3.13, nothing found yet), **per-element voice anchors** (2.3.16: VolumeBooster's slider found, a CallTimer lead), **which `PermissionWatch` record is which prompt** (2.3.20), **the CDN fetch** (2.3.8, 2.3.9: the static leads stayed silent while images loaded; the process sent through WinINet/WinHTTP then, so images likely load through the Windows HTTP stack; confirm the URLs), **the role menu** (2.3.11 follow-up: built by a shared builder, needs an anchor by label).
 - **2.1.3:** uploads, voice and media while scrolling, and Linux; the test account is back at Discord's access screen.
 - **2.1.4:** Linux.
 - **2.2.8, 2.2.9:** no Phoenix update has been observed yet: how `app\` and `updates` change, whether a running client is swapped, how often builds ship, and a second build to check every signature on.

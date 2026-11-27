@@ -63,37 +63,37 @@ Plugin API changes (`phoecord-core::plugin`) are made by Nanda only.
 
 ## Open tasks
 
-Open tasks only, 27.11.2026: 29 (matvee 11, buslan 10, ken 7, Nanda 1). "Waits on" is who or what has to move first; "the render slot" is one RE answer (which slot of the `{drop,size,align,fn0,fn1}` vtable records renders) that unblocks every vtable anchor. Details and history in the Tasks table below, which stays the only place status is tracked; update both together.
+Open tasks only, 27.11.2026: 29 (matvee 11, buslan 10, ken 7, Nanda 1). "Waits on" is who or what has to move first; "the render slot": answered by a live probe on 27.11: none of the slots of the `{drop,size,align,fn0,fn1}` records renders (they are update callbacks run through the 2.3.10 dispatcher), so the surfaces that waited on it hook through 2.3.10's wrap or their own render function instead. Details and history in the Tasks table below, which stays the only place status is tracked; update both together.
 
 | Task | What | Owner | What is left | Waits on |
 |:--|:--|:--|:--|:--|
 | **2.1.3** | Proxy behaviour on Phoenix | ken | uploads, voice, media while scrolling; Linux | an account the client lets in |
 | **2.1.10** | Gateway fixtures without personal data | matvee | the capture itself | a throwaway account and a person at the client |
 | **2.2.2** | HTTP transport hook | ken | local replies (a ready response future from `send`); second build (2.2.9) | Nanda (RE: the future's layout, `Ready`/`Pending`/`Err`) |
-| **2.2.3** | Gateway inflate hook | ken | delivering queued payloads (`Host::emit_dispatch`); second build (2.2.9) | Nanda (RE: the client's per-frame handler) |
-| **2.2.4** | Outgoing gateway hook | ken | replacing a frame live; dropped frames (need the caller); heartbeat / identify / resume go elsewhere | Nanda (RE: the identify path) |
+| **2.2.3** | Gateway inflate hook | ken | delivering queued payloads (`Host::emit_dispatch`): call the client's per-frame handler with a made-up frame (found live 27.11; its arguments to read); second build (2.2.9) | Nanda (RE: the handler's arguments), then ken |
+| **2.2.4** | Outgoing gateway hook | ken | replacing a frame live; dropped frames (need the caller); IDENTIFY does not pass the encoder (checked from 9 ms): it is built by its own function, found live 27.11 | ken |
 | **2.2.5** | Typed locators | matvee | the remaining locators; checked on 0.1.0.2208 only | matvee; 2.2.9 for a second build |
 | **2.2.6** | `phoecord check` | matvee | re-run to confirm `gateway_registry` is unique; CI job on private dumps | matvee |
-| **2.2.7** | In-process transport | ken | `full_ready`, queued payloads, local replies | Nanda (RE: identify path, per-frame handler, response future) |
+| **2.2.7** | In-process transport | ken | `full_ready`: hook the IDENTIFY builder / `ClientState` serializer (found live 27.11) and install it before ~0.3 s; queued payloads (the per-frame handler, found); local replies | Nanda (RE: `ClientState` layout, the handler's arguments, the response future), then ken |
 | **2.2.9** | Signatures unique on two builds | buslan | not started | buslan; a second Phoenix build |
 | **2.3.1** | Theme engine | matvee | `ManaTheme`'s field layout, the hook | Nanda (RE: the fields), then matvee |
 | **2.3.3** | Settings tab in Phoenix | ken | the native page, package install / remove | ken; the owner's call on the package store |
-| **2.3.4** | MessageLogger UI | matvee | which vtable slot renders `RowView`, the locator, wiring `Accessory::for_message` | Nanda (RE: the render slot), then matvee |
-| **2.3.8** | CDN picture hook | buslan | confirm the `fetch_bytes` chain, the avatar / banner URL function, the hook | Nanda (RE, a live trace would settle it) |
+| **2.3.4** | MessageLogger UI | matvee | find `RowView`'s render through 2.3.10's dispatcher (its vtable record is not a render entry, live 27.11), the locator, wiring `Accessory::for_message` | matvee (2.3.10) |
+| **2.3.8** | CDN picture hook | buslan | the static CDN leads stayed silent while images loaded; images went through WinHTTP/WinINet (live 27.11): confirm the URLs, then a hook on those Windows exports | buslan (a probe on the WinHTTP/WinINet exports) |
 | **2.3.9** | FixImagesQuality default mode | buslan | everything | 2.3.8 |
 | **2.3.10** | Generic view-render wrap | matvee | the hook (swap the incoming vtable for a wrapper) | matvee |
-| **2.3.12** | Modals | matvee | the locator and the hook on `ShellModals` | the render slot (RE, Nanda), then matvee |
+| **2.3.12** | Modals | matvee | the locator and the hook on `ShellModals` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
 | **2.3.13** | User names | matvee | everything | Nanda (RE: the function address) |
-| **2.3.14** | Profiles | matvee | the locator and the hook on `ShellUserPopout` | the render slot (RE, Nanda), then matvee |
-| **2.3.15** | Chat input | buslan | the locator and the hook on `ComposerView` | the render slot (RE, Nanda), then buslan |
+| **2.3.14** | Profiles | matvee | the locator and the hook on `ShellUserPopout` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
+| **2.3.15** | Chat input | buslan | the locator and the hook on `ComposerView` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
 | **2.3.16** | Voice and audio | buslan | everything | Nanda (RE: per-leaf anchors) |
 | **2.3.17** | Account panel | buslan | the locator and the inline detour on the build entry | buslan |
-| **2.3.18** | Media | buslan | the locator and the hook on `VideoView` | the render slot (RE, Nanda), then buslan |
-| **2.3.19** | Channel and server lists | buslan | the locators and hooks on `ChannelListModel`, `RailModel`, the rail icon | the render slot (RE, Nanda), then buslan |
+| **2.3.18** | Media | buslan | the locator and the hook on `VideoView` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
+| **2.3.19** | Channel and server lists | buslan | the locators and hooks on `ChannelListModel`, `RailModel`, the rail icon | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
 | **2.3.20** | Client behaviour patches | buslan | which `PermissionWatch` record is which prompt, the locator and the hook | Nanda (RE: confirm the prompts), then buslan |
 | **2.3.21** | Overlay | matvee | the overlay element and the hook on `DiscordApp::render` | matvee |
 | **2.3.22** | Themes picker | matvee | the picker in PhoeCord's own tab | 2.3.3 (native page) and 2.3.1 |
-| **2.3.23** | Toolbox | buslan | the locator, the hook and the button on `TitleBarModel` | the render slot (RE, Nanda), then buslan |
+| **2.3.23** | Toolbox | buslan | the locator, the hook and the button on `TitleBarModel` | 2.3.10's wrap (the vtable records are not render entries, live 27.11), then the owner |
 | **2.4.1** | Top plugins on Phoenix | ken | the UI parts; NoTrack and SilentTyping (local replies), MessageLogger bulk deletes (queued payloads) | 2.2.7's open parts and the 2.3 UI hooks |
 | **2.4.7** | v1.0 release | Nanda | the release itself | every other open task |
 
