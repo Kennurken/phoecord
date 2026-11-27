@@ -74,7 +74,7 @@ actions.
 A paired find helps 2.2.4 the same way: the function that writes one frame to the live gateway
 connection, for `Delivery`'s `FrameSink` (plugin `emit_send` in-process).
 
-A third find, for the full `READY` in-process (`full_ready`, 2.2.7): **where `IDENTIFY` is built
+A third find, for the full `READY` in-process (`full_ready`, 2.2.7; **applied** 2026-11-27, live on Phoenix 0.1.0.2208, 2026-11-27: hook in 126-132 ms after the DLL loaded, before the client's code; IDENTIFY sent 9 guild versions as `{}` and READY came with 9 guilds, 0 partial; with `full_ready = false` the same account got 9 of 9 partial): **where `IDENTIFY` is built
 or sent.** Live (2026-11-27) the encoder hook of 2.2.4 never sees `op 1` or `op 2`, although
 heartbeats are acknowledged, and `IDENTIFY` leaves about one second after the client starts. With
 the faster signature scan the hooks are in about 1.1 s after start and `READY` reaches the plugins
