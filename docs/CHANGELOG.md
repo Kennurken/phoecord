@@ -4,6 +4,10 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+
+- 2.2.7: plugins' `Host::rest`, `rest_files`, `fetch` and `fetch_with` work when Phoenix is launched in-process (no proxy): the loader takes the client's session from its own Discord API requests and calls Discord and the plugin's allowed hosts itself, with the same rules as the proxy (session, Discord's rate limits, HTTPS-only `fetch` to listed hosts without credentials, size limits, 15 s timeout). An `upstream` proxy is not supported in-process yet: such a call fails with an error instead of going out directly.
+
 ## [0.7.0] - 2026-11-27
 
 The end of stage 2.1 and most of stage 2.2 on Desktop Phoenix: plugin entries in Phoenix's own message, user, channel and server menus, a full `READY` through the proxy, plugins that see your own deletes at once, and the first in-process launch (no proxy) with the REST and gateway hooks. Signature tables now ship inside PhoeCord. New website at https://phoecord.dev. ShowHiddenChannels is removed.
