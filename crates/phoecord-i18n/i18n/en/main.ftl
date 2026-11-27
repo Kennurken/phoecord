@@ -692,3 +692,23 @@ cli-phoenix-started = Discord Phoenix started (process { $pid }) with the loader
 cli-err-transport-phoenix-only = --transport in-process works only with --channel phoenix
 cli-err-in-process-windows-only = Discord Phoenix runs in-process only on Windows; use --transport auto or proxy
 cli-err-in-process-no-loader = Discord Phoenix cannot run in-process: there is no loader at { $path }
+
+# Phoenix: the PhoeCord settings tab (task 2.3.3)
+phoenix-settings-title = PhoeCord
+phoenix-settings-sub = Plugins and their settings. Changes apply at once.
+phoenix-settings-packages = Your plugins
+phoenix-settings-builtin = Built-in plugins
+phoenix-settings-no-match = No plugin matches your search.
+phoenix-settings-by = by
+phoenix-settings-crashed = Stopped after an error until Discord restarts.
+phoenix-settings-invalid = The saved value is not valid, so the default is used.
+phoenix-settings-reset = Reset
+phoenix-settings-on = On
+phoenix-settings-off = Off
+phoenix-settings-list-hint = One per line
+phoenix-settings-rights = Can:
+phoenix-settings-rights-none = No special rights
+phoenix-settings-err-number = Enter a number.
+phoenix-settings-err-choice = Pick one of the options.
+phoenix-settings-err-kind = This value does not fit the setting.
+phoenix-settings-err-unknown = This plugin or setting no longer exists.

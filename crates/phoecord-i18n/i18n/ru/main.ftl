@@ -697,3 +697,23 @@ cli-phoenix-started = Discord Phoenix запущен (процесс { $pid }) �
 cli-err-transport-phoenix-only = --transport in-process работает только с --channel phoenix
 cli-err-in-process-windows-only = Discord Phoenix работает внутри процесса только в Windows; используйте --transport auto или proxy
 cli-err-in-process-no-loader = Discord Phoenix не может работать внутри процесса: загрузчика нет в { $path }
+
+# Phoenix: вкладка настроек PhoeCord (задача 2.3.3)
+phoenix-settings-title = PhoeCord
+phoenix-settings-sub = Плагины и их настройки. Изменения применяются сразу.
+phoenix-settings-packages = Ваши плагины
+phoenix-settings-builtin = Встроенные плагины
+phoenix-settings-no-match = Ни один плагин не подходит под поиск.
+phoenix-settings-by = автор:
+phoenix-settings-crashed = Остановлен после ошибки до перезапуска Discord.
+phoenix-settings-invalid = Сохранённое значение неверно, поэтому используется значение по умолчанию.
+phoenix-settings-reset = Сбросить
+phoenix-settings-on = Вкл.
+phoenix-settings-off = Выкл.
+phoenix-settings-list-hint = По одному на строку
+phoenix-settings-rights = Может:
+phoenix-settings-rights-none = Без особых прав
+phoenix-settings-err-number = Введите число.
+phoenix-settings-err-choice = Выберите один из вариантов.
+phoenix-settings-err-kind = Это значение не подходит для настройки.
+phoenix-settings-err-unknown = Этого плагина или настройки больше нет.
