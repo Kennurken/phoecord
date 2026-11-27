@@ -284,14 +284,31 @@ impl Shared {
     /// Write `enabled` for plugin `id` into `config.toml` (what `Host::set_plugin_enabled` and the
     /// dev console do). The caller applies the new config.
     pub fn persist_enabled(&self, id: &str, on: bool) -> Result<(), String> {
+        self.persist(|cfg| cfg.set_enabled(id, on).map_err(|e| format!("{e:#}")))
+            .map(drop)
+    }
+
+    /// Change `config.toml` with `edit` under the config lock: the file is read fresh, so edits
+    /// made elsewhere (the CLI, the installer) are kept, and written back only when `edit`
+    /// succeeds. Returns the saved config; the caller applies it. A missing file is started from
+    /// the defaults (the PhoeCord settings tab, task 2.3.3, may be the first to write it).
+    pub fn persist(
+        &self,
+        edit: impl FnOnce(&mut Config) -> Result<(), String>,
+    ) -> Result<Config, String> {
         let path = &self.config_path;
         if path.as_os_str().is_empty() {
             return Err("no config file".into());
         }
         let _guard = self.config_lock.lock().unwrap();
-        let mut cfg = Config::load(path).map_err(|e| format!("{e:#}"))?;
-        cfg.set_enabled(id, on).map_err(|e| format!("{e:#}"))?;
-        cfg.save(path).map_err(|e| format!("{e:#}"))
+        let mut cfg = if path.exists() {
+            Config::load(path).map_err(|e| format!("{e:#}"))?
+        } else {
+            Config::default()
+        };
+        edit(&mut cfg)?;
+        cfg.save(path).map_err(|e| format!("{e:#}"))?;
+        Ok(cfg)
     }
 
     /// Everything in `id`'s `kv.json`.
@@ -643,6 +660,39 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    #[test]
+    fn persist_reads_fresh_writes_on_success_and_starts_from_defaults() {
+        let dir = temp("persist");
+        let mut shared = Shared::new(dir.join("plugins"));
+        assert!(shared.persist(|_| Ok(())).is_err(), "no config path");
+        shared.config_path = dir.join("config.toml");
+
+        let cfg = shared
+            .persist(|c| c.set_enabled("clear_urls", true).map_err(|e| e.to_string()))
+            .unwrap();
+        assert!(cfg.is_enabled("clear_urls"));
+        assert!(cfg.is_enabled("no_track"), "started from the defaults");
+
+        // An edit made elsewhere in the meantime is kept.
+        let mut other = Config::load(&shared.config_path).unwrap();
+        other.language = Some("ru".into());
+        other.save(&shared.config_path).unwrap();
+        let cfg = shared.persist(|_| Ok(())).unwrap();
+        assert_eq!(cfg.language.as_deref(), Some("ru"));
+
+        let before = std::fs::read_to_string(&shared.config_path).unwrap();
+        let err = shared.persist(|c| {
+            c.language = Some("en".into());
+            Err("refused".into())
+        });
+        assert_eq!(err.err().as_deref(), Some("refused"));
+        assert_eq!(
+            std::fs::read_to_string(&shared.config_path).unwrap(),
+            before
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -17,6 +17,7 @@ phoecord-core = { workspace = true, optional = true }
 phoecord-transport = { workspace = true, optional = true }
 phoecord-plugin-runtime = { workspace = true, optional = true }
 phoecord-plugins = { workspace = true, optional = true }
+phoecord-i18n = { path = "../phoecord-i18n", optional = true }
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.11"
@@ -53,6 +54,7 @@ dll = [
     "dep:phoecord-transport",
     "dep:phoecord-plugin-runtime",
     "dep:phoecord-plugins",
+    "dep:phoecord-i18n",
 ]
 
 [dev-dependencies]
