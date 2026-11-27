@@ -254,7 +254,7 @@ Also:
 
 **Done when:** every entry in `signatures/` and every locator passes `phoecord check` on two distinct Phoenix builds.
 
-### 2.2.10. Signature hot-fix path (buslan)
+### 2.2.10. Signature hot-fix path (Nanda)
 
 **Files:** `signatures/*.toml`, `crates/phoecord-loader/src/aob.rs`
 

@@ -30,7 +30,7 @@ Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) explains how the layers work; [`PL
 | `.github/PULL_REQUEST_TEMPLATE.md` | PR form with the living-docs checklist |
 | `.github/dependabot.yml` | Weekly cargo updates (grouped), monthly GitHub Actions updates; Dependabot opens the `dependabot/*` branches |
 | `.editorconfig`, `.gitattributes`, `.gitignore` | LF everywhere, 4-space Rust, 2-space YAML/TOML; secrets and dumps ignored |
-| `signatures/` | AOB signature tables per client build (`README.md` documents the format; no Discord signatures yet) |
+| `signatures/` | Public AOB signature tables per client build, compiled into the loader and `phoecord` (2.2.10): `phoenix.toml` (Desktop Phoenix 0.1.0.2208: the context-menu hooks so far); `README.md` documents the format and the hot-fix folder |
 | `tests/fixtures/` | Decoded, scrubbed Gateway events for tests (task 2.1.10); `README.md` documents recording and scrubbing (`scripts/scrub_fixture.py`); `phoenix/` has `HELLO`, `READY` (partial, as Phoenix receives it) and `MESSAGE_CREATE` (2.1.4), `electron/` is empty |
 | `research/` | Out-of-workspace research projects: `gpui-reference` (GPUI app built like a shipping client) and `aob-probe` (checks AOB anchors against a binary); excluded from the workspace |
 | `.github/workflows/pages.yml` | Website: builds `site/` (`npm ci`, `npm test`, `npm run build`) on pushes to `main` touching `site/`, `docs/PLUGINS.md` or `catalog/plugins.json`, daily (to pick up a new release) and by hand, and deploys it to GitHub Pages at phoecord.dev; pull requests only build and test |
@@ -121,6 +121,7 @@ The transport boundary (task 1.1.12): everything between "an event arrived" and 
 | `tests/compat-guest/` | A separate workspace: a guest built against `wit/frozen/`, standing in for plugins already built against v1 | Never point it at `wit/phoecord.wit` |
 | `tests/frozen_wit.rs` | The v1 freeze: `interface types` and the world equal `wit/frozen/`, host functions only grow, the compat guest loads and gets every event, the SDK's `API_VERSION` equals core's | A failure means a WIT change would break built plugins |
 | `tests/strings.rs` | `Host::t` for packages: a string from the package's own `.ftl`, English fallback, hot reload of an edited `.ftl`, unload | Uses the guest's `STRINGS` dispatch |
+| `tests/rights.rs` | A package without a right gets the host's refusal (it answers 403 with it) and nothing reaches the real host | |
 | `tests/clear_urls_wasm.rs` | Builds `examples/plugins/clear_urls`, loads it as a package (also into a running chain) and checks it behaves like the native plugin | Needs the `wasm32-wasip2` target |
 | `tests/hello_plugin_wasm.rs` | Builds `examples/hello-plugin`, loads it and checks that it logs each `MESSAGE_CREATE` without the text | Needs the `wasm32-wasip2` target |
 | `tests/hello_plugin_ts_wasm.rs` | Builds `examples/hello-plugin-ts` with npm, loads it and checks the same logs as the Rust example | `#[ignore]`: needs Node.js; the `typescript-template` CI job runs it in release |

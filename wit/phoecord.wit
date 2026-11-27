@@ -69,7 +69,7 @@ interface types {
         rest-response(rest-kind),
         dispatch(string),
         send(s64),
-        /// A UI event, by name (`menu_action`).
+        /// A UI event, by name (`menu_action`, `user_menu_action`, ...).
         ui(string),
     }
 
@@ -120,6 +120,9 @@ interface types {
     /// - `menu_action`: one of the plugin's `[[menu]]` entries was clicked in a message's context
     ///   menu; payload `{"entry": <menu id>, "channel_id": "<id>", "message_id": "<id>"}`. Sent to
     ///   the plugin that declared the entry only.
+    /// - `user_menu_action`, `channel_menu_action`, `server_menu_action`: the same for entries with
+    ///   `kind = "user"` / `"channel"` / `"server"`; payloads `{"entry", "user_id", "guild_id"?,
+    ///   "channel_id"?}`, `{"entry", "channel_id", "guild_id"?}`, `{"entry", "guild_id"}`.
     record ui-event {
         name: string,
         payload: tree,

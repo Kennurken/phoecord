@@ -1,4 +1,4 @@
-Checked against code: not applicable (the only PhoeCord code that touches Phoenix is `discover` and `launch` for 2.1.1, which start it and read its version, nothing more); against a local install of Discord Phoenix, file version `0.1.0.2208`, read 2026-11-25/26 (part 1 includes a static pass of the installed binary on 2026-11-26). Part 1's exact addresses, byte signatures and structure offsets are kept in the team's private recon notes, not in this file (ask Nanda for access); this file keeps everything that is useful without them, plus all of part 2.
+Checked against code: not applicable (the only PhoeCord code that touches Phoenix is `discover` and `launch` for 2.1.1, which start it and read its version, nothing more); against a local install of Discord Phoenix, file version `0.1.0.2208`, read 2026-11-25/26 (part 1 includes a static pass of the installed binary on 2026-11-26). Part 1's exact addresses and structure offsets are kept in the team's private recon notes, not in this file (ask Nanda for access); the byte signatures PhoeCord uses are public in `signatures/phoenix.toml` since 2026-11-27 (2.2.10); this file keeps everything that is useful without them, plus all of part 2.
 
 # Desktop Phoenix reconnaissance (stage 2.1)
 
@@ -449,7 +449,7 @@ Status of stage 2.1 on 2026-11-26: 2.1.1, 2.1.2, 2.1.5, 2.1.6 and 2.1.7 are done
 | Gateway | One ABI for the per-event handlers; the registry is a per-instance tree reached through the context, built at run time, not a static table; an outgoing send path exists (not for heartbeat, identify, resume); `READY` is handled specially in the connection loop | 2.1.6 |
 | UI | The root view chain (`Root` → `Frame` → `Splash` → `DiscordApp` → router / `Workspace`) and candidate hook points (`DiscordApp::render`, `MenuView::render`, workspace regions); see [`re/gpui-lifecycle.md`](../re/gpui-lifecycle.md) | 2.2.1 notes |
 
-Addresses, byte signatures and offsets for the binary rows are in the private recon notes, not here.
+Addresses and offsets for the binary rows are in the private recon notes, not here; the signatures in use are in `signatures/phoenix.toml`.
 
 ## Decisions for 2.2–2.4
 
