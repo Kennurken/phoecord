@@ -17,6 +17,7 @@
 //! `docs/research/phoenix-recon.md`, "Open questions".
 
 pub mod abi;
+pub mod client_state;
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub mod context_menu;
 #[cfg(all(windows, target_arch = "x86_64"))]
@@ -110,9 +111,27 @@ impl HookRuntime {
         if !self.plan.gateway() {
             return pass_gateway();
         }
+        if name == "READY" {
+            self.gateway
+                .guard(&self.log, || (), || self.log_ready(data));
+        }
         self.gateway.guard_result(&self.log, pass_gateway, || {
             gateway::dispatch(&self.engine, name, data)
         })
+    }
+
+    /// One line per `READY`: how many guilds arrived partial, which says whether `full_ready`
+    /// (2.2.7, [`client_state`]) took effect.
+    fn log_ready(&self, data: &[u8]) {
+        let Ok(d) = serde_json::from_slice::<serde_json::Value>(data) else {
+            return;
+        };
+        let (partial, total) =
+            phoecord_transport::full_ready::partial_guilds(&phoecord_core::Val::from_json(d));
+        (self.log)(&format!(
+            "READY: {total} guild(s), {partial} of them partial{}",
+            if partial == 0 { " (full READY)" } else { "" }
+        ));
     }
 }
 
