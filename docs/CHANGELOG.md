@@ -7,6 +7,13 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 ### Added
 
 - 2.2.7: plugins' `Host::rest`, `rest_files`, `fetch` and `fetch_with` work when Phoenix is launched in-process (no proxy): the loader takes the client's session from its own Discord API requests and calls Discord and the plugin's allowed hosts itself, with the same rules as the proxy (session, Discord's rate limits, HTTPS-only `fetch` to listed hosts without credentials, size limits, 15 s timeout). An `upstream` proxy is not supported in-process yet: such a call fails with an error instead of going out directly.
+### Fixed
+
+- 2.2.3 / 2.4.1: in an in-process launch on Phoenix, an event a plugin renames now reaches the client under its new name. MessageLogger shows a deleted message by turning its `MESSAGE_DELETE` into a `MESSAGE_UPDATE`; the gateway hook rebuilt the frame with the new data but the old name, so the client still removed the message. Through the proxy this already worked.
+- 2.2.7: in an in-process launch on Desktop Phoenix, plugins now see `READY` and `READY_SUPPLEMENTAL`. The loader's signature scan was byte by byte and took about 6 s, so the network hooks went in after the client had already connected to the gateway; the scan now uses a SIMD substring search and the hooks are in about 1 s after start. `phoecord check` is faster too.
+### Removed
+
+- The release announcement webhook (`.github/workflows/discord-release.yml`, `scripts/notify_release.py`): the community bot posts release updates now, so a release was announced twice.
 
 ## [0.7.0] - 2026-11-27
 
