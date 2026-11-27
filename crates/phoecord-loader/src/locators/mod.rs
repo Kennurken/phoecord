@@ -17,10 +17,13 @@
 //! - [`exactly_one`] and [`winner`]: turn candidates into a result or a typed error.
 //!
 //! Part 2 adds the locators for the hook targets themselves ([`allocator`], [`http_transport`],
-//! [`gateway`]), each a masked AOB anchor derived from the private `phoecord-recon` notes (never
-//! raw bytes of the dump, per `docs/AGENTS.md`, "Never commit … disassembly"). Every one is
-//! checked against this one build of Phoenix (`0.1.0.2208`) only; cross-build verification is
-//! task 2.2.9.
+//! [`gateway`]) and, for task 2.3.1, the theme global ([`theme`]), each a masked AOB anchor
+//! derived from the private `phoecord-recon` notes (never raw bytes of the dump, per
+//! `docs/AGENTS.md`, "Never commit … disassembly"). Every one is checked against this one build
+//! of Phoenix (`0.1.0.2208`) only; cross-build verification is task 2.2.9. [`gateway::find`] and
+//! [`theme::find`] both need a second fact beyond their bare prologue AOB, which matches several
+//! monomorphized siblings on the real exe — a `.text` cross-reference to a string unique to the
+//! real target, intersected via [`CallIndex`], the same way.
 //!
 //! [`Image::find_ptr`] (8-byte pointer scan of `.rdata`, needs [`Image::image_base`]) is built for
 //! the one target this part does not close: `http_poll`, the `.rdata` vtable slot of the response
@@ -33,6 +36,7 @@ pub mod allocator;
 pub mod gateway;
 pub mod http_transport;
 mod index;
+pub mod theme;
 
 pub use index::CallIndex;
 
