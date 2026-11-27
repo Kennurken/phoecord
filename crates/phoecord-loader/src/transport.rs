@@ -400,9 +400,21 @@ impl crate::hooks::gateway_recv::DispatchSink for DecodeSink {
         self.0.wants_gateway()
     }
 
-    fn dispatch(&self, name: &str, d: &[u8]) -> (GatewayAction, usize) {
+    fn dispatch(&self, name: &str, d: &[u8]) -> (GatewayAction, Vec<Val>, Vec<Val>) {
         let out = self.0.dispatch(name, d);
-        (out.action, out.before.len() + out.after.len())
+        (out.action, out.before, out.after)
+    }
+}
+
+/// What the per-frame handler's detour drains after each frame: payloads queued outside a
+/// dispatch (a REST event, a timer).
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub struct FrameFeed(pub Arc<InProcessTransport>);
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+impl crate::hooks::gateway_frame::FrameFeed for FrameFeed {
+    fn take(&self) -> Vec<Val> {
+        self.0.delivery().take_locals()
     }
 }
 

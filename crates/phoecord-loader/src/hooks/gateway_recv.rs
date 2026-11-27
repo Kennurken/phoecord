@@ -19,15 +19,18 @@
 //!
 //! Server → client payloads plugins queue (`Host::emit_dispatch`) cannot be handed to the client
 //! from here: the inflater returns one frame per call and this buffer holds one frame, so there
-//! is no slot for an extra one. They are counted and logged once. Delivering them needs the
-//! client's per-frame handler (RE, `docs/research/inprocess-dispatch.md`).
+//! is no slot for an extra one. They are kept on this thread for the per-frame handler's detour
+//! ([`super::gateway_frame`]), which the inflate wrapper calls right after the inflater: those
+//! queued before this frame go in ahead of it, those queued while handling it after. Without that
+//! detour they are counted, logged once and dropped.
 
 use super::abi::Memory;
 use super::detour::ProcessMemory;
 use super::gateway::{DROPPED_EVENT, GatewayAction, dropped, rebuild, split_dispatch};
 use super::guard::{Breaker, LogFn};
 use crate::hook::{HookError, HookSet};
-use std::cell::Cell;
+use phoecord_core::Val;
+use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 
@@ -40,9 +43,9 @@ pub const MAX_FRAME: usize = 64 << 20;
 pub trait DispatchSink: Send + Sync {
     /// Whether any plugin reads the gateway; when not, frames are not even parsed.
     fn wants(&self) -> bool;
-    /// The plugin chain's verdict on one dispatch (`d` as JSON), and how many server → client
-    /// payloads plugins queued that could not be delivered.
-    fn dispatch(&self, name: &str, d: &[u8]) -> (GatewayAction, usize);
+    /// The plugin chain's verdict on one dispatch (`d` as JSON), with the server → client
+    /// payloads plugins queued before it and while handling it.
+    fn dispatch(&self, name: &str, d: &[u8]) -> (GatewayAction, Vec<Val>, Vec<Val>);
 }
 
 struct State {
@@ -57,6 +60,28 @@ static LOGGED: AtomicU32 = AtomicU32::new(0);
 
 thread_local! {
     static INSIDE: Cell<bool> = const { Cell::new(false) };
+    /// Payloads for the frame being inflated on this thread: before it, after it.
+    static STASH: RefCell<(Vec<Val>, Vec<Val>)> = const { RefCell::new((Vec::new(), Vec::new())) };
+}
+
+/// The payloads to deliver ahead of the frame being handled on this thread.
+pub fn stash_take_before() -> Vec<Val> {
+    STASH.with(|s| std::mem::take(&mut s.borrow_mut().0))
+}
+
+/// The payloads to deliver after it.
+pub fn stash_take_after() -> Vec<Val> {
+    STASH.with(|s| std::mem::take(&mut s.borrow_mut().1))
+}
+
+/// Keeps `before` / `after` for the handler's detour; any left from a frame it never handled
+/// stay in front.
+fn stash(before: Vec<Val>, after: Vec<Val>) {
+    STASH.with(|s| {
+        let mut s = s.borrow_mut();
+        s.0.extend(before);
+        s.1.extend(after);
+    });
 }
 
 /// Prepares the detour on the inflater at `target` (not active until the set is installed).
@@ -163,11 +188,14 @@ fn observe(state: &State, out: usize) {
     if name == DROPPED_EVENT {
         return;
     }
-    let (action, undelivered) = state.sink.dispatch(&name, &d);
-    if undelivered > 0 {
+    let (action, before, after) = state.sink.dispatch(&name, &d);
+    if super::gateway_frame::active() {
+        stash(before, after);
+    } else if !before.is_empty() || !after.is_empty() {
         once(state, LOG_LOCALS, || {
             format!(
-                "gateway_dispatch: {undelivered} payload(s) plugins queued for the client cannot be delivered in-process yet; dropped"
+                "gateway_dispatch: {} payload(s) plugins queued for the client cannot be delivered (no gateway_frame hook); dropped",
+                before.len() + after.len()
             )
         });
     }

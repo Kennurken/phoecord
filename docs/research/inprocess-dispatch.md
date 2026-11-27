@@ -1,6 +1,8 @@
 # In-process delivery of `Host::emit_dispatch` (2.2.3, 2.2.7)
 
-Status (2026-11-27): **blocked on RE.** The in-process transport queues the server → client payloads
+Status (2026-11-27, later): **delivered** (live on Phoenix 0.1.0.2208, 2026-11-27: three test events delivered this way, the handler answered "nothing to do" for each, left the text `Vec` alone, and the client kept running on the same connection), through a detour on the client's per-frame handler: see "How it is delivered" at the end. The text below is the earlier state.
+
+Earlier status: **blocked on RE.** The in-process transport queues the server → client payloads
 plugins make, but the hooks we have cannot hand them to the client. This note says why, which
 workarounds were weighed and dropped, and what one function would unblock it. Addresses and byte
 patterns stay in the private recon notes; this file describes behaviour only.
@@ -91,3 +93,14 @@ local and the next real event can differ by one frame.
 - What is left once the handler is known: its locator in `signatures/phoenix.toml`, a detour or a
   call in `hooks/gateway_recv.rs`, and a live check (a ViewRaw menu click in an in-process launch
   shows its local message).
+
+## How it is delivered (2026-11-27)
+
+The per-frame handler the live probes found is called by the inflate wrapper right after the inflater. Read at that call:
+
+- the first argument is the handler's **output** (three words, sret), not the frame: on every frame seen live (HELLO, heartbeat ACKs, every dispatch) its first word is the "nothing to do" value; the frame's `Vec` only happened to sit next to it on the wrapper's stack, which is why it first looked like part of a record;
+- the second is the gateway session;
+- the third is the frame, `{0, &Vec<u8>}`: the text is borrowed; the wrapper reuses or frees the `Vec` itself afterwards;
+- the fourth and the two stack arguments (a millisecond counter, a flag, a pointer) are passed on unchanged.
+
+`hooks/gateway_frame.rs` puts an inline detour there. Payloads the inflate hook's dispatch queued before the frame are delivered before the original call, those queued while handling it after, then anything queued outside a frame (REST events, timers): each by calling the original once more with the same session and extra arguments, a frame record of its own, the payload's JSON in a `Vec` from the client's allocator (freed after the call, whatever it holds) and an output buffer of its own. The plugin chain does not run on delivered payloads, as in the proxy. Payloads queued outside a frame wait for the next incoming frame (the gateway sends a heartbeat ACK at least every ~41 s; in practice frames arrive every few seconds).
