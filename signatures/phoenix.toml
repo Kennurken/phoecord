@@ -12,3 +12,12 @@ channel_menu_push         = { aob = "E8 ?? ?? ?? ?? 90 48 8D B5 A0 07 00 00 48 C
 channel_menu_after_anchor = { aob = "90 80 BD E7 15 00 00 01 0F 85 DE 00 00 00 48 8D" }
 server_menu_push          = { aob = "E8 ?? ?? ?? ?? 90 48 8D 75 B0 48 C7 06 04 00 00 00 4C 8D A5 A0", rip = 1 }
 server_menu_after_anchor  = { aob = "90 48 8D 75 B0 48 C7 06 04 00 00 00 4C 8D A5 A0" }
+
+# Network hooks (2.2.2-2.2.4, in-process transport of 2.2.7), checked with `phoecord check` on 0.1.0.2208.
+http_send                 = { aob = "55 41 57 41 56 41 55 41 54 56 57 53 48 81 EC 58 0C 00 00 48 8D AC 24 80 00 00 00 48 C7 85 D0 0B 00 00 FE FF FF FF 48 89 CE 4C 8B BA B0 00 00 00" }
+rust_alloc                = { aob = "56 57 48 83 EC 28 48 89 D7 48 89 CE E8 ?? ?? ?? ?? 84 C0 74 26 48 8D 0D ?? ?? ?? ?? 48 89 FA 49 89 F0 E8 ?? ?? ?? ?? 48 85 C0 75 11 48 8D 0D ?? ?? ?? ?? 48 89 F2 E8 ?? ?? ?? ?? 31 C0 48 83 C4 28 5F 5E C3 CC" }
+rust_dealloc              = { aob = "56 48 83 EC 20 48 89 D6 48 89 CA 48 8D 0D ?? ?? ?? ??" }
+http_poll                 = { aob = "B9 18 06 00 00 48 89 C7 48 8B 75 F0 F3 A4 48 8D 15 ?? ?? ?? ??", rip = 17 }
+bytes_static_vtable       = { aob = "48 8D 05 ?? ?? ?? ?? 48 89 06 48 89 F0 48 83 C4 58 5B", rip = 3 }
+gateway_send              = { aob = "55 56 57 48 81 EC D0 01 00 00 48 8D AC 24 80 00 00 00 48 C7 85 48 01 00 00 FE FF FF FF 48 89 D7 48 89 CE 48 8D 0D ?? ?? ?? ??" }
+gateway_inflate           = { aob = "55 56 57 53 48 81 EC C8 00 00 00 48 8D AC 24 80 00 00 00 48 C7 45 40 FE FF FF FF 48 89 D7 48 89 CE 0F 10 02 0F 29 45 F0" }
