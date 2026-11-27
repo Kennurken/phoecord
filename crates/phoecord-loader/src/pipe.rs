@@ -223,18 +223,41 @@ pub fn send_all(name: &str, msgs: &[crate::ipc::Msg]) -> io::Result<()> {
 
 /// Sends `msg` over one new connection and returns the first line the proxy answers with.
 pub fn request(name: &str, msg: &crate::ipc::Msg) -> io::Result<crate::ipc::Msg> {
+    let mut first = request_until(name, msg, |_| true)?;
+    Ok(first.remove(0))
+}
+
+/// Sends `msg` over one new connection and returns the lines the proxy answers with, up to and
+/// including the first one `last` accepts (an answer in several lines, such as `plugins.list`).
+pub fn request_until(
+    name: &str,
+    msg: &crate::ipc::Msg,
+    last: impl Fn(&crate::ipc::Msg) -> bool,
+) -> io::Result<Vec<crate::ipc::Msg>> {
     use std::io::{BufReader, Write};
     let mut f = connect(name)?;
     let line = crate::ipc::encode_line(msg).map_err(io::Error::other)?;
     f.write_all(&line)?;
     f.flush()?;
     let mut r = BufReader::new(f);
-    match crate::ipc::read_line(&mut r)? {
-        Ok(crate::ipc::Read1::Line(l)) => crate::ipc::decode_line(&l).map_err(io::Error::other),
-        Ok(crate::ipc::Read1::Eof) => Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            "the proxy closed the pipe without an answer",
-        )),
-        Err(e) => Err(io::Error::other(e)),
+    let mut out = Vec::new();
+    loop {
+        match crate::ipc::read_line(&mut r)? {
+            Ok(crate::ipc::Read1::Line(l)) => {
+                let m = crate::ipc::decode_line(&l).map_err(io::Error::other)?;
+                let done = last(&m);
+                out.push(m);
+                if done {
+                    return Ok(out);
+                }
+            }
+            Ok(crate::ipc::Read1::Eof) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "the proxy closed the pipe without a whole answer",
+                ));
+            }
+            Err(e) => return Err(io::Error::other(e)),
+        }
     }
 }

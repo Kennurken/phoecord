@@ -8,6 +8,11 @@
 //! and the Mana builders it uses, located in the private recon notes) only draws a [`Page`] and
 //! reports [`Edit`]s, so everything a user can change is tested here on plain data.
 //!
+//! Two ways in: [`engine_page`] / [`engine_commit`] in an in-process launch, where the loader runs
+//! its own engine, and [`ipc_page`] / [`file_commit`] on the proxy transport, where the proxy has
+//! the engine: the plugins come over the loader IPC (`plugins.get`, labels already translated)
+//! and an edit is written to `config.toml`, which the proxy reloads live.
+//!
 //! Installing and removing WASM packages from the tab is not here yet: the package store
 //! (`phoecord-catalog::Store`) depends on the proxy crate, which the loader DLL does not link.
 
@@ -417,12 +422,7 @@ pub fn engine_page(
     query: &str,
 ) -> Page {
     let cfg = engine.cfg();
-    let lang = phoecord_i18n::resolve_language(
-        None,
-        cfg.language.as_deref(),
-        phoecord_i18n::detect_os_language().as_deref(),
-    )
-    .lang;
+    let lang = language(&cfg);
     let tr = phoecord_i18n::Localizer::new(&lang);
     let manifests = engine.chain.manifests();
     let packages: Vec<String> = manifests
@@ -466,6 +466,121 @@ pub fn engine_commit(engine: &phoecord_transport::Engine, edit: &Edit) -> Result
         |f| engine.shared.persist(f),
         |cfg| engine.apply(cfg),
     )
+}
+
+/// A `plugins.list` answer in the form [`page`] and [`apply`] take.
+#[derive(Default)]
+pub struct FromIpc {
+    pub manifests: Vec<Manifest>,
+    /// Ids of the WASM packages.
+    pub packages: Vec<String>,
+    pub crashed: Vec<String>,
+    /// Each package's rights.
+    pub rights: std::collections::HashMap<String, Vec<String>>,
+}
+
+/// The plugins of a `plugins.list` answer as manifests, plus which are packages, which crashed
+/// and their rights. A setting with an unknown kind (a newer proxy) is left out.
+pub fn from_ipc(infos: &[crate::ipc::PluginInfo]) -> FromIpc {
+    let mut out = FromIpc::default();
+    for i in infos {
+        let mut m = Manifest::new(&i.id, &i.name, &i.version, &i.description);
+        m.authors = i.authors.clone();
+        m.settings = i
+            .settings
+            .iter()
+            .filter_map(|s| {
+                let kind = SettingKind::from_name(&s.kind)?;
+                let default = Val::from_json(s.default.clone());
+                Some(if kind == SettingKind::Choice {
+                    let options = s.options.iter().cloned().map(Val::from_json).collect();
+                    SettingSpec::choice(&s.key, options, default, &s.label)
+                } else {
+                    SettingSpec::new(&s.key, kind, default, &s.label)
+                })
+            })
+            .collect();
+        if i.package {
+            out.packages.push(i.id.clone());
+            out.rights.insert(i.id.clone(), i.rights.clone());
+        }
+        if i.crashed {
+            out.crashed.push(i.id.clone());
+        }
+        out.manifests.push(m);
+    }
+    out
+}
+
+/// The page on the proxy transport: the plugins from `plugins.list`, the values from `config`
+/// (the loader reads `config.toml` itself), the tab's strings in `lang`.
+pub fn ipc_page(
+    infos: &[crate::ipc::PluginInfo],
+    config: &Config,
+    lang: &str,
+    query: &str,
+) -> Page {
+    let FromIpc {
+        manifests,
+        packages,
+        crashed,
+        rights,
+    } = from_ipc(infos);
+    let tr = phoecord_i18n::Localizer::new(lang);
+    let ui = |key: &str| tr.t(key);
+    let rights = |id: &str| rights.get(id).cloned().unwrap_or_default();
+    // The labels came translated.
+    let plugin_t = |_: &str, label: &str| label.to_string();
+    page(
+        &Source {
+            manifests: &manifests,
+            packages: &packages,
+            crashed: &crashed,
+            config,
+            rights: &rights,
+            ui: &ui,
+            plugin_t: &plugin_t,
+        },
+        query,
+    )
+}
+
+/// The language of the tab: the config's, else the system's, else English.
+pub fn language(config: &Config) -> String {
+    phoecord_i18n::resolve_language(
+        None,
+        config.language.as_deref(),
+        phoecord_i18n::detect_os_language().as_deref(),
+    )
+    .lang
+}
+
+/// `edit` written to the `config.toml` at `path` (read fresh; written only when the edit is
+/// accepted) on the proxy transport, where the proxy reloads the file live. Returns the saved
+/// config, for the next page.
+pub fn file_commit(
+    path: &std::path::Path,
+    infos: &[crate::ipc::PluginInfo],
+    edit: &Edit,
+) -> Result<Config, EditError> {
+    let manifests = from_ipc(infos).manifests;
+    let mut saved = None;
+    commit(
+        &manifests,
+        edit,
+        |f| {
+            let mut cfg = if path.exists() {
+                Config::load(path).map_err(|e| format!("{e:#}"))?
+            } else {
+                Config::default()
+            };
+            f(&mut cfg)?;
+            cfg.save(path).map_err(|e| format!("{e:#}"))?;
+            Ok(cfg)
+        },
+        |cfg| saved = Some(cfg),
+    )?;
+    Ok(saved.expect("commit applied the saved config"))
 }
 
 #[cfg(test)]
@@ -932,6 +1047,103 @@ mod tests {
             ),
             Err(EditError::Unknown)
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn infos() -> Vec<crate::ipc::PluginInfo> {
+        use crate::ipc::{PluginInfo, SettingInfo};
+        use serde_json::json;
+        vec![
+            PluginInfo {
+                id: "translate".into(),
+                name: "Translate".into(),
+                version: "1.0.0".into(),
+                description: "Translates".into(),
+                authors: vec!["Alice".into()],
+                package: false,
+                crashed: true,
+                rights: vec![],
+                settings: vec![
+                    SettingInfo {
+                        key: "target".into(),
+                        kind: "choice".into(),
+                        default: json!("en"),
+                        options: vec![json!("en"), json!("ru")],
+                        label: "Target language".into(),
+                    },
+                    SettingInfo {
+                        key: "future".into(),
+                        kind: "colour".into(),
+                        default: json!("#fff"),
+                        options: vec![],
+                        label: "From a newer proxy".into(),
+                    },
+                ],
+            },
+            PluginInfo {
+                id: "hello_wasm".into(),
+                name: "Hello".into(),
+                version: "0.1.0".into(),
+                description: "A package".into(),
+                authors: vec![],
+                package: true,
+                crashed: false,
+                rights: vec!["notify".into()],
+                settings: vec![],
+            },
+        ]
+    }
+
+    #[test]
+    fn the_proxy_list_becomes_the_same_page() {
+        let p = ipc_page(&infos(), &Config::default(), "en", "");
+        assert_eq!(p.title, "PhoeCord");
+        assert_eq!(p.sections.len(), 2);
+        let hello = row(&p, "hello_wasm");
+        assert_eq!(hello.rights, ["Show notifications"]);
+        let t = row(&p, "translate");
+        assert!(t.crashed.is_some());
+        assert_eq!(t.byline, "1.0.0 · by Alice");
+        assert_eq!(t.controls.len(), 1, "an unknown kind is left out");
+        assert_eq!(t.controls[0].label, "Target language");
+        assert_eq!(t.controls[0].options.len(), 2);
+        let ru = ipc_page(&infos(), &Config::default(), "ru", "");
+        assert_eq!(ru.sections[1].title, "Встроенные плагины");
+    }
+
+    #[test]
+    fn on_the_proxy_transport_an_edit_goes_to_the_file() {
+        let dir =
+            std::env::temp_dir().join(format!("phoecord-settings-file-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        let set = |v: &str| Edit::Set {
+            plugin: "translate".into(),
+            key: "target".into(),
+            value: Val::Str(v.into()),
+        };
+        let cfg = file_commit(&path, &infos(), &set("ru")).unwrap();
+        assert_eq!(cfg.plugins["translate"]["target"].as_str(), Some("ru"));
+        let on_disk = Config::load(&path).unwrap();
+        assert_eq!(on_disk.plugins["translate"]["target"].as_str(), Some("ru"));
+        assert!(
+            on_disk.is_enabled("no_track"),
+            "a new file starts from the defaults"
+        );
+
+        let before = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(
+            file_commit(&path, &infos(), &set("de")).err(),
+            Some(EditError::NotAnOption)
+        );
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            before,
+            "not written"
+        );
+        let p = ipc_page(&infos(), &on_disk, "en", "");
+        assert_eq!(row(&p, "translate").controls[0].stored, Stored::Set);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

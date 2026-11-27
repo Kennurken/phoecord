@@ -364,6 +364,53 @@ impl ipc::UiHost for Proxy {
     ) -> std::result::Result<(), String> {
         Proxy::menu_action(self, plugin, entry, menu_click(click)?)
     }
+
+    fn plugins(&self) -> Vec<phoecord_loader::ipc::PluginInfo> {
+        let chain = &self.engine.chain;
+        chain
+            .manifests()
+            .into_iter()
+            .map(|m| {
+                let package = chain.is_dynamic(&m.id);
+                phoecord_loader::ipc::PluginInfo {
+                    rights: if package {
+                        package_rights(&self.paths.plugin_dir(&m.id))
+                    } else {
+                        Vec::new()
+                    },
+                    crashed: chain.is_crashed(&m.id),
+                    settings: m
+                        .settings
+                        .iter()
+                        .filter(|s| s.problem().is_none())
+                        .map(|s| phoecord_loader::ipc::SettingInfo {
+                            key: s.key.clone(),
+                            kind: s.kind.name().to_string(),
+                            default: s.default.to_json(),
+                            options: s.options.iter().map(|o| o.to_json()).collect(),
+                            label: self.engine.plugin_text(&m.id, &s.label),
+                        })
+                        .collect(),
+                    package,
+                    id: m.id,
+                    name: m.name,
+                    version: m.version,
+                    description: m.description,
+                    authors: m.authors,
+                }
+            })
+            .collect()
+    }
+}
+
+/// The rights in a package's `plugin.toml`; none when it is missing or broken (the runtime
+/// refused such a package already).
+fn package_rights(dir: &std::path::Path) -> Vec<String> {
+    std::fs::read_to_string(dir.join("plugin.toml"))
+        .ok()
+        .and_then(|t| phoecord_plugin_runtime::package::PackageManifest::parse(&t).ok())
+        .map(|m| m.rights)
+        .unwrap_or_default()
 }
 
 /// A click from the loader IPC as the engine's `MenuClick`; an id its menu needs is required.
