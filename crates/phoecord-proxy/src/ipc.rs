@@ -34,6 +34,10 @@ pub type Sink = Arc<dyn Fn(String) + Send + Sync>;
 pub trait UiHost: Send + Sync {
     fn menu_items(&self) -> Vec<ipc::MenuItem>;
     fn menu_action(&self, plugin: &str, entry: &str, click: &ipc::Click) -> Result<(), String>;
+    /// Every plugin the settings tab lists (2.3.3), labels in the user's language.
+    fn plugins(&self) -> Vec<ipc::PluginInfo> {
+        Vec::new()
+    }
 }
 
 static UI: std::sync::OnceLock<Arc<dyn UiHost>> = std::sync::OnceLock::new();
@@ -213,7 +217,21 @@ pub fn serve_connection<R: BufRead, W: Write>(
                     break format!("write failed: {e}");
                 }
             }
-            Msg::MenuItems { .. } => break "dropped: a reply sent to the proxy".to_string(),
+            Msg::MenuItems { .. } | Msg::PluginsList { .. } => {
+                break "dropped: a reply sent to the proxy".to_string();
+            }
+            Msg::PluginsGet { id } => {
+                let plugins = UI.get().map(|ui| ui.plugins()).unwrap_or_default();
+                let (lines, dropped) = ipc::plugins_lines(id, plugins);
+                if !dropped.is_empty() {
+                    tracing::warn!(
+                        "settings tab: too large for one IPC line, left out: {dropped:?}"
+                    );
+                }
+                if let Err(e) = lines.iter().try_for_each(|m| reply_to(&mut writer, m)) {
+                    break format!("write failed: {e}");
+                }
+            }
         }
     };
     announce(&hello, &status, &mut announced);
@@ -359,6 +377,19 @@ mod tests {
                 .push(format!("{plugin}/{entry} {} {ch} {m}", c.menu));
             Ok(())
         }
+        fn plugins(&self) -> Vec<ipc::PluginInfo> {
+            vec![ipc::PluginInfo {
+                id: "view_raw".into(),
+                name: "ViewRaw".into(),
+                version: "1.0.0".into(),
+                description: "Shows raw JSON".into(),
+                authors: vec![],
+                package: false,
+                crashed: false,
+                rights: vec![],
+                settings: vec![],
+            }]
+        }
     }
 
     #[test]
@@ -373,6 +404,7 @@ mod tests {
         let (end, _, replies) = run(
             script(&[
                 Msg::MenuGet { id: 3 },
+                Msg::PluginsGet { id: 4 },
                 ipc::menu_action(
                     "view_raw",
                     "view_raw",
@@ -389,10 +421,17 @@ mod tests {
         assert_eq!(end, "closed");
         assert_eq!(
             replies,
-            [Msg::MenuItems {
-                id: 3,
-                items: fake.menu_items()
-            }]
+            [
+                Msg::MenuItems {
+                    id: 3,
+                    items: fake.menu_items()
+                },
+                Msg::PluginsList {
+                    id: 4,
+                    plugins: fake.plugins(),
+                    more: false
+                }
+            ]
         );
         assert_eq!(*fake.0.lock().unwrap(), ["view_raw/view_raw message 11 50"]);
     }
