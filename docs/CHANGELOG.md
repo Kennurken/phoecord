@@ -6,7 +6,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
-- 2.2.7: an in-process launch on Phoenix gets the full `READY` too (`[phoenix] full_ready`, on by default), as the proxy already did: the client asks the gateway for every guild in full instead of `partial`, so plugins that read `READY` (FakeNitro, PlatformIndicators and others) see every server. The loader log says per launch how many guilds arrived partial.
+- 2.2.2 / 2.4.1: local replies work in an in-process launch on Phoenix: a request a plugin answers itself (NoTrack's analytics and crash reports, SilentTyping's typing indicator) no longer leaves the PC; the client gets the plugin's answer as if Discord had sent it. Before, these requests went out unchanged in-process (through the proxy they were already blocked).
 - 2.2.3 / 2.2.7: `docs/research/inprocess-dispatch.md`, why local server → client payloads (`Host::emit_dispatch`: slash command answers, menu answers) are not shown in an in-process launch yet and what reverse engineering unblocks it; through the proxy they work as before.
 - 2.2.7: plugins' `Host::rest`, `rest_files`, `fetch` and `fetch_with` work when Phoenix is launched in-process (no proxy): the loader takes the client's session from its own Discord API requests and calls Discord and the plugin's allowed hosts itself, with the same rules as the proxy (session, Discord's rate limits, HTTPS-only `fetch` to listed hosts without credentials, size limits, 15 s timeout). An `upstream` proxy is not supported in-process yet: such a call fails with an error instead of going out directly.
 
