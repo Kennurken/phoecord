@@ -61,6 +61,42 @@ Every task has an owner (2.3.10–2.3.23 assigned 2026-11-27; ken takes none of 
 
 Plugin API changes (`phoecord-core::plugin`) are made by Nanda only.
 
+## Open tasks
+
+Open tasks only, 27.11.2026: 29 (matvee 11, buslan 10, ken 7, Nanda 1). "Waits on" is who or what has to move first; "the render slot" is one RE answer (which slot of the `{drop,size,align,fn0,fn1}` vtable records renders) that unblocks every vtable anchor. Details and history in the Tasks table below, which stays the only place status is tracked; update both together.
+
+| Task | What | Owner | What is left | Waits on |
+|:--|:--|:--|:--|:--|
+| **2.1.3** | Proxy behaviour on Phoenix | ken | uploads, voice, media while scrolling; Linux | an account the client lets in |
+| **2.1.10** | Gateway fixtures without personal data | matvee | the capture itself | a throwaway account and a person at the client |
+| **2.2.2** | HTTP transport hook | ken | local replies (a ready response future from `send`); second build (2.2.9) | Nanda (RE: the future's layout, `Ready`/`Pending`/`Err`) |
+| **2.2.3** | Gateway inflate hook | ken | delivering queued payloads (`Host::emit_dispatch`); second build (2.2.9) | Nanda (RE: the client's per-frame handler) |
+| **2.2.4** | Outgoing gateway hook | ken | replacing a frame live; dropped frames (need the caller); heartbeat / identify / resume go elsewhere | Nanda (RE: the identify path) |
+| **2.2.5** | Typed locators | matvee | the remaining locators; checked on 0.1.0.2208 only | matvee; 2.2.9 for a second build |
+| **2.2.6** | `phoecord check` | matvee | re-run to confirm `gateway_registry` is unique; CI job on private dumps | matvee |
+| **2.2.7** | In-process transport | ken | `full_ready`, queued payloads, local replies | Nanda (RE: identify path, per-frame handler, response future) |
+| **2.2.9** | Signatures unique on two builds | buslan | not started | buslan; a second Phoenix build |
+| **2.3.1** | Theme engine | matvee | `ManaTheme`'s field layout, the hook | Nanda (RE: the fields), then matvee |
+| **2.3.3** | Settings tab in Phoenix | ken | the native page, package install / remove | ken; the owner's call on the package store |
+| **2.3.4** | MessageLogger UI | matvee | which vtable slot renders `RowView`, the locator, wiring `Accessory::for_message` | Nanda (RE: the render slot), then matvee |
+| **2.3.8** | CDN picture hook | buslan | confirm the `fetch_bytes` chain, the avatar / banner URL function, the hook | Nanda (RE, a live trace would settle it) |
+| **2.3.9** | FixImagesQuality default mode | buslan | everything | 2.3.8 |
+| **2.3.10** | Generic view-render wrap | matvee | the hook (swap the incoming vtable for a wrapper) | matvee |
+| **2.3.12** | Modals | matvee | the locator and the hook on `ShellModals` | the render slot (RE, Nanda), then matvee |
+| **2.3.13** | User names | matvee | everything | Nanda (RE: the function address) |
+| **2.3.14** | Profiles | matvee | the locator and the hook on `ShellUserPopout` | the render slot (RE, Nanda), then matvee |
+| **2.3.15** | Chat input | buslan | the locator and the hook on `ComposerView` | the render slot (RE, Nanda), then buslan |
+| **2.3.16** | Voice and audio | buslan | everything | Nanda (RE: per-leaf anchors) |
+| **2.3.17** | Account panel | buslan | the locator and the inline detour on the build entry | buslan |
+| **2.3.18** | Media | buslan | the locator and the hook on `VideoView` | the render slot (RE, Nanda), then buslan |
+| **2.3.19** | Channel and server lists | buslan | the locators and hooks on `ChannelListModel`, `RailModel`, the rail icon | the render slot (RE, Nanda), then buslan |
+| **2.3.20** | Client behaviour patches | buslan | which `PermissionWatch` record is which prompt, the locator and the hook | Nanda (RE: confirm the prompts), then buslan |
+| **2.3.21** | Overlay | matvee | the overlay element and the hook on `DiscordApp::render` | matvee |
+| **2.3.22** | Themes picker | matvee | the picker in PhoeCord's own tab | 2.3.3 (native page) and 2.3.1 |
+| **2.3.23** | Toolbox | buslan | the locator, the hook and the button on `TitleBarModel` | the render slot (RE, Nanda), then buslan |
+| **2.4.1** | Top plugins on Phoenix | ken | the UI parts; NoTrack and SilentTyping (local replies), MessageLogger bulk deletes (queued payloads) | 2.2.7's open parts and the 2.3 UI hooks |
+| **2.4.7** | v1.0 release | Nanda | the release itself | every other open task |
+
 ## Tasks
 
 Details, files and "done when" in [`ai/plan.md`](ai/plan.md). **This table is the only place task status is tracked**; `ROADMAP.md` and `ai/plan.md` carry no checkboxes.
