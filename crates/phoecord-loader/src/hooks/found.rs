@@ -16,6 +16,9 @@
 //! | `gateway_registry` | the build/insert function the first static pass took for the event registry; live it is not on the dispatch path (2.2.3), kept for 2.2.5 | none |
 //! | `gateway_inflate` | the function that inflates one gateway frame into its JSON text (`zstd-stream`), entry for an inline hook | Gateway dispatch |
 //! | `gateway_send` | entry of the outgoing frame encoder (`gateway_send_encode` in the recon notes) | Gateway send |
+//! | `message_menu_push` | entry of the helper that appends one entry record to the message menu's `Vec` (inline hook) | message menu (2.3.5) |
+//! | `message_menu_after_anchor` | the instruction right after the call that appends the native "Copy Message Link" entry (a return address) | message menu |
+//! | `message_menu_build_call` | the `call` (E8 rel32) of the menu build function in its live caller; its target is the build function | message menu |
 
 use crate::signatures::{ResolveError, Signature};
 use std::fmt;
@@ -30,6 +33,9 @@ pub const RUST_DEALLOC: &str = "rust_dealloc";
 pub const GATEWAY_REGISTRY: &str = "gateway_registry";
 pub const GATEWAY_SEND: &str = "gateway_send";
 pub const GATEWAY_INFLATE: &str = "gateway_inflate";
+pub const MENU_PUSH: &str = "message_menu_push";
+pub const MENU_AFTER_ANCHOR: &str = "message_menu_after_anchor";
+pub const MENU_BUILD_CALL: &str = "message_menu_build_call";
 
 /// Why a locator found nothing usable.
 #[derive(Debug, PartialEq, Eq)]
@@ -84,6 +90,15 @@ pub struct GatewayInflate;
 /// The encoder of outgoing gateway frames (2.2.4): takes a typed command, not JSON.
 #[derive(Debug, PartialEq, Eq)]
 pub struct GatewaySend;
+/// The message menu's entry-append helper (the `Found` RVA), with the two other places the hook
+/// needs.
+#[derive(Debug, PartialEq, Eq)]
+pub struct MessageMenu {
+    /// Return address of the call that appends the native "Copy Message Link" entry.
+    pub after_anchor_rva: u32,
+    /// The `call` of the build function (E8 rel32) in its live caller.
+    pub build_call_rva: u32,
+}
 
 /// What a locator scans: the signatures of the selected build and the client's `.text`.
 pub struct Scan<'a> {
@@ -152,6 +167,17 @@ impl Scan<'_> {
         Ok(Found {
             rva: self.rva(GATEWAY_INFLATE)?,
             target: GatewayInflate,
+        })
+    }
+
+    /// All three places of the message menu hook, or none.
+    pub fn message_menu(&self) -> Result<Found<MessageMenu>, LocatorError> {
+        Ok(Found {
+            rva: self.rva(MENU_PUSH)?,
+            target: MessageMenu {
+                after_anchor_rva: self.rva(MENU_AFTER_ANCHOR)?,
+                build_call_rva: self.rva(MENU_BUILD_CALL)?,
+            },
         })
     }
 
@@ -237,5 +263,52 @@ impl HookPlan {
         note(self.inflate.as_ref().err(), "Gateway hook");
         note(self.gateway_send.as_ref().err(), "Gateway send hook");
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::aob::Pattern;
+
+    fn sig(name: &str, aob: &str) -> Signature {
+        Signature {
+            name: name.into(),
+            pattern: Pattern::parse(aob).unwrap(),
+            rip: None,
+        }
+    }
+
+    #[test]
+    fn the_message_menu_needs_all_three_places() {
+        let mut text = vec![0xCCu8; 0x100];
+        text[0x10..0x14].copy_from_slice(&[0x55, 0x41, 0x56, 0x56]);
+        text[0x40..0x44].copy_from_slice(&[0x48, 0x8B, 0x85, 0x01]);
+        text[0x80..0x85].copy_from_slice(&[0xE8, 0x11, 0x22, 0x33, 0x44]);
+        let all = [
+            sig(MENU_PUSH, "55 41 56 56"),
+            sig(MENU_AFTER_ANCHOR, "48 8B 85 01"),
+            sig(MENU_BUILD_CALL, "E8 11 22 33 44"),
+        ];
+        let scan = |sigs: &[Signature]| {
+            Scan {
+                sigs,
+                text: &text,
+                text_rva: 0x1000,
+                image_len: 0x10000,
+            }
+            .message_menu()
+        };
+        assert_eq!(
+            scan(&all),
+            Ok(Found {
+                rva: 0x1010,
+                target: MessageMenu {
+                    after_anchor_rva: 0x1040,
+                    build_call_rva: 0x1080,
+                },
+            })
+        );
+        assert_eq!(scan(&all[..2]), Err(LocatorError::Missing(MENU_BUILD_CALL)));
     }
 }

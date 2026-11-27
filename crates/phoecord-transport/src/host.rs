@@ -269,7 +269,7 @@ impl Shared {
     }
 
     /// The language plugins' strings are shown in: `--lang`, config `language`, the OS, `en`.
-    fn language(&self, config: &Config) -> String {
+    pub(crate) fn language(&self, config: &Config) -> String {
         let os = self.os_lang.get_or_init(phoecord_i18n::detect_os_language);
         phoecord_i18n::resolve_language(
             self.lang_flag.read().unwrap().as_deref(),

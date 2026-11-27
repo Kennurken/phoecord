@@ -275,6 +275,7 @@ fn analyze(log: &Logger) -> Option<Report> {
         }
     }
     let kind = version::ClientKind::of(&exe.to_string_lossy(), v.file_version.as_deref());
+    let mut menu = false;
     if kind == version::ClientKind::Phoenix {
         let found = report_network_plan(log, sigs, text, &v, image_len());
         if let Some(l) = launched
@@ -283,16 +284,154 @@ fn analyze(log: &Logger) -> Option<Report> {
         {
             start_in_process(l, found, &v.text_hash);
         }
+        menu = install_message_menu(log, sigs, text, &v);
     } else {
         log.log("Electron client: the in-process network hooks do not apply");
     }
-    // Hooks on the resolved functions arrive with the features that need them (1.8, phase 2).
+    if menu {
+        return Some(Report {
+            version: v,
+            detect_ms,
+            ui: true,
+            reason: None,
+        });
+    }
     let reason = if missed > 0 {
         format!("{missed} signature(s) did not match")
     } else {
-        "signatures resolved, no UI hooks installed yet".to_string()
+        "signatures resolved, no UI hook installed".to_string()
     };
     off(v, &reason)
+}
+
+/// The message context menu hook (2.3.5): plugin entries in Phoenix's own menu. Its entries and
+/// clicks go to the engine of an in-process launch, or to the proxy over the loader IPC. Returns
+/// whether it is on.
+fn install_message_menu(
+    log: &Logger,
+    sigs: &[signatures::Signature],
+    text: &[u8],
+    v: &version::ClientVersion,
+) -> bool {
+    #[cfg(target_arch = "x86_64")]
+    {
+        use crate::hooks::message_menu::{self, MenuSink, Targets};
+        let found = crate::hooks::found::Scan {
+            sigs,
+            text,
+            text_rva: v.text_rva,
+            image_len: image_len(),
+        }
+        .message_menu();
+        let found = match found {
+            Ok(f) => f,
+            Err(e) => {
+                log.log(&format!("message menu: off ({e})"));
+                return false;
+            }
+        };
+        // SAFETY: a null module name returns the host exe's base, mapped for the life of the
+        // process.
+        let base = unsafe { GetModuleHandleW(std::ptr::null()) } as usize;
+        let targets = Targets {
+            push: base + found.rva as usize,
+            after_anchor: base + found.target.after_anchor_rva as usize,
+            build_call: base + found.target.build_call_rva as usize,
+        };
+        let sink: std::sync::Arc<dyn MenuSink> = match crate::start::running() {
+            Some(t) => std::sync::Arc::new(InProcessMenu(t)),
+            None => match pipe::current_pipe_name() {
+                Ok(name) => std::sync::Arc::new(IpcMenu(name)),
+                Err(e) => {
+                    log.log(&format!("message menu: off (cannot name the pipe: {e})"));
+                    return false;
+                }
+            },
+        };
+        let hook_log: crate::hooks::guard::LogFn =
+            std::sync::Arc::new(|l: &str| Logger::from_env().log(l));
+        let installed = match crate::hook::global().lock() {
+            // SAFETY: every target is the unique match of its locator inside this image.
+            Ok(mut set) => unsafe { message_menu::prepare(&mut set, targets, sink, hook_log) }
+                .and_then(|()| set.install_all()),
+            Err(_) => {
+                log.log("message menu: off (hook set poisoned)");
+                return false;
+            }
+        };
+        match installed {
+            Ok(()) => {
+                log.log("message menu: hooked; plugin entries show in the message context menu");
+                true
+            }
+            Err(e) => {
+                log.log(&format!("message menu: not installed ({e})"));
+                false
+            }
+        }
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        let _ = (sigs, text, v);
+        log.log("message menu: not on this architecture");
+        false
+    }
+}
+
+/// The menu's entries and clicks through the proxy (loader IPC, one connection per request).
+#[cfg(target_arch = "x86_64")]
+struct IpcMenu(String);
+
+#[cfg(target_arch = "x86_64")]
+impl crate::hooks::message_menu::MenuSink for IpcMenu {
+    fn items(&self) -> Vec<crate::hooks::message_menu::Item> {
+        match pipe::request(&self.0, &Msg::MenuGet { id: 1 }) {
+            Ok(Msg::MenuItems { items, .. }) => items
+                .into_iter()
+                .map(|i| crate::hooks::message_menu::Item {
+                    plugin: i.plugin,
+                    entry: i.entry,
+                    label: i.label,
+                })
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    fn click(&self, plugin: &str, entry: &str, t: crate::ui::message_menu::MenuTarget) {
+        let msg = ipc::menu_action(plugin, entry, t.channel_id, t.message_id);
+        if let Err(e) = pipe::send_all(&self.0, &[msg]) {
+            Logger::from_env().log(&format!("message menu: click not sent to the proxy ({e})"));
+        }
+    }
+}
+
+/// The menu's entries and clicks through the engine of an in-process launch.
+#[cfg(target_arch = "x86_64")]
+struct InProcessMenu(std::sync::Arc<crate::transport::InProcessTransport>);
+
+#[cfg(target_arch = "x86_64")]
+impl crate::hooks::message_menu::MenuSink for InProcessMenu {
+    fn items(&self) -> Vec<crate::hooks::message_menu::Item> {
+        self.0
+            .menu_items()
+            .into_iter()
+            .map(|i| crate::hooks::message_menu::Item {
+                plugin: i.plugin,
+                entry: i.entry,
+                label: i.label,
+            })
+            .collect()
+    }
+
+    fn click(&self, plugin: &str, entry: &str, t: crate::ui::message_menu::MenuTarget) {
+        if let Err(e) = self
+            .0
+            .menu_action(plugin, entry, t.channel_id, t.message_id)
+        {
+            Logger::from_env().log(&format!("message menu: {e}"));
+        }
+    }
 }
 
 /// `SizeOfImage` of the host exe, 0 when unreadable (every locator then fails as out of image).

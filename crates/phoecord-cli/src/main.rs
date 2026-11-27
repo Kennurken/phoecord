@@ -525,6 +525,8 @@ async fn run(
     }
     proxy.spawn_reloader();
     // The loader inside the client reports here (Windows only; elsewhere this does nothing).
+    // Its message-menu hook (2.3.5) lists and runs plugin entries through this proxy's chain.
+    phoecord_proxy::ipc::set_ui(proxy.clone());
     phoecord_proxy::ipc::spawn(proxy.paths.config.clone());
     let listener = server::bind(&listen)
         .await

@@ -187,7 +187,10 @@ impl Drop for Suspended {
 }
 
 /// Runs `patch` with the other threads suspended and none of them inside `sites`.
-fn while_suspended<R>(sites: &[usize], patch: impl FnOnce() -> R) -> Result<R, HookError> {
+pub(crate) fn while_suspended<R>(
+    sites: &[usize],
+    patch: impl FnOnce() -> R,
+) -> Result<R, HookError> {
     for _ in 0..20 {
         let guard = Suspended::all_other_threads()?;
         if guard.any_inside(sites) {

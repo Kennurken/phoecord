@@ -29,6 +29,26 @@ const MAX_CONNECTIONS: usize = 8;
 /// Where the proxy writes what the loader tells it (production: the `tracing` log).
 pub type Sink = Arc<dyn Fn(String) + Send + Sync>;
 
+/// What the loader's menu hook (2.3.5) needs from the plugin chain: the entries to show and a way
+/// to run one. [`crate::Proxy`] is the real one; set it with [`set_ui`] before [`spawn`].
+pub trait UiHost: Send + Sync {
+    fn menu_items(&self) -> Vec<ipc::MenuItem>;
+    fn menu_action(
+        &self,
+        plugin: &str,
+        entry: &str,
+        channel_id: u64,
+        message_id: u64,
+    ) -> Result<(), String>;
+}
+
+static UI: std::sync::OnceLock<Arc<dyn UiHost>> = std::sync::OnceLock::new();
+
+/// The chain behind `menu.get` and `menu_action` for every loader connection (set once).
+pub fn set_ui(ui: Arc<dyn UiHost>) {
+    let _ = UI.set(ui);
+}
+
 /// The loader's settings, stored in the `[loader]` table of `config.toml`.
 pub struct ConfigSettings {
     path: PathBuf,
@@ -175,11 +195,31 @@ pub fn serve_connection<R: BufRead, W: Write>(
                 }
             }
             Msg::SettingsValue { .. } => break "dropped: a reply sent to the proxy".to_string(),
+            Msg::UiEvent { name, payload } if name == "menu_action" => {
+                match (ipc::parse_menu_action(&payload), UI.get()) {
+                    (Some((plugin, entry, channel, message)), Some(ui)) => {
+                        if let Err(e) = ui.menu_action(&plugin, &entry, channel, message) {
+                            tracing::debug!("loader menu_action {plugin}/{entry}: {e}");
+                        }
+                    }
+                    (None, _) => {
+                        tracing::debug!("loader menu_action without its fields: {payload}")
+                    }
+                    (_, None) => tracing::debug!("loader menu_action, but no plugin chain here"),
+                }
+            }
             Msg::UiEvent { name, payload } => {
                 let payload = payload.to_string();
                 let shown: String = payload.chars().take(200).collect();
                 tracing::debug!("loader ui.event {name}: {shown}");
             }
+            Msg::MenuGet { id } => {
+                let items = UI.get().map(|ui| ui.menu_items()).unwrap_or_default();
+                if let Err(e) = reply_to(&mut writer, &Msg::MenuItems { id, items }) {
+                    break format!("write failed: {e}");
+                }
+            }
+            Msg::MenuItems { .. } => break "dropped: a reply sent to the proxy".to_string(),
         }
     };
     announce(&hello, &status, &mut announced);
@@ -303,6 +343,53 @@ mod tests {
             pid: 7,
             detect_ms: 12,
         }
+    }
+
+    /// Lists one entry and records the clicks it is asked to run.
+    struct FakeUi(Mutex<Vec<String>>);
+
+    impl UiHost for FakeUi {
+        fn menu_items(&self) -> Vec<ipc::MenuItem> {
+            vec![ipc::MenuItem {
+                plugin: "view_raw".into(),
+                entry: "view_raw".into(),
+                label: "View Raw".into(),
+            }]
+        }
+        fn menu_action(&self, plugin: &str, entry: &str, c: u64, m: u64) -> Result<(), String> {
+            self.0
+                .lock()
+                .unwrap()
+                .push(format!("{plugin}/{entry} {c} {m}"));
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn the_menu_is_listed_and_a_click_runs_through_the_chain() {
+        // The only test that sets the process-wide UI host.
+        static FAKE: std::sync::OnceLock<Arc<FakeUi>> = std::sync::OnceLock::new();
+        let fake = FAKE
+            .get_or_init(|| Arc::new(FakeUi(Mutex::new(Vec::new()))))
+            .clone();
+        set_ui(fake.clone());
+        let s = ConfigSettings::new(temp("menu"));
+        let (end, _, replies) = run(
+            script(&[
+                Msg::MenuGet { id: 3 },
+                ipc::menu_action("view_raw", "view_raw", 11, 50),
+            ]),
+            &s,
+        );
+        assert_eq!(end, "closed");
+        assert_eq!(
+            replies,
+            [Msg::MenuItems {
+                id: 3,
+                items: fake.menu_items()
+            }]
+        );
+        assert_eq!(*fake.0.lock().unwrap(), ["view_raw/view_raw 11 50"]);
     }
 
     #[test]

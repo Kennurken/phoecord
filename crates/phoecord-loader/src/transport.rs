@@ -247,6 +247,27 @@ impl InProcessTransport {
     }
 
     /// For the [`Clock`].
+    /// The plugin entries of the message context menu (2.3.5).
+    pub fn menu_items(&self) -> Vec<phoecord_transport::menu::MenuItem> {
+        self.hooks.engine().menu_items()
+    }
+
+    /// A click on a plugin's menu entry: runs it and delivers what it queues.
+    pub fn menu_action(
+        &self,
+        plugin: &str,
+        entry: &str,
+        channel_id: u64,
+        message_id: u64,
+    ) -> Result<(), String> {
+        let effects = self
+            .hooks
+            .engine()
+            .menu_action(plugin, entry, channel_id, message_id)?;
+        self.deliver(|d| d.effects(effects));
+        Ok(())
+    }
+
     pub fn delivery(&self) -> &Arc<Delivery> {
         &self.delivery
     }

@@ -27,6 +27,7 @@ pub mod config;
 pub mod dev;
 pub mod full_ready;
 pub mod host;
+pub mod menu;
 pub mod timers;
 
 use config::Config;
@@ -151,8 +152,14 @@ impl Engine {
     }
 
     /// Whether any enabled plugin wants gateway payloads.
+    /// Whether the gateway must be decoded: a plugin reads it, or a plugin with message menu
+    /// entries runs (a click answers with local payloads, which need a decoded connection to be
+    /// put into; 2.3.5).
     pub fn wants_gateway(&self) -> bool {
         self.chain.wants_gateway()
+            || self.chain.wants(&EventKind::Ui {
+                name: "menu_action",
+            })
     }
 
     pub fn wants_request(&self, method: &str, route: &str) -> bool {

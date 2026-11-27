@@ -23,6 +23,8 @@ pub mod detour;
 pub mod gateway_recv;
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub mod gateway_send;
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub mod message_menu;
 pub use crate::found;
 pub mod gateway;
 pub mod guard;

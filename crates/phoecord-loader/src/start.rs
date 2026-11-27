@@ -67,7 +67,7 @@ pub fn engine_from(paths: &Paths, log: &dyn Fn(&str)) -> Result<Arc<Engine>, Str
 }
 
 #[cfg(all(windows, target_arch = "x86_64"))]
-pub use windows::start;
+pub use windows::{running, start};
 
 #[cfg(all(windows, target_arch = "x86_64"))]
 mod windows {
@@ -89,6 +89,11 @@ mod windows {
     }
 
     static RUNNING: OnceLock<Running> = OnceLock::new();
+
+    /// The transport of this launch once it runs (the message menu hook sends its clicks there).
+    pub fn running() -> Option<Arc<InProcessTransport>> {
+        RUNNING.get().map(|r| r._transport.clone())
+    }
 
     /// Starts the in-process transport for this launch. `image` is the client module's range,
     /// `text_hash` the running build's (for the "failed" mark).

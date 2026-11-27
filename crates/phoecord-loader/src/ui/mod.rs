@@ -1,10 +1,8 @@
-//! UI hooks inside Phoenix (Phase 2, stage 2.3).
+//! UI hooks inside Phoenix (Phase 2, stage 2.3): the pure parts, tested on plain data.
 //!
-//! Nothing here is wired into a real Phoenix hook yet. The private `phoecord-recon` notes map
-//! the app's own init and render chain (`docs/re/gpui-lifecycle.md`: `Application::run`,
-//! `DiscordApp::render`, the `MenuView` / `Region` views) and name injection points for a global
-//! overlay and a context-menu patch — but not `MessageRow::render` (task 2.3.4) or the settings
-//! page list (task 2.3.3, moved to ken). Every module here is pure logic a future detour would
-//! call once that anchor exists, tested on its own against plain data, never a live client.
+//! `message_menu` (2.3.5) is wired into a live hook (`hooks::message_menu`). `message_logger`
+//! (2.3.4) still waits on the address of `MessageRow::render`, which the private recon notes do
+//! not have yet.
 
 pub mod message_logger;
+pub mod message_menu;

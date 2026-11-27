@@ -220,3 +220,21 @@ pub fn send_all(name: &str, msgs: &[crate::ipc::Msg]) -> io::Result<()> {
     }
     f.flush()
 }
+
+/// Sends `msg` over one new connection and returns the first line the proxy answers with.
+pub fn request(name: &str, msg: &crate::ipc::Msg) -> io::Result<crate::ipc::Msg> {
+    use std::io::{BufReader, Write};
+    let mut f = connect(name)?;
+    let line = crate::ipc::encode_line(msg).map_err(io::Error::other)?;
+    f.write_all(&line)?;
+    f.flush()?;
+    let mut r = BufReader::new(f);
+    match crate::ipc::read_line(&mut r)? {
+        Ok(crate::ipc::Read1::Line(l)) => crate::ipc::decode_line(&l).map_err(io::Error::other),
+        Ok(crate::ipc::Read1::Eof) => Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "the proxy closed the pipe without an answer",
+        )),
+        Err(e) => Err(io::Error::other(e)),
+    }
+}

@@ -125,7 +125,7 @@ UI events come from the Phoenix loader's hooks and are **read-only**: whatever y
 
 ### `menu_action`
 
-The user clicked one of **your** entries in a message's context menu (task 2.3.5; the hook that emits it is tracked in [`docs/phase-2/README.md`](../phase-2/README.md)).
+The user clicked one of **your** entries in a message's context menu on Phoenix (task 2.3.5). Your entries show after Discord's own "Copy Message Link", in the right-click menu and the "..." menu, with the label in the user's language; they show only while your plugin runs, and only where the build's signatures include the menu hook.
 
 - Declare the entries in `plugin.toml` with `[[menu]]` (`id`, `label`) and list `"ui:menu_action"` in `events`, otherwise you do not get the clicks. The label is a key of your own `i18n/<lang>.ftl` (see [Localization](localization.md)).
 - Payload: `{"entry": "<your menu id>", "channel_id": "<id>", "message_id": "<id>"}`, all strings (ids as strings, as in Discord's JSON). `id_at(&["channel_id"])` parses them to `u64`.

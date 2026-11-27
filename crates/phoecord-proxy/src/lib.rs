@@ -258,6 +258,22 @@ impl Proxy {
         effects.frames
     }
 
+    /// A click on a plugin's entry in the client's message menu (2.3.5, from the loader IPC):
+    /// what the plugin queues goes out at once.
+    pub fn menu_action(
+        &self,
+        plugin: &str,
+        entry: &str,
+        channel_id: u64,
+        message_id: u64,
+    ) -> std::result::Result<(), String> {
+        let effects = self
+            .engine
+            .menu_action(plugin, entry, channel_id, message_id)?;
+        self.deliver(effects);
+        Ok(())
+    }
+
     /// Hand what plugins queued outside a gateway frame to the connections: payloads to the
     /// client, frames to the newest live gateway connection (none: dropped with a log line).
     fn deliver(&self, effects: Effects) {
@@ -326,6 +342,30 @@ impl Proxy {
         let mut result = self.engine.on_send(payload);
         self.publish(std::mem::take(&mut result.locals));
         result
+    }
+}
+
+impl ipc::UiHost for Proxy {
+    fn menu_items(&self) -> Vec<phoecord_loader::ipc::MenuItem> {
+        self.engine
+            .menu_items()
+            .into_iter()
+            .map(|m| phoecord_loader::ipc::MenuItem {
+                plugin: m.plugin,
+                entry: m.entry,
+                label: m.label,
+            })
+            .collect()
+    }
+
+    fn menu_action(
+        &self,
+        plugin: &str,
+        entry: &str,
+        channel_id: u64,
+        message_id: u64,
+    ) -> std::result::Result<(), String> {
+        Proxy::menu_action(self, plugin, entry, channel_id, message_id)
     }
 }
 

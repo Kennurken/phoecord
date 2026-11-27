@@ -181,7 +181,7 @@ The 30 🎨 plugins of v1.0: BetterFolders, ShowMeYourName, RoleColorEverywhere,
 | TypingTweaks | Avatars and role colours in typing | 🎨 UI | v1.0 | 2 |
 | Unindent | Trim indentation in code blocks | 🌐 Network | v1.0 | done: shared indentation removed from fenced code blocks of sent and edited messages (not yet inside `payload_json` of uploads) |
 | UnlockedAvatarZoom | More zoom when cropping avatars | 🎨 UI | 1.x | 2 |
-| UnsuppressEmbeds | Unsuppress embeds | 🌐 + 🎨 | v1.0 | done: data — `/phoecord unsuppress`; message menu entry declared (`toggle_embeds`, shown once 2.3.5 hooks the menu) / 2 (the menu itself) |
+| UnsuppressEmbeds | Unsuppress embeds | 🌐 + 🎨 | v1.0 | done: data — `/phoecord unsuppress`; message menu entry `toggle_embeds` in Phoenix's message menu (2.3.5, checked live 2026-11-27) |
 | UserMessagesPronouns | Pronouns in chat | 🎨 UI | v1.0 | 2 |
 | UserVoiceShow | Show who is in voice | 🌐 + 🎨 | v1.0 | done: data — `/phoecord voice` / 2 (badge, profile section) |
 | USRBG | Community banners without Nitro | 🌐 Network | — | 1.2.14, blocked: waits for the CDN picture hook, task 2.3.8 (the client loads the picture from the Discord CDN by hash) *(2)* |
@@ -191,7 +191,7 @@ The 30 🎨 plugins of v1.0: BetterFolders, ShowMeYourName, RoleColorEverywhere,
 | VencordToolbox | Quick actions button | ♻️ Replaced | — | PhoeCord toolbox in the client (2.3) |
 | VesktopPatches | Vesktop patches | ⛔ N/A | — | Vesktop only |
 | ViewIcons | Click avatars and banners to view them | 🎨 UI | v1.0 | 2 |
-| ViewRaw | View raw message, channel or server JSON | 🌐 + 🎨 | v1.0 | done: data — `/phoecord viewraw`; message menu entry declared (`view_raw`, answer as a local message) / 2 (other menus, modal, copy buttons) |
+| ViewRaw | View raw message, channel or server JSON | 🌐 + 🎨 | v1.0 | done: data — `/phoecord viewraw`; message menu entry `view_raw` in Phoenix's message menu (2.3.5, answer as a local message, checked live 2026-11-27) / 2 (other menus, modal, copy buttons) |
 | VoiceChatDoubleClick | Join voice on double-click | 🎨 UI | 1.x | 2 |
 | VoiceDownload | Download voice messages | 🎨 UI | v1.0 | 2 |
 | VoiceMessages | Send voice messages like on mobile | 🌐 + 🎨 | v1.0 | done: data — `/phoecord voicemessage` (an .ogg file) / 2 (recording) |

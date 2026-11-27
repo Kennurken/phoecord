@@ -15,7 +15,9 @@
 //! | `settings.get` | loader → proxy | `id`, `key` |
 //! | `settings.set` | loader → proxy | `id`, `key`, `value` (a JSON scalar) |
 //! | `settings.value` | proxy → loader | `id`, `key`, `value?` (absent: unset), `error?` |
-//! | `ui.event` | loader → proxy | `name`, `payload` (any JSON) |
+//! | `ui.event` | loader → proxy | `name`, `payload` (any JSON); `menu_action`: see [`menu_action`] |
+//! | `menu.get` | loader → proxy | `id` |
+//! | `menu.items` | proxy → loader | `id`, `items` ([`MenuItem`]: `plugin`, `entry`, `label`) |
 //!
 //! A line longer than [`MAX_LINE`] bytes, invalid JSON, an unknown `type` or another `v` is an
 //! error, and the receiver drops the connection.
@@ -69,9 +71,50 @@ pub enum Msg {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     },
-    /// Something happened in the client UI. Logged and ignored for now (Phase 2 uses it).
+    /// Something happened in the client UI. `menu_action` runs the plugin's menu entry (2.3.5);
+    /// other names are logged.
     #[serde(rename = "ui.event")]
     UiEvent { name: String, payload: Value },
+    /// Ask for the plugin entries of the message context menu (2.3.5).
+    #[serde(rename = "menu.get")]
+    MenuGet { id: u64 },
+    /// The proxy's answer to `menu.get`: the entries of the plugins that run now.
+    #[serde(rename = "menu.items")]
+    MenuItems { id: u64, items: Vec<MenuItem> },
+}
+
+/// One plugin entry for the message context menu, its label in the user's language.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MenuItem {
+    pub plugin: String,
+    pub entry: String,
+    pub label: String,
+}
+
+/// A click on a plugin's menu entry as a `ui.event`: name `menu_action`, payload
+/// `{"plugin", "entry", "channel_id", "message_id"}` (ids as strings, as in Discord's JSON).
+pub fn menu_action(plugin: &str, entry: &str, channel_id: u64, message_id: u64) -> Msg {
+    Msg::UiEvent {
+        name: "menu_action".into(),
+        payload: serde_json::json!({
+            "plugin": plugin,
+            "entry": entry,
+            "channel_id": channel_id.to_string(),
+            "message_id": message_id.to_string(),
+        }),
+    }
+}
+
+/// The fields of a `menu_action` payload: (plugin, entry, channel id, message id).
+pub fn parse_menu_action(payload: &Value) -> Option<(String, String, u64, u64)> {
+    let s = |k: &str| payload.get(k)?.as_str().map(str::to_string);
+    let id = |k: &str| payload.get(k)?.as_str()?.parse::<u64>().ok();
+    Some((
+        s("plugin")?,
+        s("entry")?,
+        id("channel_id")?,
+        id("message_id")?,
+    ))
 }
 
 /// A message on the wire.
@@ -248,7 +291,38 @@ mod tests {
                 name: "settings.opened".into(),
                 payload: json!({"tab": 3, "list": [1, 2]}),
             },
+            menu_action("view_raw", "view_raw", 11, 50),
+            Msg::MenuGet { id: 7 },
+            Msg::MenuItems {
+                id: 7,
+                items: vec![MenuItem {
+                    plugin: "view_raw".into(),
+                    entry: "view_raw".into(),
+                    label: "Исходник".into(),
+                }],
+            },
         ]
+    }
+
+    #[test]
+    fn a_menu_action_reads_back() {
+        let Msg::UiEvent { name, payload } = menu_action("p", "e", 1219803441186996275, 7) else {
+            panic!("not a ui.event");
+        };
+        assert_eq!(name, "menu_action");
+        assert_eq!(payload["channel_id"], "1219803441186996275");
+        assert_eq!(
+            parse_menu_action(&payload),
+            Some(("p".into(), "e".into(), 1219803441186996275, 7))
+        );
+        assert_eq!(parse_menu_action(&json!({"plugin": "p"})), None);
+        assert_eq!(
+            parse_menu_action(
+                &json!({"plugin": "p", "entry": "e", "channel_id": 1, "message_id": "2"})
+            ),
+            None,
+            "ids are strings"
+        );
     }
 
     #[test]
