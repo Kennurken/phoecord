@@ -6,6 +6,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
+- 2.2.4 (dropping frames): a new in-process hook on the one function every outgoing gateway frame ends in, so plugins can drop a frame (not only change it) and also see IDENTIFY, resume and the heartbeat. Built and tested on macOS only; not run on Windows yet. Without its signature the encoder hook runs as before.
 - 2.3.8 (first part): typed locators and signatures (build 0.1.0.2208) for the functions that build avatar, banner, server icon, channel icon and avatar decoration URLs and the two that append `size=`. Nothing hooks them yet.
 - 2.3.16 (second part): VolumeBooster also raises the maximum of Phoenix's menu volume slider and of the stream volume button's slider, and the voice driver's clamp. Not run on Phoenix; whether the audio engine limits the volume again is not established.
 - 2.3.15, 2.3.17–2.3.19, 2.3.23 (first part): typed locators and signatures (build 0.1.0.2208) for the render functions of the chat input, account panel, media viewer and video, server rail, channel, DM and member lists and the window chrome. Nothing hooks them yet.

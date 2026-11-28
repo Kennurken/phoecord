@@ -148,14 +148,16 @@ impl Plan {
 
     /// The plan for what the hook locators found in this build. `HookPlan::send` is the REST
     /// transport's `send`, so it is the *request* entry point; sending on the gateway is
-    /// `HookPlan::gateway_send` (2.2.4). No UI feature has a locator yet. `phoecord launch` builds
-    /// the same plan from `Discord.exe` on disk ([`crate::check::transport_plan`]).
+    /// `HookPlan::send_text`, else `HookPlan::gateway_send` (2.2.4). No UI feature has a locator
+    /// yet. `phoecord launch` builds the same plan from `Discord.exe` on disk ([`crate::check::transport_plan`]).
     pub fn from_hooks(hooks: &HookPlan) -> Plan {
         Plan::resolve(|target| match target {
             Target::Net(EntryPoint::Request) => probe(&hooks.send),
             Target::Net(EntryPoint::Response) => probe(&hooks.poll),
             Target::Net(EntryPoint::Dispatch) => probe(&hooks.inflate),
-            Target::Net(EntryPoint::Send) => probe(&hooks.gateway_send),
+            Target::Net(EntryPoint::Send) => {
+                probe(&hooks.send_text).or_else(|_| probe(&hooks.gateway_send))
+            }
             Target::Ui(_) => Err("no locator".into()),
         })
     }

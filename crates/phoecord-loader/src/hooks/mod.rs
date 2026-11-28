@@ -29,10 +29,13 @@ pub mod gateway_frame;
 pub mod gateway_recv;
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub mod gateway_send;
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub mod gateway_send_text;
 pub use crate::found;
 pub mod gateway;
 pub mod guard;
 pub mod http;
+pub mod send_text;
 #[cfg(windows)]
 pub mod volume;
 
@@ -141,9 +144,10 @@ impl HookRuntime {
 }
 
 impl HookRuntime {
-    /// Entry of the encoder hook (2.2.4): one outgoing frame as JSON text.
+    /// Entry of the outgoing gateway hook (2.2.4, on `send_text` or the encoder): one outgoing
+    /// frame as JSON text.
     pub fn send(&self, frame: &[u8]) -> GatewayOutcome {
-        if self.plan.gateway_send.is_err() {
+        if !self.plan.gateway_out() {
             return pass_gateway();
         }
         self.gateway_send.guard_result(&self.log, pass_gateway, || {
@@ -204,6 +208,7 @@ mod tests {
             (0x68, 0xA7),
             (0x78, 0xA8),
             (0x88, 0xA9),
+            (0x98, 0xAA),
         ] {
             t[i] = b;
         }
@@ -244,6 +249,7 @@ mod tests {
         bytes_static_vtable = { aob = "A7" }
         gateway_inflate = { aob = "A8" }
         gateway_frame = { aob = "A9" }
+        gateway_send_text = { aob = "AA" }
     "#;
 
     fn runtime_with(plan: HookPlan) -> (HookRuntime, Arc<Mutex<Vec<String>>>) {
@@ -268,7 +274,27 @@ mod tests {
         );
         assert_eq!(p.registry.as_ref().unwrap().rva, TEXT_RVA + 0x50);
         assert_eq!(p.gateway_send.as_ref().unwrap().rva, TEXT_RVA + 0x58);
+        assert_eq!(p.send_text.as_ref().unwrap().rva, TEXT_RVA + 0x98);
         assert!(p.failures().is_empty());
+    }
+
+    #[test]
+    fn the_encoder_is_the_send_fallback_without_send_text() {
+        let p = plan(&ALL.replace("gateway_send_text = { aob = \"AA\" }", ""));
+        assert!(p.gateway_out(), "the encoder hook still sees frames");
+        assert_eq!(
+            p.failures(),
+            [format!(
+                "{}; dropping outgoing frames (the encoder hook runs instead) stays off",
+                LocatorError::Missing(GATEWAY_SEND_TEXT)
+            )]
+        );
+        let neither = plan(
+            &ALL.replace("gateway_send_text = { aob = \"AA\" }", "")
+                .replace("gateway_send = { aob = \"A6\" }", ""),
+        );
+        assert!(!neither.gateway_out());
+        assert_eq!(neither.failures().len(), 2);
     }
 
     #[test]
