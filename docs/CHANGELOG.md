@@ -6,6 +6,7 @@ All notable changes to the project ([Keep a Changelog](https://keepachangelog.co
 
 ### Added
 
+- 2.3.3 (package install / remove): the settings tab's model can install a local WASM package (`.zip` or folder) after a confirm dialog that lists what it reads, its rights and the hosts it connects to, and remove one, loading or unloading it in the running client without a restart. The native page that draws it is not done yet.
 - 2.3.8 (first part): typed locators and signatures (build 0.1.0.2208) for the functions that build avatar, banner, server icon, channel icon and avatar decoration URLs and the two that append `size=`. Nothing hooks them yet.
 - 2.3.16 (second part): VolumeBooster also raises the maximum of Phoenix's menu volume slider and of the stream volume button's slider, and the voice driver's clamp. Not run on Phoenix; whether the audio engine limits the volume again is not established.
 - 2.3.15, 2.3.17–2.3.19, 2.3.23 (first part): typed locators and signatures (build 0.1.0.2208) for the render functions of the chat input, account panel, media viewer and video, server rail, channel, DM and member lists and the window chrome. Nothing hooks them yet.
