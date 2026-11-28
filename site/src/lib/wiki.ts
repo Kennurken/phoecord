@@ -8,7 +8,7 @@ export interface Section { id: string; title: string; blocks: Block[] }
 export interface Group { title: string; sections: Section[] }
 
 const REPO = "https://github.com/Nanda070/phoecord";
-const DC = "https://discord.gg/cheterin";
+const DC = "https://discord.gg/dV3pVd2aDY";
 const DOCS = REPO + "/blob/main/docs";
 
 const cmdTable = (lang: Lang) => ({

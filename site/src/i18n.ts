@@ -3,7 +3,7 @@
 
 export type Lang = "en" | "ru";
 
-export const DISCORD = "https://discord.gg/cheterin";
+export const DISCORD = "https://discord.gg/dV3pVd2aDY";
 
 const en = {
   htmlLang: "en",

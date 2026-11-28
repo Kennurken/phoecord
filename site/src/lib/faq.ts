@@ -8,7 +8,7 @@ export interface Category { id: string; title: string; items: QA[] }
 type Bi<T> = Record<Lang, T>;
 
 const REPO = "https://github.com/Nanda070/phoecord";
-const DC = "https://discord.gg/cheterin";
+const DC = "https://discord.gg/dV3pVd2aDY";
 
 export const FAQ: Bi<Category[]> = {
   en: [

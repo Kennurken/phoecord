@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://phoecord.dev"><img src="https://img.shields.io/badge/website-phoecord.dev-ff4d1a?style=for-the-badge" alt="phoecord.dev" /></a>
-  <a href="https://discord.gg/cheterin"><img src="https://img.shields.io/badge/discord-join-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord server" /></a>
+  <a href="https://discord.gg/dV3pVd2aDY"><img src="https://img.shields.io/badge/discord-join-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord server" /></a>
   <a href="https://github.com/Nanda070/phoecord/releases/latest"><img src="https://img.shields.io/github/v/release/Nanda070/phoecord?style=for-the-badge&color=ff8a1f&label=release" alt="Latest release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-3da639?style=for-the-badge" alt="GPL-3.0" /></a>
 </p>
@@ -20,7 +20,7 @@
   <a href="https://phoecord.dev">Website</a> ·
   <a href="https://phoecord.dev/download">Download</a> ·
   <a href="https://phoecord.dev/plugins">Plugins</a> ·
-  <a href="https://discord.gg/cheterin">Discord</a> ·
+  <a href="https://discord.gg/dV3pVd2aDY">Discord</a> ·
   <a href="docs/README.md">Docs</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
   <a href="TERMS.md">Terms</a> ·
@@ -62,7 +62,7 @@ The full list with search: **[phoecord.dev/plugins](https://phoecord.dev/plugins
 
 ## Community
 
-Questions, themes, plugin ideas and release news: **[discord.gg/cheterin](https://discord.gg/cheterin)**. Bugs and feature requests go to [Issues](https://github.com/Nanda070/phoecord/issues); vulnerabilities and leaks privately, see [`SECURITY.md`](SECURITY.md).
+Questions, themes, plugin ideas and release news: **[discord.gg/dV3pVd2aDY](https://discord.gg/dV3pVd2aDY)**. Bugs and feature requests go to [Issues](https://github.com/Nanda070/phoecord/issues); vulnerabilities and leaks privately, see [`SECURITY.md`](SECURITY.md).
 
 ## Build
 

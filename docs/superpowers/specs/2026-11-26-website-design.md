@@ -4,7 +4,7 @@ Approved by the owner on 2026-11-26.
 
 ## Intent
 
-PhoeCord needs a public face: a site at `phoecord.dev` where people learn what it is, download it and browse its plugins, and a README that matches it. Both point to the community server, `discord.gg/cheterin`.
+PhoeCord needs a public face: a site at `phoecord.dev` where people learn what it is, download it and browse its plugins, and a README that matches it. Both point to the community server, `discord.gg/dV3pVd2aDY`.
 
 ## Goals
 
