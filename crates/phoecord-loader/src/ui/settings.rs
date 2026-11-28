@@ -13,8 +13,9 @@
 //! the engine: the plugins come over the loader IPC (`plugins.get`, labels already translated)
 //! and an edit is written to `config.toml`, which the proxy reloads live.
 //!
-//! Installing and removing WASM packages from the tab is not here yet: the package store
-//! (`phoecord-catalog::Store`) depends on the proxy crate, which the loader DLL does not link.
+//! Installing and removing WASM packages from the tab is [`super::packages`]: a [`Row`] of a
+//! package is [`Row::removable`], and the native page asks that module to stage, confirm, install
+//! or remove.
 
 use phoecord_core::{Manifest, SettingKind, SettingSpec, Val};
 use phoecord_transport::config::Config;
@@ -50,6 +51,8 @@ pub struct Row {
     /// What an installed package may do, in words (empty for built-in plugins, which run with
     /// the host's full trust).
     pub rights: Vec<String>,
+    /// An installed package: the tab offers to remove it ([`super::packages::remove_confirm`]).
+    pub removable: bool,
     pub controls: Vec<Control>,
 }
 
@@ -202,6 +205,7 @@ fn row(src: &Source<'_>, m: &Manifest, is_package: bool) -> Row {
             .contains(&m.id)
             .then(|| (src.ui)("phoenix-settings-crashed")),
         rights,
+        removable: is_package,
         controls: m
             .settings
             .iter()
@@ -711,6 +715,8 @@ mod tests {
             "a right with no words shows its name"
         );
         assert!(row(&p, "clear_urls").rights.is_empty(), "built-in");
+        assert!(row(&p, "hello_wasm").removable, "a package can be removed");
+        assert!(!row(&p, "clear_urls").removable, "a built-in plugin cannot");
         assert_eq!(
             row(&p, "translate").crashed.as_deref(),
             Some("<phoenix-settings-crashed>")
